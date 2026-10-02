@@ -203,10 +203,10 @@ on:
     outputs:
       digest:
         description: The pushed manifest digest (empty in check mode)
-        value: ${{ jobs.edge.outputs.digest || jobs.release.outputs.digest }}
+        value: ${{ jobs.docs.outputs.digest }}
       tag:
         description: The full tag written (empty in check and edge modes)
-        value: ${{ jobs.release.outputs.tag }}
+        value: ${{ jobs.docs.outputs.tag }}
 ```
 
 No secrets are declared: the workflow uses `github.token`. `publish.yml` declares no `permissions` of its own, so every job in it runs with the grant of the caller's job (a called workflow cannot raise it, and a job that asked for more than a check-only caller grants would fail that caller at start-up). The caller's job MUST grant:
@@ -224,7 +224,7 @@ What each mode does (all but `check` refuse unless `github.ref` is `refs/heads/m
 |---|---|---|
 | `check` | `pull_request` | checkout the PR head; `opm-docs check --project P` |
 | `edge` | `push` to `main` | checkout `github.sha` with full history; `build --edge`; `push`; `cosign sign`; `promote` |
-| `release` | the job that runs release-please, gated on that package's release (not on `release: published`); or `workflow_dispatch` for a release that has no bundle yet | checkout `main` and, at `src/`, the tag with full history; `build --release <tag> --source src`; `push`; `cosign sign`; `promote` |
+| `release` | the job that runs release-please, gated on that package's release (not on `release: published`); or `workflow_dispatch` for a release that has no bundle yet | checkout the commit of `main` the workflow runs on (`github.sha`) and, at `src/`, the tag with full history; `build --release <tag> --source src`; `push`; `cosign sign`; `promote` |
 
 `add-docs-revisions` adds a `revision` mode (`workflow_dispatch`, inputs `tag` and `fix`, the same permissions as `release`) without changing these three. A caller on `v0.1.0` gets an error naming the mode if it asks for `revision`.
 
@@ -234,7 +234,7 @@ Signing: `sigstore/cosign-installer` pinned by SHA with a pinned cosign v3 relea
 
 | Mode | Group | `cancel-in-progress` | Why |
 |---|---|---|---|
-| `check` | none | n/a | writes nothing |
+| `check` | `docs-check-${{ inputs.project }}-${{ github.run_id }}` (alone) | `false` | writes nothing |
 | `edge` | `docs-edge-${{ inputs.project }}` | `true` | only the newest `main` matters; a cancelled run leaves at most an unpromoted digest, which the next run supersedes |
 | `release` | `docs-release-${{ inputs.project }}-${{ inputs.tag }}` | `false` | a re-run of one release waits for the running one; no other run can cancel it |
 
