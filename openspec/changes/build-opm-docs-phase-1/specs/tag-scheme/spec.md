@@ -5,7 +5,7 @@ How docs bundle builds are tagged and ordered: immutable full tags, moving relea
 ## ADDED Requirements
 
 ### Requirement: A release build gets one immutable full tag
-A release or revision build SHALL be tagged `<version>.<revision>` (for example `4.4.5.0`, `4.4.5.1`, `1.0.0-beta.2.0`), and that tag SHALL never be moved. `opm-docs push` SHALL refuse, exiting 2, when the full tag already names a different digest, and SHALL succeed without writing when it names the same digest. Source: DESIGN decisions 6 and 7.
+A release build (and, once `add-docs-revisions` ships, a revision build) SHALL be tagged `<version>.<revision>` (for example `4.4.5.0`, `4.4.5.1`, `1.0.0-beta.2.0`), and that tag SHALL never be moved. `opm-docs push` SHALL refuse, exiting 2, when the full tag already names a different digest, and SHALL succeed without writing when it names the same digest. Source: DESIGN decisions 6 and 7.
 
 #### Scenario: Re-running a release publish is a no-op
 - **WHEN** `4.4.5.0` already names digest D and a re-run pushes a bundle whose digest is D
@@ -41,12 +41,16 @@ Release builds SHALL be ordered by SemVer 2.0.0 precedence of their `version` an
 - **WHEN** `promote` runs for a digest with no valid signature
 - **THEN** it exits 2 naming the digest and moves no tag
 
-### Requirement: Revision numbers count up from zero
-A release's first build SHALL be revision 0. A docs revision SHALL take one more than the highest revision published for that version, and SHALL be refused when revision 0 of that version does not exist.
+### Requirement: Release builds are revision 0, and any revision is handled
+`build --release` SHALL produce revision 0. `push`, `promote` and `pull` SHALL handle a build of any revision number by the rules above, so docs revisions (change `add-docs-revisions`) need no change to them. Source: DESIGN decision 6.
 
-#### Scenario: Second docs fix of a release
-- **WHEN** 4.4.5.0 and 4.4.5.1 exist and a docs revision of `opm-v4.4.5` is built
-- **THEN** the build is revision 2 and is pushed as `4.4.5.2`
+#### Scenario: A first release build
+- **WHEN** `build --release opm-v4.4.5` runs and `push` follows
+- **THEN** the manifest has revision 0 and the full tag is `4.4.5.0`
+
+#### Scenario: A revision built by a later tool is promoted
+- **WHEN** a test registry holds 4.4.5.0 and a signed build of 4.4.5 revision 1 is promoted
+- **THEN** `4.4.5`, `4.4` and `4` point at 4.4.5.1
 
 ### Requirement: Edge builds have no full tag
 An edge build SHALL carry version `edge` and revision 0, SHALL be pushed by digest without a full tag, and SHALL be reachable only through the `edge` tag. Source: DESIGN decision 5.

@@ -1,11 +1,11 @@
 ## Purpose
 
-How `opm-docs` renders the doc model into pages in the page dialect: paths, links, marks and the member, index, landing and table pages.
+How `opm-docs` renders the doc model into pages in the page dialect: paths, links, marks and the member, index and landing pages.
 
 ## ADDED Requirements
 
-### Requirement: Pages are written at fixed paths per layout
-The renderer SHALL write, for layout `members`: a landing `_index.md` (unless a `markdown` source supplies a root `_index.md`), `blueprints/_index.md`, `resources/_index.md` and `traits/_index.md` with weights 1, 2 and 3, `<kind>/<name>.md` for the newest `apiVersion` of each name and kind, and `<kind>/<name>-<apiVersion>.md` for each older one. For layout `table` it SHALL write a landing `_index.md` (unless supplied) and `resources.md`. Any other path written by two sources SHALL fail the build naming the path and both sources.
+### Requirement: Pages are written at fixed paths
+The renderer SHALL write, for a `cue-catalog` source: a landing `_index.md` (unless a `markdown` source supplies a root `_index.md`), `blueprints/_index.md`, `resources/_index.md` and `traits/_index.md` with weights 1, 2 and 3, `<kind>/<name>.md` for the newest `apiVersion` of each name and kind, and `<kind>/<name>-<apiVersion>.md` for each older one. Any other path written by two sources SHALL fail the build naming the path and both sources.
 
 #### Scenario: Two apiVersions of one trait
 - **WHEN** a catalog holds `backup@v1alpha1` and `backup@v1beta1`
@@ -43,10 +43,10 @@ Rendered prose SHALL escape `\ < > * _ [ ] |` outside code spans and write `{{` 
 ### Requirement: Authored pages pin own-catalog alias links to the build
 The `markdown` source SHALL rewrite every link of the form `/catalogs/<name>/<MAJOR>/<path>/` in an authored page, where `<name>` is the bundle's own catalog and `<MAJOR>` is the build version's major (or any major, for an edge build), to `/catalogs/<name>/<segment>/<path>/` with the build's own segment, and the bundle-mode lint SHALL then require it to name a page of the bundle.
 
-#### Scenario: The k8s landing links its table
-- **WHEN** `docs/catalogs/k8s/_index.md` links `/catalogs/k8s/1/resources/` and the build is 1.0.0-beta.2
-- **THEN** the bundle's `content/_index.md` links `/catalogs/k8s/1.0/resources/`
+#### Scenario: The authored landing links a kind index
+- **WHEN** `docs/catalogs/opm/_index.md` links `/catalogs/opm/4/traits/` and the build is 4.4.5
+- **THEN** the bundle's `content/_index.md` links `/catalogs/opm/4.4/traits/`
 
 #### Scenario: A link to another catalog is left alone
-- **WHEN** the same page links `/catalogs/opm/4/`
+- **WHEN** the same page links `/catalogs/acme/1/`, another catalog
 - **THEN** the link is unchanged

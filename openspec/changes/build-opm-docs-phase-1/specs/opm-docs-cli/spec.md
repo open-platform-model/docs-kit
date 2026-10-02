@@ -5,7 +5,7 @@ The `opm-docs` command set, its configuration file `docs-kit.cue`, and its exit 
 ## ADDED Requirements
 
 ### Requirement: The command set
-`opm-docs` SHALL provide the commands `build`, `lint`, `check`, `push`, `promote`, `pull`, `revise` and `version`, with the flags `design.md` lists under "Commands". It SHALL exit 0 on success, 1 on a usage error (unknown command or flag, missing argument, unreadable or invalid config) and 2 on an execution error (lint violations, a refused build, a registry or signature failure). Every error message SHALL name what failed and the fix.
+`opm-docs` SHALL provide the commands `build`, `lint`, `check`, `push`, `promote`, `pull` and `version`, with the flags `design.md` lists under "Commands". It SHALL exit 0 on success, 1 on a usage error (unknown command or flag, missing argument, unreadable or invalid config) and 2 on an execution error (lint violations, a refused build, a registry or signature failure). Every error message SHALL name what failed and the fix.
 
 #### Scenario: Version
 - **WHEN** `opm-docs version` runs
@@ -16,7 +16,7 @@ The `opm-docs` command set, its configuration file `docs-kit.cue`, and its exit 
 - **THEN** it exits 1 naming `--nope`
 
 ### Requirement: docs-kit.cue configures the bundles a repository builds
-`build`, `check` and `revise` SHALL read `docs-kit.cue` (or `--config`) and validate it against the embedded `#Config` schema before any extraction. The file SHALL hold `bundles`, keyed by project, each with a `placement`, a `version` (`from: "tag"` and a tag `prefix`) and at least one source of kind `cue-catalog` (`module`, `layout` `members` or `table`) or `markdown` (`dir`).
+`build` and `check` SHALL read `docs-kit.cue` (or `--config`) and validate it against the embedded `#Config` schema before any extraction. The file SHALL hold `bundles`, keyed by project, each with a `placement`, a `version` (`from: "tag"` and a tag `prefix`) and at least one source of kind `cue-catalog` (`module`) or `markdown` (`dir`).
 
 #### Scenario: A misspelled key is refused
 - **WHEN** `docs-kit.cue` holds `bundles: "catalog-opm": {placment: ...}`
@@ -34,7 +34,7 @@ The `opm-docs` command set, its configuration file `docs-kit.cue`, and its exit 
 - **THEN** `build --source src` uses the current directory's `docs-kit.cue` and builds from `src/`
 
 #### Scenario: Wrong prefix
-- **WHEN** `--release k8s-v1.0.0-beta.2` is passed for project `catalog-opm`, whose prefix is `opm-v`
+- **WHEN** `--release v4.4.5` is passed for project `catalog-opm`, whose prefix is `opm-v`
 - **THEN** `build` exits 1 naming the tag and the expected prefix
 
 ### Requirement: check is the pull-request gate

@@ -4,8 +4,8 @@ The reusable GitHub workflow that a repository calls to check, build, push, sign
 
 ## ADDED Requirements
 
-### Requirement: One reusable workflow with four modes
-docs-kit SHALL provide `.github/workflows/publish.yml`, callable with `workflow_call`, taking the inputs `project` (required), `mode` (`check`, `edge`, `release` or `revision`, required), `tag`, `fix` and `cue-registry`, and returning the outputs `digest` and `tag`, as `design.md` C5 fixes. It SHALL declare no secrets and use `github.token`. Every mode except `check` SHALL fail before building unless `github.ref` is `refs/heads/main`. Source: DESIGN decisions 5, 6 and 9.
+### Requirement: One reusable workflow with three modes
+docs-kit SHALL provide `.github/workflows/publish.yml`, callable with `workflow_call`, taking the inputs `project` (required), `mode` (`check`, `edge` or `release`, required), `tag` and `cue-registry`, and returning the outputs `digest` and `tag`, as `design.md` C5 fixes. It SHALL declare no secrets and use `github.token`. Every mode except `check` SHALL fail before building unless `github.ref` is `refs/heads/main`. A `mode` outside these three SHALL fail naming it. Source: DESIGN decisions 5 and 9.
 
 #### Scenario: Pull-request check
 - **WHEN** a caller runs the workflow with `mode: check` on a pull request
@@ -23,7 +23,7 @@ docs-kit SHALL provide `.github/workflows/publish.yml`, callable with `workflow_
 - **THEN** the job installs `opm-docs` 0.2.0 and the bundle's `dev.opmodel.docs.tool` annotation reads `0.2.0`
 
 ### Requirement: Publishing modes sign before tags move
-In `edge`, `release` and `revision` modes the workflow SHALL build, `push`, sign the pushed digest with a pinned cosign v3 keyless (`--new-bundle-format=true`, the digest, never a tag), and only then run `promote`. The caller job SHALL grant `packages: write` and `id-token: write`. Jobs for one repository and project SHALL be serialized with a concurrency group that never cancels a running publish.
+In `edge` and `release` modes the workflow SHALL build, `push`, sign the pushed digest with a pinned cosign v3 keyless (`--new-bundle-format=true`, the digest, never a tag), and only then run `promote`. The caller job SHALL grant `packages: write` and `id-token: write`. Jobs for one repository and project SHALL be serialized with a concurrency group that never cancels a running publish.
 
 #### Scenario: Edge publish
 - **WHEN** a caller runs `mode: edge` on a push to `main`
