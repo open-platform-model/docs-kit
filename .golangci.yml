@@ -37,6 +37,10 @@ linters:
       min-complexity: 15
     misspell:
       locale: US
+      # The catalogs' own field name and refgen's page text, kept as written.
+      ignore-rules:
+        - fulfilment
+        - behaviour
     nolintlint:
       require-explanation: true
       require-specific: true

@@ -1,15 +1,13 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/open-platform-model/docs-kit/internal/bundle"
+	"github.com/open-platform-model/docs-kit/internal/build"
 	"github.com/open-platform-model/docs-kit/internal/dialect"
 )
 
@@ -59,32 +57,7 @@ func lintDocs(dir string) ([]string, error) {
 // lintBundle lints a bundle directory: its manifest, its listing and its
 // content tree in bundle mode.
 func lintBundle(dir string) ([]string, error) {
-	m, err := bundle.Read(dir)
-	if err != nil {
-		return nil, err
-	}
-	var out []string
-	if err := bundle.CheckTree(dir, m); err != nil {
-		var te *bundle.TreeError
-		if !errors.As(err, &te) {
-			return nil, err
-		}
-		for _, p := range te.Problems {
-			out = append(out, fmt.Sprintf("%s:0: %s", filepath.Join(dir, bundle.ManifestFile), p))
-		}
-	}
-	pages := make([]string, 0, len(m.Pages))
-	for _, p := range m.Pages {
-		pages = append(pages, p.Path)
-	}
-	vs, err := dialect.Lint(filepath.Join(dir, bundle.ContentDir), dialect.Options{
-		Mode:   dialect.Bundle,
-		Bundle: dialect.BundleInfo{Root: m.Placement.Root, Segment: m.Segment(), Pages: pages},
-	})
-	if err != nil {
-		return nil, err
-	}
-	return append(out, strs(vs)...), nil
+	return build.Lint(dir)
 }
 
 func strs(vs []dialect.Violation) []string {

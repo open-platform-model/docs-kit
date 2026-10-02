@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"os/signal"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -53,6 +56,8 @@ func newRoot(stdout, stderr io.Writer) *cobra.Command {
 	root.AddCommand(
 		newVersionCmd(),
 		newLintCmd(),
+		newBuildCmd(),
+		newCheckCmd(),
 	)
 	return root
 }
@@ -60,7 +65,9 @@ func newRoot(stdout, stderr io.Writer) *cobra.Command {
 func run(args []string, stdout, stderr io.Writer) int {
 	root := newRoot(stdout, stderr)
 	root.SetArgs(args)
-	err := root.Execute()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	err := root.ExecuteContext(ctx)
 	if err == nil {
 		return exitOK
 	}
