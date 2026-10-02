@@ -80,7 +80,7 @@ Taskfile.yml                  build and gate tasks
 ## Releasing
 
 - release-please (as the release App) opens a release PR from `feat` and `fix` commits on `main`; merging it creates the tag `vX.Y.Z` and a draft release, and `release.yml` runs goreleaser (pinned), which attaches `opm-docs_X.Y.Z_<os>_<arch>.tar.gz` for linux and darwin on amd64 and arm64 plus `checksums.txt`, then publishes the release. Never publish a release by hand, never re-tag; a bad release is fixed by the next patch.
-- The `OPM_DOCS_VERSION` literal in `.github/workflows/publish.yml` (`# x-release-please-version`) is release-please's: it rewrites it in every release PR, so `publish.yml@vX.Y.Z` installs `opm-docs` X.Y.Z. Never edit it by hand.
+- `publish.yml` carries no version: it installs the release named by the caller's `.opm-docs-version`, which callers move together with their `publish.yml@vX.Y.Z` ref (`docs/contracts.md` C5). Never add a version literal to it.
 - The archive names, `checksums.txt` and the `linux_amd64` archive are a contract (`docs/contracts.md` C12): consumers pin them by name and SHA-256.
 - `goreleaser release --snapshot --clean` builds the four archives locally into `dist/` (gitignored); `goreleaser check` validates `.goreleaser.yml`.
 

@@ -16,12 +16,16 @@ docs-kit SHALL provide `.github/workflows/publish.yml`, callable with `workflow_
 - **WHEN** a caller runs `mode: edge` on `refs/heads/release/opm-v4.4`
 - **THEN** the workflow fails before building, naming the ref and that bundles publish only from `main`
 
-### Requirement: The tool version follows the workflow ref
-`publish.yml` SHALL install `opm-docs` from the docs-kit release named by the literal `OPM_DOCS_VERSION` in the file, which release-please SHALL update in every release PR, and SHALL verify the archive's SHA-256 against that release's `checksums.txt` before installing it.
+### Requirement: The tool version is the caller's pin
+`publish.yml` SHALL carry no version literal. It SHALL read the caller's repo-root `.opm-docs-version` from the checked-out caller tree (one line, a docs-kit release tag such as `v0.1.0`), SHALL fail before building, naming the file, when it is missing or malformed, and SHALL install that release's `opm-docs` only after verifying the archive's SHA-256 against that release's `checksums.txt`. A caller SHALL move `.opm-docs-version` and its `publish.yml@` ref together. Owner decision, 2026-10-02.
 
-#### Scenario: Pinned ref, matching tool
-- **WHEN** a caller uses `publish.yml@v0.2.0`
+#### Scenario: Pinned release, matching tool
+- **WHEN** a caller's `.opm-docs-version` reads `v0.2.0`
 - **THEN** the job installs `opm-docs` 0.2.0 and the bundle's `dev.opmodel.docs.tool` annotation reads `0.2.0`
+
+#### Scenario: Missing pin
+- **WHEN** the caller's tree has no `.opm-docs-version`
+- **THEN** the job fails before building, naming `.opm-docs-version` and the form it must take
 
 ### Requirement: Publishing modes sign before tags move
 In `edge` and `release` modes the workflow SHALL build, `push`, sign the pushed digest with a pinned cosign v3 keyless (`--new-bundle-format=true`, the digest, never a tag), and only then run `promote`. The caller job SHALL grant `packages: write` and `id-token: write`. An `edge` job SHALL run in the concurrency group `docs-edge-${{ inputs.project }}` with `cancel-in-progress: true`, and a `release` job in `docs-release-${{ inputs.project }}-${{ inputs.tag }}` with `cancel-in-progress: false` (keyed on inputs, which are known when the group is evaluated), so that no edge run can cancel a pending or running release publish (GitHub keeps one pending run per group and cancels older pending ones).

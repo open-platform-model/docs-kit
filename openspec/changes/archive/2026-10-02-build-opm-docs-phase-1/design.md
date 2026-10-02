@@ -209,6 +209,8 @@ uses: open-platform-model/docs-kit/.github/workflows/publish.yml@v0.1.0
 
 This is a deliberate exception to the org's convention of pinning every action and reusable workflow by full commit SHA. It is safe only because docs-kit's tags are immutable: the `tags-immutable` and `tags-create-app-only` org rulesets cover docs-kit and its releases are immutable, so `v0.1.0` can never be moved to different code. Those settings are a hard gate before docs-kit's first release (`orchestration.md`, "Owner setup" and step 2); without them a moved tag would let other code sign as a trusted publisher. Rejected alternative: SHA pinning with an allowlist of docs-kit release SHAs in `signer.refs`, which would need a site commit for every docs-kit release.
 
+**Amended in review, owner decision 2026-10-02:** `publish.yml` carries no version literal. It installs the release named by the caller's `.opm-docs-version` (one tag line, checked against that release's `checksums.txt`), failing clearly when the file is missing or malformed, and the caller moves that file and its `publish.yml@` ref together; release-please no longer rewrites `publish.yml`. The text below is the plan as first approved.
+
 **The tool version follows the ref.** `publish.yml` installs `opm-docs` from the docs-kit release named by a literal in the file, `OPM_DOCS_VERSION: "0.1.0" # x-release-please-version`, which release-please rewrites in every release PR. So `publish.yml@v0.3.0` always runs `opm-docs` 0.3.0, and a caller upgrades both with one ref bump. It downloads `opm-docs_<version>_linux_amd64.tar.gz` and `checksums.txt` from that release and checks the SHA-256 before installing, exactly as C12 requires of every consumer. Until the first release PR the literal reads `"0.0.0"`; release-please sets it in each release.
 
 ```yaml
@@ -749,6 +751,8 @@ No page carries a generator marker comment: a bundle's pages are wholly generate
 ## Research & Decisions
 
 ### R1. Where the tool version comes from
+
+*Amended in review, owner decision 2026-10-02: the version now comes from the caller's `.opm-docs-version` (C5), not a literal in `publish.yml`.*
 
 **Context**: A reusable workflow has no context variable for its own ref, so `publish.yml` cannot ask which docs-kit release it is.
 **Explored**: an extra `version` input; checking out docs-kit at `github.workflow_sha` (that is the caller's SHA); a literal in the file.

@@ -1,8 +1,13 @@
 # The reusable docs bundle workflow. A repository calls it pinned to a
 # docs-kit release tag (publish.yml@vX.Y.Z), never a branch or a SHA: the
 # signing certificate names this file at that ref, and opm-docs pull trusts
-# only refs/tags/v[0-9]* (docs/contracts.md C5, C9). docs-kit's tags are immutable
-# (org rulesets), which is what makes a tag pin safe.
+# only refs/tags/v[0-9]* (docs/contracts.md C5, C9). docs-kit's tags are
+# immutable (org rulesets), which is what makes a tag pin safe.
+#
+# The opm-docs release it runs is the caller's: the one tag line of the
+# caller's .opm-docs-version (v0.1.0), downloaded and checked against that
+# release's checksums.txt. A caller moves .opm-docs-version and the
+# publish.yml@ ref together, in one PR (docs/contracts.md C5, C12).
 #
 # Modes:
 #   check    pull_request: build and lint into a temporary directory; writes nothing.
@@ -38,33 +43,41 @@ on:
     outputs:
       digest:
         description: The pushed manifest digest (empty in check mode)
-        value: ${{ jobs.edge.outputs.digest || jobs.release.outputs.digest }}
+        value: ${{ jobs.docs.outputs.digest }}
       tag:
         description: The full tag written (empty in check and edge modes)
-        value: ${{ jobs.release.outputs.tag }}
+        value: ${{ jobs.docs.outputs.tag }}
 
 env:
-  # The opm-docs release this file runs. release-please rewrites it in every
-  # release PR, so publish.yml@vX.Y.Z always runs opm-docs X.Y.Z.
-  OPM_DOCS_VERSION: "0.0.0" # x-release-please-version
   CUE_REGISTRY: ${{ inputs.cue-registry }}
   PROJECT: ${{ inputs.project }}
+  MODE: ${{ inputs.mode }}
 
 jobs:
-  mode:
-    name: Check the mode
+  # One job for every mode, so the install, login and publish steps are
+  # written once. Its concurrency group depends on the mode: edge runs share
+  # one group and cancel each other (only the newest main matters); a
+  # release has its own group per tag that nothing cancels; a check is
+  # alone in its run's group.
+  docs:
+    name: Docs ${{ inputs.mode }} (${{ inputs.project }})
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ inputs.mode == 'edge' && format('docs-edge-{0}', inputs.project) || inputs.mode == 'release' && format('docs-release-{0}-{1}', inputs.project, inputs.tag) || format('docs-check-{0}-{1}', inputs.project, github.run_id) }}
+      cancel-in-progress: ${{ inputs.mode == 'edge' }}
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+      tag: ${{ steps.push.outputs.tag }}
     steps:
       - name: Refuse an unknown mode or a publish outside main
         env:
-          MODE: ${{ inputs.mode }}
           TAG: ${{ inputs.tag }}
           REF: ${{ github.ref }}
         run: |
           case "$MODE" in
             check) exit 0 ;;
             edge|release) ;;
-            *) echo "::error::mode \"$MODE\" is not one of check, edge, release (this is docs-kit ${OPM_DOCS_VERSION})"; exit 1 ;;
+            *) echo "::error::mode \"$MODE\" is not one of check, edge, release"; exit 1 ;;
           esac
           if [ "$REF" != refs/heads/main ]; then
             echo "::error::mode $MODE runs only on refs/heads/main, not $REF: bundles publish from main, never from a release branch"
@@ -75,152 +88,89 @@ jobs:
             exit 1
           fi
 
-  check:
-    name: Check docs (${{ inputs.project }})
-    needs: mode
-    if: inputs.mode == 'check'
-    runs-on: ubuntu-latest
-    steps:
+      # The commit the caller ran on: the pull request's head for check,
+      # the pushed commit of main otherwise. In release mode it supplies
+      # .opm-docs-version, and docs-kit.cue when the release tree has none.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
-      - name: Install opm-docs
-        run: |
-          set -euo pipefail
-          archive="opm-docs_${OPM_DOCS_VERSION}_linux_amd64.tar.gz"
-          base="https://github.com/open-platform-model/docs-kit/releases/download/v${OPM_DOCS_VERSION}"
-          cd "$RUNNER_TEMP"
-          curl -fsSLO "$base/$archive"
-          curl -fsSLO "$base/checksums.txt"
-          grep -q " ${archive}\$" checksums.txt || { echo "::error::checksums.txt has no line for $archive"; exit 1; }
-          grep " ${archive}\$" checksums.txt | sha256sum -c -
-          mkdir -p bin && tar -xzf "$archive" -C bin opm-docs
-          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
-      - name: Log in to GHCR (CUE dependencies)
-        env:
-          TOKEN: ${{ github.token }}
-          ACTOR: ${{ github.actor }}
-        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
-      - name: opm-docs check
-        run: opm-docs check --project "$PROJECT"
 
-  edge:
-    name: Publish edge (${{ inputs.project }})
-    needs: mode
-    if: inputs.mode == 'edge'
-    runs-on: ubuntu-latest
-    # Only the newest main matters: a cancelled run leaves at most an
-    # unpromoted digest, which the next run supersedes.
-    concurrency:
-      group: docs-edge-${{ inputs.project }}
-      cancel-in-progress: true
-    outputs:
-      digest: ${{ steps.push.outputs.digest }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-      - name: Install opm-docs
-        run: |
-          set -euo pipefail
-          archive="opm-docs_${OPM_DOCS_VERSION}_linux_amd64.tar.gz"
-          base="https://github.com/open-platform-model/docs-kit/releases/download/v${OPM_DOCS_VERSION}"
-          cd "$RUNNER_TEMP"
-          curl -fsSLO "$base/$archive"
-          curl -fsSLO "$base/checksums.txt"
-          grep -q " ${archive}\$" checksums.txt || { echo "::error::checksums.txt has no line for $archive"; exit 1; }
-          grep " ${archive}\$" checksums.txt | sha256sum -c -
-          mkdir -p bin && tar -xzf "$archive" -C bin opm-docs
-          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
-      - name: Log in to GHCR
-        env:
-          TOKEN: ${{ github.token }}
-          ACTOR: ${{ github.actor }}
-        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
-      - name: Build
-        run: opm-docs build --edge --project "$PROJECT"
-      - name: Push
-        id: push
-        run: |
-          set -euo pipefail
-          opm-docs push --dir "out/$PROJECT" | tee "$RUNNER_TEMP/push.json"
-          echo "digest=$(jq -r .digest "$RUNNER_TEMP/push.json")" >> "$GITHUB_OUTPUT"
-      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-        with:
-          cosign-release: v3.1.3
-      - name: Sign the digest
-        env:
-          DIGEST: ${{ steps.push.outputs.digest }}
-        run: cosign sign --yes --new-bundle-format=true "ghcr.io/open-platform-model/docs/${PROJECT}@${DIGEST}"
-      - name: Promote
-        env:
-          DIGEST: ${{ steps.push.outputs.digest }}
-        run: opm-docs promote --project "$PROJECT" --digest "$DIGEST"
-
-  release:
-    name: Publish release (${{ inputs.project }} ${{ inputs.tag }})
-    needs: mode
-    if: inputs.mode == 'release'
-    runs-on: ubuntu-latest
-    # A re-run of one release waits for the running one, and nothing else
-    # can cancel it. Releases of different versions may run at once; promote
-    # never moves a tag back to an older build.
-    concurrency:
-      group: docs-release-${{ inputs.project }}-${{ inputs.tag }}
-      cancel-in-progress: false
-    outputs:
-      digest: ${{ steps.push.outputs.digest }}
-      tag: ${{ steps.push.outputs.tag }}
-    steps:
-      # main supplies docs-kit.cue when the release tree has none (a release
-      # cut before the repository adopted docs-kit); every source resolves
-      # against the release tree at src/.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: main
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Release mode: every source resolves against the release tree at src/.
+      - if: inputs.mode == 'release'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: refs/tags/${{ inputs.tag }}
           path: src
           fetch-depth: 0
-      - name: Install opm-docs
+
+      - name: Install the opm-docs release .opm-docs-version names
         run: |
           set -euo pipefail
-          archive="opm-docs_${OPM_DOCS_VERSION}_linux_amd64.tar.gz"
-          base="https://github.com/open-platform-model/docs-kit/releases/download/v${OPM_DOCS_VERSION}"
+          if [ ! -f .opm-docs-version ]; then
+            echo "::error::no .opm-docs-version at the repository root: write the docs-kit release tag (v0.1.0) on one line, the same release as the publish.yml@ ref"
+            exit 1
+          fi
+          tag=$(cat .opm-docs-version)
+          if [ "$(wc -l < .opm-docs-version)" -gt 1 ] || ! printf '%s\n' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+            echo "::error::.opm-docs-version must hold one docs-kit release tag such as v0.1.0, not \"$tag\""
+            exit 1
+          fi
+          version=${tag#v}
+          archive="opm-docs_${version}_linux_amd64.tar.gz"
+          base="https://github.com/open-platform-model/docs-kit/releases/download/${tag}"
           cd "$RUNNER_TEMP"
           curl -fsSLO "$base/$archive"
           curl -fsSLO "$base/checksums.txt"
-          grep -q " ${archive}\$" checksums.txt || { echo "::error::checksums.txt has no line for $archive"; exit 1; }
+          grep -q " ${archive}\$" checksums.txt || { echo "::error::checksums.txt of ${tag} has no line for $archive"; exit 1; }
           grep " ${archive}\$" checksums.txt | sha256sum -c -
           mkdir -p bin && tar -xzf "$archive" -C bin opm-docs
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
       - name: Log in to GHCR
         env:
           TOKEN: ${{ github.token }}
           ACTOR: ${{ github.actor }}
         run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
-      - name: Build
+
+      - name: opm-docs check
+        if: inputs.mode == 'check'
+        run: opm-docs check --project "$PROJECT"
+
+      - name: Build edge
+        if: inputs.mode == 'edge'
+        run: opm-docs build --edge --project "$PROJECT"
+
+      - name: Build the release
+        if: inputs.mode == 'release'
         env:
           TAG: ${{ inputs.tag }}
         run: opm-docs build --release "$TAG" --source src --project "$PROJECT"
+
       - name: Push
         id: push
+        if: inputs.mode != 'check'
         run: |
           set -euo pipefail
           opm-docs push --dir "out/$PROJECT" | tee "$RUNNER_TEMP/push.json"
           echo "digest=$(jq -r .digest "$RUNNER_TEMP/push.json")" >> "$GITHUB_OUTPUT"
           echo "tag=$(jq -r .tag "$RUNNER_TEMP/push.json")" >> "$GITHUB_OUTPUT"
-      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - if: inputs.mode != 'check'
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
         with:
           cosign-release: v3.1.3
+
+      # Sign the digest, never a tag; promote moves no tag to an unsigned
+      # digest.
       - name: Sign the digest
+        if: inputs.mode != 'check'
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
         run: cosign sign --yes --new-bundle-format=true "ghcr.io/open-platform-model/docs/${PROJECT}@${DIGEST}"
+
       - name: Promote
+        if: inputs.mode != 'check'
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
         run: opm-docs promote --project "$PROJECT" --digest "$DIGEST"

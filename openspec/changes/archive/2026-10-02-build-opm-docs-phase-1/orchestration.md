@@ -154,3 +154,7 @@ Departures from the original `DESIGN.md`, **approved by the owner on 2026-10-02*
 ## Follow-up: docs-kit `add-docs-revisions`
 
 Planned in `openspec/changes/add-docs-revisions/`. Gated on `build-opm-docs-phase-1` being archived and released as `v0.1.0`. It adds `opm-docs revise`, the documentation-only check and the workflow's `revision` mode, and releases as `v0.2.0`. Then: the owner merges the `0.2.0` release PR; in catalog_opm (no OpenSpec change needed: a `ci` PR), `docs.yml` (`publish.yml@v0.2.0`) and `.opm-docs-version` move to `v0.2.0` together, and the dispatch gains `mode: revision` and a `fix` input. The proof that completes DESIGN.md's phase-1 criterion moves there: land a doc-comment fix on catalog_opm `main`, dispatch `mode=revision tag=opm-v4.4.<n> fix=<sha>`, and the next site build shows the fix under `/catalogs/opm/4.4/` with no catalog release, its build stamp naming revision 1. The site needs no change for it (`pull` already handles any revision).
+
+## Amended in review (owner decision 2026-10-02)
+
+`publish.yml` carries no version literal: it installs the `opm-docs` release named by the caller's repo-root `.opm-docs-version`. catalog_opm's section 1 therefore must add `.opm-docs-version` (already planned for its local tasks) before its first `publish.yml` run, and every later bump moves `.opm-docs-version` and the `publish.yml@vX.Y.Z` ref together in one PR. release-please no longer rewrites `publish.yml`. The default signer glob is `refs/tags/v[0-9]*`.

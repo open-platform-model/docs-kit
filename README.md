@@ -26,12 +26,12 @@ A local preview needs no registry: `opm-docs build` in the source repository, th
 
 Consumers never `go run` or `go install` `opm-docs`. Every release `vX.Y.Z` carries `opm-docs_X.Y.Z_<os>_<arch>.tar.gz` for linux and darwin on amd64 and arm64, each holding `opm-docs` and `LICENSE`, and `checksums.txt`. Pin a release and verify it (docs/contracts.md C12):
 
-- **On a host**: a repo-root `.opm-docs-version` holding the tag (`v0.1.0`); download the archive for the host and `checksums.txt`, check with `grep ' <archive>$' checksums.txt | sha256sum -c -` (refusing a missing line), extract only `opm-docs` into a gitignored `.bin/`.
+- **On a host, and for `publish.yml`**: a repo-root `.opm-docs-version` holding the tag (`v0.1.0`); download the archive for the host and `checksums.txt`, check with `grep ' <archive>$' checksums.txt | sha256sum -c -` (refusing a missing line), extract only `opm-docs` into a gitignored `.bin/`.
 - **In a build image**: pin the `linux_amd64` archive by the SHA-256 on its `checksums.txt` line and check it in the image build.
 
 ## Using the workflow
 
-Reference `publish.yml` by docs-kit release tag, never a branch or a SHA: the signing certificate names the workflow at that ref, and the site trusts only `refs/tags/v[0-9]*` (docs/contracts.md C5, C9). This is a deliberate exception to the org's SHA-pinning convention, safe because docs-kit's tags are immutable; say so in a comment beside the `uses:` line. `publish.yml@vX.Y.Z` runs `opm-docs` X.Y.Z, so one ref bump upgrades both.
+Reference `publish.yml` by docs-kit release tag, never a branch or a SHA: the signing certificate names the workflow at that ref, and the site trusts only `refs/tags/v[0-9]*` (docs/contracts.md C5, C9). This is a deliberate exception to the org's SHA-pinning convention, safe because docs-kit's tags are immutable; say so in a comment beside the `uses:` line. The tool it runs is the caller's: the tag in the repository's `.opm-docs-version` (one line, `v0.1.0`), checked against that release's `checksums.txt`. Bump `.opm-docs-version` and the `@vX.Y.Z` ref together, in one PR.
 
 | Mode | Run it on | Caller job permissions |
 |---|---|---|
