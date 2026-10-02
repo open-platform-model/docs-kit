@@ -185,7 +185,7 @@ func waitForDigest(ctx context.Context, repo *remote.Repository, d digest.Digest
 		var rc io.ReadCloser
 		_, rc, err = repo.FetchReference(ctx, d.String())
 		if err == nil {
-			rc.Close()
+			_ = rc.Close()
 			fmt.Printf("fetch by digest %s: ok on attempt %d\n", d, i)
 			return nil
 		}
@@ -241,7 +241,7 @@ func cmdPush(ctx context.Context, args []string) error {
 		}
 	}
 	if *output != "" {
-		f, err := os.OpenFile(*output, os.O_APPEND|os.O_WRONLY, 0o644)
+		f, err := os.OpenFile(*output, os.O_APPEND|os.O_WRONLY, 0o600) //nolint:gosec // the runner's step-output file, named by the runner
 		if err != nil {
 			return err
 		}
