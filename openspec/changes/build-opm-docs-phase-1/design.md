@@ -119,56 +119,60 @@ import (
 	"time"
 )
 
-#Manifest: close({
+#Manifest: {
 	schema:   "docs.opmodel.dev/bundle/v1"
 	project:  #Project
 	version:  #Version
 	revision: int & >=0
 	if version == "edge" {revision: 0}
-	source: close({
+	source: {
 		repo:   =~"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" // "open-platform-model/catalog_opm"
 		commit: #SHA                                  // the commit built (a revision: the release commit)
 		ref:    string & !=""                         // the release tag "opm-v4.4.5", or the branch built ("main" for edge)
 		dirty?: true                                  // built from a work tree with uncommitted changes; push refuses it
 		// A docs revision only: the fix commits applied to the release tree, oldest first,
-		// every earlier revision's fixes included (decided in planning). Phase 1 never writes
-		// it, but its pull accepts it, so a site on 0.1.0 can read add-docs-revisions' bundles.
+		// every earlier revision's fixes included. Phase 1 never writes it, but its pull
+		// accepts it, so a site on 0.1.0 can read later bundles.
 		patches?: [#SHA, ...#SHA]
-	})
+	}
+	// The source commit's committer time, RFC 3339 UTC: the tar entries' time and the
+	// org.opencontainers.image.created annotation. build always writes it and push
+	// requires it; pull accepts a bundle without it.
+	created?:  time.Time
 	tool:      #SemVer // the opm-docs version, without "v"
 	dialect:   int & >=1
 	placement: #Placement
 	pages: list.MinItems(1) & [...#Page]
 	data: [...#DataFile]
-})
+}
 
-#Project:  =~"^[a-z0-9]+(-[a-z0-9]+)*$"
-#SHA:      =~"^[0-9a-f]{40}$"
-#SemVer:   =~"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"
-#Version:  #SemVer | "edge"
+#Project: =~"^[a-z0-9]+(-[a-z0-9]+)*$"
+#SHA:     =~"^[0-9a-f]{40}$"
+#SemVer:  =~"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"
+#Version: #SemVer | "edge"
 
-#Placement: close({
+#Placement: {
 	// "tab": its own section with its own versions, /catalogs/<name>/<MAJOR.MINOR>/.
 	// "docs": merged into a site version's /docs/ tree (phase 2; refused by phase-1 pull).
 	kind: "tab" | "docs"
 	if kind == "tab" {root: =~"^/catalogs/[a-z0-9]+(-[a-z0-9]+)*/$"}
 	if kind == "docs" {root: "/docs/"}
-})
+}
 
-#Page: close({
+#Page: {
 	path:      =~"^([a-z0-9]+(-[a-z0-9]+)*/)*(_index|[a-z0-9]+(-[a-z0-9]+)*)\\.md$" // under content/
-	source?:   string & !=""  // repo-relative file the page came from ("Edit this page", "View source")
-	lastmod?:  time.Time      // that file's last commit date at the commit built, RFC 3339
-	generated: bool           // generated reference, or an authored page
-})
+	source?:   string & !=""                                                        // repo-relative file the page came from ("Edit this page", "View source")
+	lastmod?:  time.Time                                                            // that file's last commit date at the commit built, RFC 3339
+	generated: bool                                                                 // generated reference, or an authored page
+}
 
-#DataFile: close({
+#DataFile: {
 	path:   =~"^[a-z0-9-]+\\.json$" // under data/
 	schema: string & !=""           // the file's own schema id, e.g. "docs.opmodel.dev/data/cue-catalog/v1"
-})
+}
 ```
 
-Tightened from DESIGN.md: closed structs, the SHA and SemVer patterns, `revision: 0` for edge, `patches`, typed `data` entries, and a placement root bound to its kind. `pages` lists every file under `content/`, and only those; `data` lists every file under `data/`, and only those. `lastmod` is set when the checkout has the file's history (the workflow checks out with full history) and omitted otherwise.
+Tightened from DESIGN.md: closed structs, the SHA and SemVer patterns, `revision: 0` for edge, `patches`, typed `data` entries, and a placement root bound to its kind. The schemas rely on definition closedness rather than `close()` (implementation finding): a struct passed to `close()` is evaluated on its own, so its `if kind == "tab"` guard never sees the data's `kind`, and `close()` does not close a nested pattern map such as `bundles: [#Project]: #Bundle`, which then accepted any project name. A definition closes every struct inside it, so the shipped files drop `close()` with the same meaning. `created` (optional; implementation finding) records the source commit's time: the bundle-format spec requires every annotation to equal a `manifest.json` field and `push` takes only `--dir`, so the time `push` stamps on the tar entries and on `org.opencontainers.image.created` has to travel in the manifest. `build` always writes it and `push` refuses a manifest without it; `pull` accepts one without it, so a fixture tree written to the original shape still validates. `pages` lists every file under `content/`, and only those; `data` lists every file under `data/`, and only those. `lastmod` is set when the checkout has the file's history (the workflow checks out with full history) and omitted otherwise.
 
 ### C4. Tags
 
@@ -274,30 +278,30 @@ One file at the repository root, validated against `schema/config.cue`. A `packa
 ```cue
 package schema
 
-#Config: close({
+#Config: {
 	bundles: [#Project]: #Bundle
-})
+}
 
-#Bundle: close({
+#Bundle: {
 	placement: #Placement
-	version: close({
-		from:   "tag"          // phase 1: the release version comes from the git tag
-		prefix: string & !=""  // "opm-v": tag "opm-v4.4.5" is version "4.4.5"
-	})
+	version: {
+		from:   "tag"         // phase 1: the release version comes from the git tag
+		prefix: string & !="" // "opm-v": tag "opm-v4.4.5" is version "4.4.5"
+	}
 	sources: [#Source, ...#Source]
-})
+}
 
 #Source: #CueCatalog | #Markdown
 
-#CueCatalog: close({
+#CueCatalog: {
 	kind:   "cue-catalog"
-	module: =~"^\\./[^/]"     // the CUE module root, repo-relative: "./opm"
-})
+	module: =~"^\\./[^/]" // the CUE module root, repo-relative: "./opm"
+}
 
-#Markdown: close({
+#Markdown: {
 	kind: "markdown"
-	dir:  =~"^[^/.][^.]*$"    // repo-relative directory, copied to content/ as it is
-})
+	dir:  =~"^[^/.][^.]*$" // repo-relative directory, copied to content/ as it is
+}
 ```
 
 `bundles` is keyed by project because one repository can publish several, as core and cli will in phase 2 and catalog_opm would with a second catalog (decided in planning; DESIGN.md shows a single top-level `project`). Phase 1 has one entry. A `layout` choice for catalogs is left out until a second layout has a consumer. The `markdown` kind in phase 1 copies one directory of authored pages, lints them and records their git dates; phase 3 extends it, it does not replace it. A path in content/ written by two sources fails the build, except a root `_index.md` from a `markdown` source: it does not replace the generated landing, the renderer appends its generated block to it (C8).
@@ -324,21 +328,21 @@ The site's `site/bundles.cue`, validated against `schema/pull.cue`:
 ```cue
 package schema
 
-#Pull: close({
+#Pull: {
 	registry: *"ghcr.io/open-platform-model/docs" | string
-	signer: close({
-		issuer:   *"https://token.actions.githubusercontent.com" | string
-		workflow: *"https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml" | string
+	signer: {
+		issuer:                                       *"https://token.actions.githubusercontent.com" | string
+		workflow:                                     *"https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml" | string
 		refs: *["refs/tags/v*"] | [string, ...string] // glob over the workflow ref in the certificate
-	})
-	tabs: [#Project]: close({
+	}
+	tabs: [#Project]: {
 		repo: =~"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" // the only repository allowed to sign this project
 		root: =~"^/catalogs/[a-z0-9]+(-[a-z0-9]+)*/$"
 		from: =~"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" // the oldest minor shown
 		edge: *true | bool
-	})
+	}
 	// Phase 2 adds `versions:` for bundles placed in a site version's /docs/.
-})
+}
 ```
 
 The file opmodel.dev writes:
@@ -391,36 +395,36 @@ The lock, `site/.bundles/lock.json`, validated against `schema/lock.cue`:
 ```cue
 package schema
 
-#Lock: close({
-	schema:  "docs.opmodel.dev/lock/v1"
-	tool:    #SemVer                      // the opm-docs that wrote the lock
-	config:  =~"^sha256:[0-9a-f]{64}$"    // SHA-256 of the bundles.cue bytes
+#Lock: {
+	schema: "docs.opmodel.dev/lock/v1"
+	tool:   #SemVer                   // the opm-docs that wrote the lock
+	config: =~"^sha256:[0-9a-f]{64}$" // SHA-256 of the bundles.cue bytes
 	bundles: [...#Locked]
-})
+}
 
 #Locked: #Pulled | #Local
 
-#Pulled: close({
+#Pulled: {
 	project:    #Project
 	root:       =~"^/catalogs/[a-z0-9]+(-[a-z0-9]+)*/$"
 	segment:    #Segment
-	tag:        #Segment                  // the tag resolved: the segment itself
-	repository: string & !=""             // "ghcr.io/open-platform-model/docs/catalog-opm"
+	tag:        #Segment      // the tag resolved: the segment itself
+	repository: string & !="" // "ghcr.io/open-platform-model/docs/catalog-opm"
 	digest:     =~"^sha256:[0-9a-f]{64}$"
 	version:    #Version
 	revision:   int & >=0
 	commit:     #SHA
 	dialect:    int & >=1
-	builtBy:    #SemVer                   // the bundle's dev.opmodel.docs.tool
-	signer: close({
-		workflow:   string & !=""         // the certificate SAN
-		repository: string & !=""         // Source Repository URI
-		ref:        "refs/heads/main"     // Source Repository Ref
-	})
-	dir: string & !=""                    // "<project>/<segment>", relative to the lock's directory
-})
+	builtBy:    #SemVer // the bundle's dev.opmodel.docs.tool
+	signer: {
+		workflow:   string & !="" // the certificate SAN
+		repository: string & !="" // Source Repository URI
+		ref:        "refs/heads/main"
+	}
+	dir: string & !="" // "<project>/<segment>", relative to the lock's directory
+}
 
-#Local: close({
+#Local: {
 	project:  #Project
 	root:     =~"^/catalogs/[a-z0-9]+(-[a-z0-9]+)*/$"
 	segment:  #Segment
@@ -431,7 +435,7 @@ package schema
 	dialect:  int & >=1
 	builtBy:  #SemVer
 	dir:      string & !=""
-})
+}
 
 #Segment: =~"^((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)|edge)$"
 ```

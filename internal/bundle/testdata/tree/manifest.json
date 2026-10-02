@@ -1,0 +1,34 @@
+{
+  "schema": "docs.opmodel.dev/bundle/v1",
+  "project": "catalog-opm",
+  "version": "4.4.5",
+  "revision": 0,
+  "source": {
+    "repo": "open-platform-model/catalog_opm",
+    "commit": "0123456789abcdef0123456789abcdef01234567",
+    "ref": "opm-v4.4.5"
+  },
+  "created": "2026-09-30T12:00:00Z",
+  "tool": "0.1.0",
+  "dialect": 1,
+  "placement": {
+    "kind": "tab",
+    "root": "/catalogs/opm/"
+  },
+  "pages": [
+    {
+      "path": "_index.md",
+      "generated": true
+    },
+    {
+      "path": "traits/backup.md",
+      "generated": true
+    }
+  ],
+  "data": [
+    {
+      "path": "catalog.json",
+      "schema": "docs.opmodel.dev/data/cue-catalog/v1"
+    }
+  ]
+}
