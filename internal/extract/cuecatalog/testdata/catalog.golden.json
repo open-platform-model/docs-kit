@@ -1,0 +1,475 @@
+{
+  "schema": "docs.opmodel.dev/data/cue-catalog/v1",
+  "modulePath": "example.com/catalogs/demo@v1",
+  "version": "1.2.3",
+  "members": [
+    {
+      "kind": "resource",
+      "name": "container",
+      "apiVersion": "v1",
+      "level": "GA",
+      "fqn": "example.com/catalogs/demo/resources/container@v1",
+      "modulePath": "example.com/catalogs/demo/resources/v1",
+      "title": "Container",
+      "definition": "#ContainerResource",
+      "wrapper": null,
+      "file": "demo/resources/v1/container.cue",
+      "page": "resources/container",
+      "description": "One container image a component runs",
+      "notes": [
+        "The deployment transformer renders it."
+      ],
+      "category": "workload",
+      "fulfilment": "catalog",
+      "optional": null,
+      "appliesTo": [],
+      "composedResources": [],
+      "composedTraits": [],
+      "matchLabels": [],
+      "servedBy": [
+        {
+          "transformer": "deployment",
+          "fqn": "example.com/catalogs/demo/transformers/deployment@v1",
+          "demand": "required"
+        },
+        {
+          "transformer": "service",
+          "fqn": "example.com/catalogs/demo/transformers/service@v1",
+          "demand": "optional"
+        }
+      ],
+      "mark": null,
+      "enforcement": [
+        {
+          "rule": "A value under `spec.container` satisfies the schema in Spec, or it does not evaluate.",
+          "by": "cue"
+        }
+      ],
+      "spec": {
+        "key": "container",
+        "cue": "spec: container: #ContainerSchema\n\n// The container's settings.\n#ContainerSchema: {\n\t// The container name, unique in the component.\n\tname!: string\n\t// How many replicas run.\n\treplicas: int | *1\n\timage!:   string\n\t// Environment variables, the vendored Kubernetes shape.\n\tenv?: [...k8s.#EnvVar]\n}",
+        "fields": [
+          {
+            "path": "name",
+            "type": "string",
+            "presence": "required",
+            "default": null,
+            "doc": "The container name, unique in the component.",
+            "ref": null
+          },
+          {
+            "path": "replicas",
+            "type": "int | *1",
+            "presence": "regular",
+            "default": "1",
+            "doc": "How many replicas run.",
+            "ref": null
+          },
+          {
+            "path": "image",
+            "type": "string",
+            "presence": "required",
+            "default": null,
+            "doc": "",
+            "ref": null
+          },
+          {
+            "path": "env",
+            "type": "list",
+            "presence": "optional",
+            "default": null,
+            "doc": "Environment variables, the vendored Kubernetes shape.",
+            "ref": null
+          },
+          {
+            "path": "env[]",
+            "type": "struct",
+            "presence": "regular",
+            "default": null,
+            "doc": "",
+            "ref": "example.com/catalogs/demo/schemas/kubernetes/core/v1.#EnvVar"
+          }
+        ],
+        "linked": [],
+        "external": [
+          {
+            "definition": "k8s.#EnvVar",
+            "package": "example.com/catalogs/demo/schemas/kubernetes/core/v1",
+            "vendored": true
+          }
+        ]
+      }
+    },
+    {
+      "kind": "resource",
+      "name": "queue",
+      "apiVersion": "v1",
+      "level": "GA",
+      "fqn": "example.com/catalogs/demo/resources/queue@v1",
+      "modulePath": "example.com/catalogs/demo/resources/v1",
+      "title": "Queue",
+      "definition": "#QueueResource",
+      "wrapper": null,
+      "file": "demo/resources/v1/queue.cue",
+      "page": "resources/queue",
+      "description": "A message queue a component declares",
+      "notes": [
+        "Nothing in this catalog renders it."
+      ],
+      "category": null,
+      "fulfilment": "catalog",
+      "optional": null,
+      "appliesTo": [],
+      "composedResources": [],
+      "composedTraits": [],
+      "matchLabels": [],
+      "servedBy": [],
+      "mark": "not-implemented",
+      "enforcement": [
+        {
+          "rule": "A value under `spec.queue` satisfies the schema in Spec, or it does not evaluate.",
+          "by": "cue"
+        }
+      ],
+      "spec": {
+        "key": "queue",
+        "cue": "spec: queue: {\n\t// Messages kept at most.\n\tdepth: int & >0 | *100\n}",
+        "fields": [
+          {
+            "path": "depth",
+            "type": "int & >0 | *100",
+            "presence": "regular",
+            "default": "100",
+            "doc": "Messages kept at most.",
+            "ref": null
+          }
+        ],
+        "linked": [],
+        "external": []
+      }
+    },
+    {
+      "kind": "trait",
+      "name": "backup",
+      "apiVersion": "v1alpha1",
+      "level": "alpha",
+      "fqn": "example.com/catalogs/demo/traits/backup@v1alpha1",
+      "modulePath": "example.com/catalogs/demo/traits/v1alpha1",
+      "title": "Backup",
+      "definition": "#BackupTrait",
+      "wrapper": "#Backup",
+      "file": "demo/traits/v1alpha1/backup.cue",
+      "page": "traits/backup-v1alpha1",
+      "description": "Scheduled backup policy for a component's state",
+      "notes": [
+        "A platform's backup adapter reads it.",
+        "Exactly one provider serves it."
+      ],
+      "category": "storage",
+      "fulfilment": "provider",
+      "optional": false,
+      "appliesTo": [
+        "example.com/catalogs/demo/resources/container@v1"
+      ],
+      "composedResources": [],
+      "composedTraits": [],
+      "matchLabels": [],
+      "servedBy": [],
+      "mark": "provided-by-platform",
+      "enforcement": [
+        {
+          "rule": "A value under `spec.backup` satisfies the schema in Spec, or it does not evaluate.",
+          "by": "cue"
+        },
+        {
+          "rule": "A platform carries exactly one catalog whose transformers require this contract; with two, every render on that platform is refused ([0010:D32](/enhancements/0010/decisions/)).",
+          "by": "kernel"
+        },
+        {
+          "rule": "When no transformer matched to the component handles this trait, the render is refused, unless the attachment sets `optional: true` ([0010:D28](/enhancements/0010/decisions/)).",
+          "by": "kernel"
+        }
+      ],
+      "spec": {
+        "key": "backup",
+        "cue": "spec: backup: #BackupSchema\n\n#BackupSchema: {\n\tschedule!: string\n\tkeep?:     int & >0\n}",
+        "fields": [
+          {
+            "path": "schedule",
+            "type": "string",
+            "presence": "required",
+            "default": null,
+            "doc": "",
+            "ref": null
+          },
+          {
+            "path": "keep",
+            "type": "int & >0",
+            "presence": "optional",
+            "default": null,
+            "doc": "",
+            "ref": null
+          }
+        ],
+        "linked": [],
+        "external": []
+      }
+    },
+    {
+      "kind": "trait",
+      "name": "backup",
+      "apiVersion": "v1beta1",
+      "level": "beta",
+      "fqn": "example.com/catalogs/demo/traits/backup@v1beta1",
+      "modulePath": "example.com/catalogs/demo/traits/v1beta1",
+      "title": "Backup",
+      "definition": "#BackupTrait",
+      "wrapper": null,
+      "file": "demo/traits/v1beta1/backup.cue",
+      "page": "traits/backup",
+      "description": "Scheduled backup policy for a component's state",
+      "notes": [
+        "The deployment transformer reads it when present."
+      ],
+      "category": null,
+      "fulfilment": "catalog",
+      "optional": true,
+      "appliesTo": [
+        "example.com/catalogs/demo/resources/container@v1"
+      ],
+      "composedResources": [],
+      "composedTraits": [],
+      "matchLabels": [],
+      "servedBy": [
+        {
+          "transformer": "deployment",
+          "fqn": "example.com/catalogs/demo/transformers/deployment@v1",
+          "demand": "optional"
+        }
+      ],
+      "mark": null,
+      "enforcement": [
+        {
+          "rule": "A value under `spec.backup` satisfies the schema in Spec, or it does not evaluate.",
+          "by": "cue"
+        }
+      ],
+      "spec": {
+        "key": "backup",
+        "cue": "spec: backup: {\n\tschedule!: string\n\t// Copies kept, under the keep-more rule.\n\tkeep: int & >0 | *7\n}",
+        "fields": [
+          {
+            "path": "schedule",
+            "type": "string",
+            "presence": "required",
+            "default": null,
+            "doc": "",
+            "ref": null
+          },
+          {
+            "path": "keep",
+            "type": "int & >0 | *7",
+            "presence": "regular",
+            "default": "7",
+            "doc": "Copies kept, under the keep-more rule.",
+            "ref": null
+          }
+        ],
+        "linked": [],
+        "external": []
+      }
+    },
+    {
+      "kind": "trait",
+      "name": "scaling",
+      "apiVersion": "v1beta1",
+      "level": "beta",
+      "fqn": "example.com/catalogs/demo/traits/scaling@v1beta1",
+      "modulePath": "example.com/catalogs/demo/traits/v1beta1",
+      "title": "Scaling",
+      "definition": "#ScalingTrait",
+      "wrapper": null,
+      "file": "demo/traits/v1beta1/scaling.cue",
+      "page": "traits/scaling",
+      "description": "Replica bounds for a component",
+      "notes": [
+        "Advisory: see docs/scaling-notes.md, and a pattern like {{< x >}} stays escaped."
+      ],
+      "category": null,
+      "fulfilment": "catalog",
+      "optional": true,
+      "appliesTo": [
+        "example.com/catalogs/demo/resources/container@v1"
+      ],
+      "composedResources": [],
+      "composedTraits": [],
+      "matchLabels": [],
+      "servedBy": [],
+      "mark": "not-implemented",
+      "enforcement": [
+        {
+          "rule": "A value under `spec.scaling` satisfies the schema in Spec, or it does not evaluate.",
+          "by": "cue"
+        }
+      ],
+      "spec": {
+        "key": "scaling",
+        "cue": "spec: scaling: {\n\tmin: int | *1\n\tmax: int | *3\n\t// Per-zone overrides, by zone name.\n\tzones?: [string]: int\n}",
+        "fields": [
+          {
+            "path": "min",
+            "type": "int | *1",
+            "presence": "regular",
+            "default": "1",
+            "doc": "",
+            "ref": null
+          },
+          {
+            "path": "max",
+            "type": "int | *3",
+            "presence": "regular",
+            "default": "3",
+            "doc": "",
+            "ref": null
+          },
+          {
+            "path": "zones",
+            "type": "struct",
+            "presence": "optional",
+            "default": null,
+            "doc": "Per-zone overrides, by zone name.",
+            "ref": null
+          },
+          {
+            "path": "zones.[string]",
+            "type": "int",
+            "presence": "regular",
+            "default": null,
+            "doc": "",
+            "ref": null
+          }
+        ],
+        "linked": [],
+        "external": []
+      }
+    },
+    {
+      "kind": "blueprint",
+      "name": "web",
+      "apiVersion": "v1",
+      "level": "GA",
+      "fqn": "example.com/catalogs/demo/blueprints/web@v1",
+      "modulePath": "example.com/catalogs/demo/blueprints/v1",
+      "title": "Web",
+      "definition": "#WebBlueprint",
+      "wrapper": null,
+      "file": "demo/blueprints/v1/web.cue",
+      "page": "blueprints/web",
+      "description": "A stateless web workload",
+      "notes": [
+        "One container, matched to the deployment transformer by its label."
+      ],
+      "category": null,
+      "fulfilment": null,
+      "optional": null,
+      "appliesTo": [],
+      "composedResources": [
+        "example.com/catalogs/demo/resources/container@v1"
+      ],
+      "composedTraits": [],
+      "matchLabels": [
+        {
+          "key": "workload-type",
+          "value": "\"stateless\"",
+          "concrete": true,
+          "required": true
+        }
+      ],
+      "servedBy": [
+        {
+          "transformer": "deployment",
+          "fqn": "example.com/catalogs/demo/transformers/deployment@v1",
+          "demand": "required"
+        }
+      ],
+      "mark": null,
+      "enforcement": [
+        {
+          "rule": "A value under `spec.web` satisfies the schema in Spec, or it does not evaluate.",
+          "by": "cue"
+        },
+        {
+          "rule": "A component carrying this blueprint answers its required match label `workload-type`.",
+          "by": "cue"
+        }
+      ],
+      "spec": {
+        "key": "web",
+        "cue": "spec: web: #WebSchema\n\n#WebSchema: {\n\tcontainer: res.#ContainerSchema\n\t// The port the web server listens on.\n\tport: int | *8080\n}",
+        "fields": [
+          {
+            "path": "container",
+            "type": "struct",
+            "presence": "regular",
+            "default": null,
+            "doc": "",
+            "ref": "example.com/catalogs/demo/resources/v1.#ContainerSchema"
+          },
+          {
+            "path": "port",
+            "type": "int | *8080",
+            "presence": "regular",
+            "default": "8080",
+            "doc": "The port the web server listens on.",
+            "ref": null
+          }
+        ],
+        "linked": [
+          {
+            "definition": "res.#ContainerSchema",
+            "page": "resources/container"
+          }
+        ],
+        "external": []
+      }
+    }
+  ],
+  "transformers": [
+    {
+      "name": "deployment",
+      "fqn": "example.com/catalogs/demo/transformers/deployment@v1",
+      "description": "Renders a stateless workload as a Deployment | with <pods>",
+      "requiredLabels": [
+        {
+          "key": "workload-type",
+          "value": "\"stateless\"",
+          "concrete": true,
+          "required": false
+        }
+      ],
+      "requiredResources": [
+        "example.com/catalogs/demo/resources/container@v1"
+      ],
+      "optionalResources": [],
+      "requiredTraits": [],
+      "optionalTraits": [
+        "example.com/catalogs/demo/traits/backup@v1beta1"
+      ]
+    },
+    {
+      "name": "service",
+      "fqn": "example.com/catalogs/demo/transformers/service@v1",
+      "description": "Exposes a container as a Service",
+      "requiredLabels": [],
+      "requiredResources": [],
+      "optionalResources": [
+        "example.com/catalogs/demo/resources/container@v1"
+      ],
+      "requiredTraits": [],
+      "optionalTraits": []
+    }
+  ],
+  "docNotes": [
+    "docs/scaling-notes.md"
+  ]
+}

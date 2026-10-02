@@ -1,0 +1,6 @@
+content/traits/backup.md:9: link "/catalogs/opm/4.5/resources/volumes/": a link into this bundle uses its own segment, /catalogs/opm/4.4/
+content/traits/backup.md:9: link "/catalogs/opm/edge/": a link into this bundle uses its own segment, /catalogs/opm/4.4/
+content/traits/backup.md:9: link "/catalogs/opm/": a link into this bundle uses its own segment, /catalogs/opm/4.4/
+content/traits/backup.md:9: link "/catalogs/opm/4/traits/": a link into this bundle uses its own segment, /catalogs/opm/4.4/
+content/traits/backup.md:11: link "/catalogs/opm/4.4/traits/nope/": no page traits/nope/ in this bundle
+content/traits/backup.md:13: catalog link "/catalogs/acme/1.2/traits/x/": link another catalog through /catalogs/acme/1/

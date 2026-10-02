@@ -1,0 +1,2 @@
+core/docs/site/concepts/md-link.md:7: internal link "/docs/start/quickstart.md": write /docs/<section>/<page>/ with a trailing slash
+core/docs/site/concepts/md-link.md:9: link "fixture-concept.md": internal links are root-absolute

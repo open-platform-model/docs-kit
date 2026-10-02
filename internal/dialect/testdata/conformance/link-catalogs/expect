@@ -1,0 +1,4 @@
+core/docs/site/concepts/catalog-links.md:9: catalog link "/catalogs/opm/4.4/traits/backup/": docs pages link catalogs through /catalogs/opm/4/
+core/docs/site/concepts/catalog-links.md:9: catalog link "/catalogs/opm/edge/": docs pages link catalogs through /catalogs/opm/<MAJOR>/
+core/docs/site/concepts/catalog-links.md:11: catalog link "/catalogs/opm/4/traits/backup": write /catalogs/<name>/ or /catalogs/<name>/<MAJOR>/<path>/ with a trailing slash
+core/docs/site/concepts/catalog-links.md:11: catalog link "/catalogs/": write /catalogs/<name>/ or /catalogs/<name>/<MAJOR>/<path>/ with a trailing slash

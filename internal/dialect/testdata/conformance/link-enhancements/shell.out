@@ -1,0 +1,8 @@
+core/docs/site/concepts/enhancement-links.md:7: enhancement link "/enhancements": write /enhancements/, /enhancements/<NNNN>/ or /enhancements/<NNNN>/<document>/ with a trailing slash
+core/docs/site/concepts/enhancement-links.md:7: enhancement link "/enhancements/0018": write /enhancements/, /enhancements/<NNNN>/ or /enhancements/<NNNN>/<document>/ with a trailing slash
+core/docs/site/concepts/enhancement-links.md:8: enhancement link "/enhancements/18/": write /enhancements/, /enhancements/<NNNN>/ or /enhancements/<NNNN>/<document>/ with a trailing slash
+core/docs/site/concepts/enhancement-links.md:8: enhancement link "/enhancements/graph/": write /enhancements/, /enhancements/<NNNN>/ or /enhancements/<NNNN>/<document>/ with a trailing slash
+core/docs/site/concepts/enhancement-links.md:9: enhancement link "/enhancements/0018/decisions/d3/": write /enhancements/, /enhancements/<NNNN>/ or /enhancements/<NNNN>/<document>/ with a trailing slash
+core/docs/site/concepts/enhancement-links.md:9: enhancement link "/enhancements/0018/notes/": write /enhancements/, /enhancements/<NNNN>/ or /enhancements/<NNNN>/<document>/ with a trailing slash
+core/docs/site/concepts/enhancement-links.md:10: link "/v1.0/enhancements/0018/": internal links are root-absolute /docs/<section>/<page>/ or /enhancements/<NNNN>/ (no relative, .md or version-prefixed links)
+core/docs/site/concepts/enhancement-links.md:12: enhancement link "/enhancements/0018/Decisions/": write /enhancements/, /enhancements/<NNNN>/ or /enhancements/<NNNN>/<document>/ with a trailing slash

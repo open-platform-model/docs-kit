@@ -1,0 +1,2 @@
+core/docs/site/concepts/slashless.md:7: internal link "/docs/start/quickstart": write /docs/<section>/<page>/ with a trailing slash
+core/docs/site/concepts/slashless.md:9: internal link "/docs/concepts/fixture-concept#why": write /docs/<section>/<page>/ with a trailing slash

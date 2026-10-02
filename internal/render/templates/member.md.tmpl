@@ -1,0 +1,40 @@
+---
+title: {{yaml .Title}}
+description: {{yaml .Description}}
+type: reference
+---
+
+## At a glance
+
+{{if .Alert}}{{.Alert}}
+{{end}}| Field | Value |
+| --- | --- |
+{{range .Rows}}| {{.Key}} | {{.Value}} |
+{{end}}
+## Spec
+
+A component writes this {{.Noun}}'s fields under {{.SpecKey}}.
+
+```cue
+{{.SpecCUE}}
+```
+
+{{if .Elsewhere}}Defined elsewhere:
+
+{{range .Elsewhere}}- {{.}}
+{{end}}
+{{end}}{{if .Notes}}## Notes
+
+{{.Notes}}
+
+{{end}}## Served by
+
+{{.ServedBy}}
+## Enforcement
+
+Each rule names what refuses a violation ([What enforces a rule](/docs/concepts/what-enforces-a-rule/)).
+
+| Rule | Enforced by |
+| --- | --- |
+{{range .Enforcement}}| {{.Key}} | {{.Value}} |
+{{end}}

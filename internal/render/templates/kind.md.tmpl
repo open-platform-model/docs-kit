@@ -1,0 +1,12 @@
+---
+title: {{yaml .Title}}
+description: {{yaml .Description}}
+weight: {{.Weight}}
+---
+
+{{.What}} Generated from {{.Catalog}}.
+{{if .NotImplemented}}
+No transformer in this catalog handles these {{.Plural}}, so they are marked **Not implemented**: {{.NotImplemented}}.
+{{end}}{{if .Provided}}
+These {{.Plural}} are provider-fulfilled, so they are marked **Provided by your platform**: {{.Provided}}. Your platform needs exactly one catalog that implements each.
+{{end}}
