@@ -31,6 +31,7 @@ Made by the owner on 2026-10-02.
 | 9 | A site version follows release tags, never branch heads: it shows the newest release of its line plus that release's docs revisions. No bundle is published from a release branch. |
 | 10 | A site version shows the docs of the versions its cli pins (library, core, opm-operator), as it does today. |
 | 11 | Third-party catalogs in the Catalogs tab are a possible future extension, out of scope for now. |
+| 12 | Version history in the Catalogs tab is badges and a per-member change list only; no side-by-side diff view. |
 
 Carried over from the site's existing rules: reference facts are generated in the repository that owns their source; a generated entry states only what its source proves; pages follow the page dialect in the workspace `STYLE.md` ("Site Pages").
 
@@ -286,6 +287,8 @@ When a second minor (4.5) exists, `opm-docs pull` compares the `data/` of every 
 | Removed in 4.7 | present in 4.6, absent in 4.7; that minor links to the last one that had it |
 | Newer version | the same name and kind at a later apiVersion (`backup@v1alpha1`, `backup@v1beta1`): the pages link each other |
 
+Badges sit under the member's title and on each changed spec field ("New in 4.6", "Default changed in 4.6"), and the page ends with a "Changes in 4.6" list of what differs from the previous minor. There is no side-by-side diff view (decision 12).
+
 4.4 is the oldest minor with a bundle, so a member present in 4.4 reads "in 4.4 or earlier", never "added in 4.4". Estimate: 2 to 3 days. The structured spec it needs is extracted from phase 1 on.
 
 ### Phase 2: every generated reference
@@ -318,6 +321,4 @@ When a second minor (4.5) exists, `opm-docs pull` compares the `data/` of every 
 
 ## Open questions
 
-1. **Version history scope.** Phase 1b's badges are designed above. Is a side-by-side diff view of one member between two minors also wanted, or only the badges?
-
-Answered on 2026-10-02 and moved to Decisions: release branches (decision 9), what a site version pins (decision 10), third-party catalogs (decision 11).
+None. Answered on 2026-10-02 and moved to Decisions: release branches (decision 9), what a site version pins (decision 10), third-party catalogs (decision 11), version-history scope (decision 12).
