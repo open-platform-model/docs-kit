@@ -3,11 +3,15 @@ package pull
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"oras.land/oras-go/v2/content"
 
 	"github.com/open-platform-model/docs-kit/internal/bundle"
 	"github.com/open-platform-model/docs-kit/internal/oci"
@@ -24,6 +28,7 @@ const (
 
 type env struct {
 	t        *testing.T
+	srv      *ocitest.Server
 	stop     func()
 	registry string
 	client   *oci.Client
@@ -33,8 +38,8 @@ type env struct {
 
 func newEnv(t *testing.T) *env {
 	t.Helper()
-	host, stop := ocitest.Start(t)
-	return &env{t: t, stop: stop, registry: host + "/docs", client: oci.New(oci.Options{Anonymous: true, PlainHTTP: true}), auth: sigtest.New(t), work: t.TempDir()}
+	srv := ocitest.New(t)
+	return &env{t: t, srv: srv, stop: srv.Stop, registry: srv.Host + "/docs", client: oci.New(oci.Options{Anonymous: true, PlainHTTP: true}), auth: sigtest.New(t), work: t.TempDir()}
 }
 
 // tree writes a bundle directory of a version, from the bundle package's
@@ -267,6 +272,10 @@ func TestMissingEdgeWarns(t *testing.T) {
 	if err != nil || segments(l) != "4.4" || len(warnings) != 1 || !strings.Contains(warnings[0], "edge") {
 		t.Fatalf("%v %s %v", err, segments(l), warnings)
 	}
+	// The counter does see a layer fetch: the refusal tests rely on it.
+	if n := e.srv.BlobGets(e.layerOf("4.4").Digest.String()); n != 1 {
+		t.Fatalf("layer fetched %d time(s), want 1", n)
+	}
 }
 
 func TestLocalOnly(t *testing.T) {
@@ -318,5 +327,62 @@ func TestParseLocal(t *testing.T) {
 		if _, err := ParseLocal(bad); err == nil {
 			t.Errorf("%s parsed", bad)
 		}
+	}
+}
+
+// layerOf returns the layer descriptor of the manifest a tag names.
+func (e *env) layerOf(tag string) ocispec.Descriptor {
+	e.t.Helper()
+	repo, _ := e.client.Repository(e.registry + "/" + project)
+	d, err := repo.Resolve(context.Background(), tag)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	m, _, err := repo.Manifest(context.Background(), d)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	return m.Layers[0]
+}
+
+// TestRefusedSignatureFetchesNoLayer: a bundle whose signature fails the
+// policy never has its layer fetched.
+func TestRefusedSignatureFetchesNoLayer(t *testing.T) {
+	e := newEnv(t)
+	e.publish("4.4.5", "open-platform-model/cli", nil)
+	layer := e.layerOf("4.4")
+	if _, err := Run(context.Background(), e.options(e.config(""))); err == nil {
+		t.Fatal("pulled")
+	}
+	if n := e.srv.BlobGets(layer.Digest.String()); n != 0 {
+		t.Fatalf("the layer of a refused bundle was fetched %d time(s)", n)
+	}
+}
+
+// TestOversizedLayerNotFetched: a signed bundle whose layer descriptor is
+// larger than a bundle may be is refused before a byte of it moves.
+func TestOversizedLayerNotFetched(t *testing.T) {
+	e := newEnv(t)
+	e.publish("4.4.5", owner, nil)
+	ctx := context.Background()
+	repo, _ := e.client.Repository(e.registry + "/" + project)
+	d, _ := repo.Resolve(ctx, "4.4")
+	m, _, err := repo.Manifest(ctx, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Layers[0].Size = bundle.MaxLayerSize + 1
+	raw, _ := json.Marshal(m)
+	big := content.NewDescriptorFromBytes(ocispec.MediaTypeImageManifest, raw)
+	if err := repo.Graph().PushReference(ctx, big, bytes.NewReader(raw), "4.4"); err != nil {
+		t.Fatal(err)
+	}
+	e.auth.Sign(t, repo.Graph(), big, sigtest.Publisher(owner))
+	_, err = Run(ctx, e.options(e.config("")))
+	if err == nil || !strings.Contains(err.Error(), "more than the 33554432 a bundle may hold") {
+		t.Fatalf("err = %v", err)
+	}
+	if n := e.srv.BlobGets(m.Layers[0].Digest.String()); n != 0 {
+		t.Fatalf("an oversized layer was fetched %d time(s)", n)
 	}
 }

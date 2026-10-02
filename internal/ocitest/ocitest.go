@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/registry"
@@ -22,17 +23,53 @@ import (
 // Registry starts a registry for the test and returns its host:port.
 func Registry(t testing.TB) string {
 	t.Helper()
-	host, _ := Start(t)
-	return host
+	return New(t).Host
 }
 
 // Start starts a registry and returns its host:port and a function that
 // stops it, for a test that must prove it makes no network call.
 func Start(t testing.TB) (host string, stop func()) {
 	t.Helper()
-	srv := httptest.NewServer(paged(registry.New(registry.Logger(log.New(io.Discard, "", 0)))))
+	s := New(t)
+	return s.Host, s.Stop
+}
+
+// Server is a running test registry that records the requests it serves.
+type Server struct {
+	Host string
+	Stop func()
+
+	mu       sync.Mutex
+	requests []string // "<method> <path>"
+}
+
+// New starts a recording registry.
+func New(t testing.TB) *Server {
+	t.Helper()
+	s := &Server{}
+	reg := paged(registry.New(registry.Logger(log.New(io.Discard, "", 0))))
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.mu.Lock()
+		s.requests = append(s.requests, r.Method+" "+r.URL.Path)
+		s.mu.Unlock()
+		reg.ServeHTTP(w, r)
+	}))
 	t.Cleanup(srv.Close)
-	return strings.TrimPrefix(srv.URL, "http://"), srv.Close
+	s.Host, s.Stop = strings.TrimPrefix(srv.URL, "http://"), srv.Close
+	return s
+}
+
+// BlobGets counts the GET requests for one blob digest.
+func (s *Server) BlobGets(digest string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, r := range s.requests {
+		if strings.HasPrefix(r, "GET ") && strings.HasSuffix(r, "/blobs/"+digest) {
+			n++
+		}
+	}
+	return n
 }
 
 // paged serves tag lists in pages with Link headers, as GHCR does: the
