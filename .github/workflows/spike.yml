@@ -37,6 +37,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: go run ./hack/spike push --repository "$REPOSITORY" --source "$SOURCE"
+      - name: First write to a new package is an untagged manifest
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: go run ./hack/spike push-untagged --repository "${REPOSITORY}-edge-first" --source "$SOURCE"
 
   sign-tagged:
     needs: push

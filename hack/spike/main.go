@@ -61,6 +61,8 @@ func main() {
 		err = cmdPull(ctx, os.Args[2:])
 	case "tags":
 		err = cmdTags(ctx, os.Args[2:])
+	case "push-untagged":
+		err = cmdPushUntagged(ctx, os.Args[2:])
 	default:
 		err = fmt.Errorf("unknown subcommand %q", os.Args[1])
 	}
@@ -300,6 +302,25 @@ func listTags(ctx context.Context, repo *remote.Repository) error {
 		}
 		return nil
 	})
+}
+
+// cmdPushUntagged pushes one manifest by digest only, the first write to
+// the repository, as a project's first edge build would be.
+func cmdPushUntagged(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("push-untagged", flag.ExitOnError)
+	ref := fs.String("repository", "", "repository")
+	source := fs.String("source", "", "org.opencontainers.image.source")
+	_ = fs.Parse(args)
+	repo, err := repository(*ref, false)
+	if err != nil {
+		return err
+	}
+	d, _, err := pushBundle(ctx, repo, "edge", "0", *source, "")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("first write was untagged manifest %s\n", d.Digest)
+	return listTags(ctx, repo)
 }
 
 func cmdTags(ctx context.Context, args []string) error {
