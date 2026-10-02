@@ -106,6 +106,33 @@ func writeEntry(tw *tar.Writer, e packEntry, created time.Time) error {
 	return err
 }
 
+// CheckLimits refuses a tree a pull would refuse: more entries or file
+// bytes than lim allows.
+func CheckLimits(dir string, lim Limits) error {
+	entries, err := packEntries(dir)
+	if err != nil {
+		return err
+	}
+	if len(entries) > lim.Entries {
+		return fmt.Errorf("%s holds %d entries, more than the %d a bundle may hold", dir, len(entries), lim.Entries)
+	}
+	var total int64
+	for _, e := range entries {
+		if e.dir {
+			continue
+		}
+		st, err := os.Stat(e.path)
+		if err != nil {
+			return err
+		}
+		total += st.Size()
+	}
+	if total > lim.Bytes {
+		return fmt.Errorf("%s holds %d bytes of files, more than the %d a bundle may hold", dir, total, lim.Bytes)
+	}
+	return nil
+}
+
 // Limits bound what Unpack accepts.
 type Limits struct {
 	Entries int   // most tar entries

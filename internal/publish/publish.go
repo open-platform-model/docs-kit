@@ -28,6 +28,10 @@ type PushOptions struct {
 	Dir      string // a bundle directory, out/<project>
 	Registry string // the registry prefix; the repository is <Registry>/<project>
 	Client   *oci.Client
+	// Limits and MaxLayer default to the limits pull applies; tests lower
+	// them.
+	Limits   bundle.Limits
+	MaxLayer int
 }
 
 // PushResult is what push prints.
@@ -51,9 +55,21 @@ func Push(ctx context.Context, o PushOptions) (*PushResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	if o.Limits == (bundle.Limits{}) {
+		o.Limits = bundle.DefaultLimits
+	}
+	if o.MaxLayer == 0 {
+		o.MaxLayer = bundle.MaxLayerSize
+	}
+	if err := bundle.CheckLimits(o.Dir, o.Limits); err != nil {
+		return nil, fmt.Errorf("%w; a pull would refuse it", err)
+	}
 	layer, err := bundle.Pack(o.Dir, created)
 	if err != nil {
 		return nil, err
+	}
+	if len(layer) > o.MaxLayer {
+		return nil, fmt.Errorf("%s packs to a %d-byte layer, more than the %d bytes a pull fetches", o.Dir, len(layer), o.MaxLayer)
 	}
 	md, raw, ld, err := oci.Pack(ctx, bundle.ArtifactType, bundle.LayerType, layer, m.Annotations())
 	if err != nil {

@@ -278,3 +278,28 @@ func TestEdgeNeverMovesBack(t *testing.T) {
 		t.Fatal("edge did not move forward")
 	}
 }
+
+func TestPushRefusesWhatPullRefuses(t *testing.T) {
+	e := newEnv(t)
+	dir := e.bundleDir("4.4.5", 0, "")
+	for _, c := range []struct {
+		name     string
+		lim      bundle.Limits
+		maxLayer int
+		want     string
+	}{
+		{"too many entries", bundle.Limits{Entries: 3, Bytes: 1 << 20}, 0, "more than the 3 a bundle may hold"},
+		{"too many bytes", bundle.Limits{Entries: 100, Bytes: 10}, 0, "more than the 10 a bundle may hold"},
+		{"layer too large", bundle.Limits{}, 16, "more than the 16 bytes a pull fetches"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := Push(context.Background(), PushOptions{Dir: dir, Registry: e.registry, Client: e.client, Limits: c.lim, MaxLayer: c.maxLayer})
+			if err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+	if tags, _ := e.repo.Tags(context.Background()); len(tags) != 0 {
+		t.Fatalf("a refused push wrote %v", tags)
+	}
+}
