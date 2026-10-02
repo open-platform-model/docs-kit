@@ -5,7 +5,7 @@ How `opm-docs` is distributed: the release assets every docs-kit release carries
 ## ADDED Requirements
 
 ### Requirement: Every release publishes binaries and checksums
-Each docs-kit release `vX.Y.Z` SHALL carry `opm-docs_X.Y.Z_<os>_<arch>.tar.gz` for `linux_amd64`, `linux_arm64`, `darwin_arm64` and `darwin_amd64`, each holding only the `opm-docs` binary stamped with version `X.Y.Z`, and a `checksums.txt` with the SHA-256 of every archive in `sha256sum` format. The release SHALL be published only after every asset is attached (draft-first).
+Each docs-kit release `vX.Y.Z` SHALL carry `opm-docs_X.Y.Z_<os>_<arch>.tar.gz` for `linux_amd64`, `linux_arm64`, `darwin_arm64` and `darwin_amd64`, each holding the `opm-docs` binary stamped with version `X.Y.Z` and the repository's Apache-2.0 `LICENSE`, and a `checksums.txt` with the SHA-256 of every archive in `sha256sum` format. The release SHALL be published only after every asset is attached (draft-first).
 
 #### Scenario: A published release is complete
 - **WHEN** the release workflow publishes `v0.1.0`

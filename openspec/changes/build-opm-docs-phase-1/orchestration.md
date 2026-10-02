@@ -144,12 +144,12 @@ Workspace follow-ups (the supervisor handles the first in a workspace PR; the re
 - opmodel.dev pins the tool by SHA-256 in its build image and pulls inside it; `pull --local` takes several segments per project and needs no network when every tab is local; lock entries carry `root`; no redirects from the old reference URLs; the site lint and `opm-docs lint` agree through one conformance fixture set until phase 3 (supervisor decisions, 2026-10-02).
 - Callers reference `publish.yml` by release tag, decided by the owner on 2026-10-02 (design.md C5); SHA pinning with a SHA allowlist was rejected.
 
-Departures from `DESIGN.md` for the owner to confirm:
+Departures from the original `DESIGN.md`, **approved by the owner on 2026-10-02** and recorded there as decisions 13 to 16:
 
-- **Done criterion split.** Phase 1 here ends with opm 4.4 and edge on the site; the docs-revision half of DESIGN.md's criterion moves to `add-docs-revisions`.
-- **Pull inside the site's build image**, with network on for that step only, instead of DESIGN.md's host step.
-- **`org.opencontainers.image.created` is the source commit's time**, not the build time, so a rebuild gives the same digest.
-- **`push` and `promote` are separate commands**: `push` writes only the full tag, cosign signs, then `promote` verifies and moves the tags; DESIGN.md's `push` moved the tags itself.
+- **Done criterion split** (DESIGN decision 13). Phase 1 here ends with opm 4.4 and edge on the site; the docs-revision half of DESIGN.md's criterion moves to `add-docs-revisions`.
+- **Pull inside the site's build image** (DESIGN decision 14), with network on for that step only, instead of DESIGN.md's host step.
+- **`org.opencontainers.image.created` is the source commit's time** (DESIGN decision 15), not the build time, so a rebuild gives the same digest.
+- **`push` and `promote` are separate commands** (DESIGN decision 16): `push` writes only the full tag, cosign signs, then `promote` verifies and moves the tags; DESIGN.md's `push` moved the tags itself.
 
 ## Follow-up: docs-kit `add-docs-revisions`
 

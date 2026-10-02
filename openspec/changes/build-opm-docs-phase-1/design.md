@@ -75,7 +75,7 @@ Manifest annotations:
 | `org.opencontainers.image.version` | the release version (`4.4.5`, `1.0.0-beta.2`) or `edge` |
 | `org.opencontainers.image.revision` | the 40-hex source commit (`source.commit`) |
 | `org.opencontainers.image.source` | `https://github.com/<owner>/<repo>` of the **calling** repository |
-| `org.opencontainers.image.created` | the source commit's committer time, RFC 3339 UTC (decided in planning: DESIGN.md says build time, which would change the digest of every rebuild) |
+| `org.opencontainers.image.created` | the source commit's committer time, RFC 3339 UTC (decided in planning: DESIGN.md said build time, which would change the digest of every rebuild; now DESIGN decision 15) |
 | `dev.opmodel.docs.project` | the project, `catalog-opm` |
 | `dev.opmodel.docs.revision` | the docs revision, decimal (`0` for edge) |
 | `dev.opmodel.docs.dialect` | the page-dialect version the content passed, decimal |
@@ -609,7 +609,7 @@ Every violation prints as `<file>:<line>: <message>`, the shell lint's format.
 
 Callers and the site never `go run` or `go install` `opm-docs` (supervisor decision, 2026-10-02): every consumer runs a released binary, so the bytes that built a bundle are the bytes a release names.
 
-- **Assets.** Every docs-kit release `vX.Y.Z` carries `opm-docs_X.Y.Z_<os>_<arch>.tar.gz` for `linux_amd64`, `linux_arm64`, `darwin_arm64` and `darwin_amd64` (each holding the `opm-docs` binary only; the org's repositories carry no LICENSE file, and the licensing question is with the owner), and `checksums.txt` (SHA-256, `sha256sum` format, one line per archive). Built by goreleaser in a draft-first release workflow, the pattern cli already uses (decided in planning: the owner's draft-first runbook, the immutable-release setting and reviewers' knowledge carry over unchanged; a hand-rolled Task build would re-implement archives and checksums for no gain). URL: `https://github.com/open-platform-model/docs-kit/releases/download/vX.Y.Z/<asset>`.
+- **Assets.** Every docs-kit release `vX.Y.Z` carries `opm-docs_X.Y.Z_<os>_<arch>.tar.gz` for `linux_amd64`, `linux_arm64`, `darwin_arm64` and `darwin_amd64` (each holding the `opm-docs` binary and `LICENSE`, the Apache-2.0 text at docs-kit's root; the org adopted Apache-2.0 on 2026-10-02), and `checksums.txt` (SHA-256, `sha256sum` format, one line per archive). Built by goreleaser in a draft-first release workflow, the pattern cli already uses (decided in planning: the owner's draft-first runbook, the immutable-release setting and reviewers' knowledge carry over unchanged; a hand-rolled Task build would re-implement archives and checksums for no gain). URL: `https://github.com/open-platform-model/docs-kit/releases/download/vX.Y.Z/<asset>`.
 - **Pinned in a build image** (supervisor decision, 2026-10-02). A consumer may instead pin the `linux_amd64` archive by its SHA-256 in its own build image (opmodel.dev does this in `site/Dockerfile`, as it pins Hugo and Pagefind) and run `opm-docs` inside that image, with network on for the `pull` step only. The SHA-256 it pins is the archive's line in that release's `checksums.txt`. docs-kit therefore keeps shipping the `linux_amd64` archive and `checksums.txt` in every release, under the names above.
 - **Pin file.** A consumer that runs the tool on the host, outside `publish.yml` (catalog_opm for its local `docs:bundle` tasks; opmodel.dev only if it does not use the image pattern) pins it in a repo-root file `.opm-docs-version`: one line, the release tag (`v0.1.0`), matching `^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$`. `publish.yml` pins itself through its `OPM_DOCS_VERSION` literal (C5). In a repository that has both, the `.opm-docs-version` tag and the `publish.yml@` ref name the same release and move in one PR.
 - **Verification.** Download the archive and `checksums.txt` for the host's os and arch, check with `grep ' <archive>$' checksums.txt | sha256sum -c -` (refusing an archive with no line), then extract only `opm-docs`. A failed check stops the task; nothing falls back to building from source. The install target is a gitignored repo-local directory (`.bin/` or `site/.bin/`), never a global path.
@@ -738,7 +738,7 @@ No page carries a generator marker comment: a bundle's pages are wholly generate
 ### R4. Moving tags only after the signature
 
 **Context**: a moving tag pointed at an unsigned digest fails every site build until signing finishes.
-**Decision**: `push` writes only the full tag (or nothing, for edge); `cosign sign`; then `promote` verifies and moves. Decided in planning: DESIGN.md's `push` moved the tags itself.
+**Decision**: `push` writes only the full tag (or nothing, for edge); `cosign sign`; then `promote` verifies and moves. Decided in planning (DESIGN.md's `push` moved the tags itself); approved as DESIGN decision 16.
 **Rationale**: no reader ever resolves a moving tag to an unsigned build.
 
 ### R5. Lock file not committed
