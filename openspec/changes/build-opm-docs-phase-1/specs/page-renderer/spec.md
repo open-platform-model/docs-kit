@@ -5,15 +5,15 @@ How `opm-docs` renders the doc model into pages in the page dialect: paths, link
 ## ADDED Requirements
 
 ### Requirement: Pages are written at fixed paths
-The renderer SHALL write, for a `cue-catalog` source: a landing `_index.md` (unless a `markdown` source supplies a root `_index.md`), `blueprints/_index.md`, `resources/_index.md` and `traits/_index.md` with weights 1, 2 and 3, `<kind>/<name>.md` for the newest `apiVersion` of each name and kind, and `<kind>/<name>-<apiVersion>.md` for each older one. Any other path written by two sources SHALL fail the build naming the path and both sources.
+The renderer SHALL write, for a `cue-catalog` source: a landing `_index.md`, `blueprints/_index.md`, `resources/_index.md` and `traits/_index.md` with weights 1, 2 and 3, `<kind>/<name>.md` for the newest `apiVersion` of each name and kind, and `<kind>/<name>-<apiVersion>.md` for each older one. Any other path written by two sources SHALL fail the build naming the path and both sources.
 
 #### Scenario: Two apiVersions of one trait
 - **WHEN** a catalog holds `backup@v1alpha1` and `backup@v1beta1`
 - **THEN** `traits/backup.md` is the v1beta1 page and `traits/backup-v1alpha1.md` the v1alpha1 page
 
-#### Scenario: Authored landing wins
+#### Scenario: Authored landing gets the generated block
 - **WHEN** a `markdown` source holds `_index.md`
-- **THEN** the bundle's `content/_index.md` is that file, marked `generated: false` in `manifest.json`
+- **THEN** the bundle's `content/_index.md` is that file followed by the generated `## Catalog members` block, recorded as `generated: false` with that file as `source`
 
 ### Requirement: Links use the bundle's own segment and the aliases
 Every link the renderer writes into its own bundle SHALL be `<root><segment>/<page>/`, where the segment is the build version's `MAJOR.MINOR` or `edge`, and SHALL resolve to a page of the bundle. A link to another catalog SHALL use that catalog's major alias. The contract link of a member page SHALL point at the bundle's landing.
@@ -50,3 +50,14 @@ The `markdown` source SHALL rewrite every link of the form `/catalogs/<name>/<MA
 #### Scenario: A link to another catalog is left alone
 - **WHEN** the same page links `/catalogs/acme/1/`, another catalog
 - **THEN** the link is unchanged
+
+### Requirement: The landing always carries the generated members block
+The landing SHALL end with a generated `## Catalog members` section stating the catalog's module path and version (for edge, `main`, the 12-hex commit and "unreleased") and linking each kind index, with its member count, in the build's own segment. When a `markdown` source supplies a root `_index.md`, the renderer SHALL append the block after the authored body instead of replacing it, and SHALL refuse an authored body that already holds a `## Catalog members` heading. Without an authored landing, it SHALL write a landing holding generated front matter and the block alone.
+
+#### Scenario: Generated landing for a backfilled release
+- **WHEN** a 4.4.5 build has no authored landing and 5 blueprints, 12 resources and 28 traits
+- **THEN** `content/_index.md` holds the block with links `/catalogs/opm/4.4/blueprints/`, `/catalogs/opm/4.4/resources/` and `/catalogs/opm/4.4/traits/` and the counts 5, 12 and 28
+
+#### Scenario: Heading collision
+- **WHEN** the authored `_index.md` already has a `## Catalog members` heading
+- **THEN** `build` exits 2 naming the file

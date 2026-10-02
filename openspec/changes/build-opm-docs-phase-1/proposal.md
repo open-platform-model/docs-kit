@@ -23,9 +23,9 @@ Phase-1 done criterion, as this change and its siblings deliver it: the site sho
 - **`opm-docs`**, one Go binary with `build`, `lint`, `check`, `push`, `promote`, `pull` and `version` (`design.md`, "Commands"). `promote`, and the split between `push` and `promote`, are decided in planning (design R4).
 - **Extractors and renderer.** The `cue-catalog` extractor, ported from catalog_opm's `tools/refgen` with its doc-comment, citation, escaping, served-by, mark and enforcement rules, plus the structured spec fields phase 1b needs; a minimal `markdown` source for a bundle's authored landing; one embedded template set.
 - **The page-dialect lint** in Go, dialect 1: the site's shell lint rule for rule, plus the `/catalogs/` link forms.
-- **Contracts** (`design.md` C1 to C11), each with a CUE schema embedded in the tool where it is a file: OCI paths, media types and annotations, `manifest.json`, the tag scheme, the workflow interface, `docs-kit.cue`, the pull config, the unpack layout and lock, URLs and link forms, the signing identity, the doc model and the dialect.
+- **Contracts** (`design.md` C1 to C12), each with a CUE schema embedded in the tool where it is a file: OCI paths, media types and annotations, `manifest.json`, the tag scheme, the workflow interface, `docs-kit.cue`, the pull config, the unpack layout and lock, URLs and link forms, the signing identity, the doc model and the dialect.
 - **Publishing.** `.github/workflows/publish.yml`, a reusable workflow with `check`, `edge` and `release` modes, cosign keyless signing, and the tool version tied to the workflow ref.
-- **docs-kit's own CI and release**: a PR and main CI running `task check`, release-please, and a draft-first release that attaches the binaries and checksums before publishing.
+- **docs-kit's own CI and release**: a PR and main CI running `task check`, release-please, and a draft-first goreleaser release that attaches binaries for linux/amd64, linux/arm64, darwin/arm64 and darwin/amd64 plus `checksums.txt` before publishing. Consumers never `go run` the tool: they pin a release in `.opm-docs-version` (or, for `publish.yml`, its version literal) and verify the checksum (C12).
 
 Out of scope: the raw Kubernetes catalog (`k8s/`), which the owner is removing from catalog_opm in a separate session; docs revisions (`add-docs-revisions`).
 
@@ -45,6 +45,7 @@ SemVer class: MINOR. docs-kit has no release yet; the first release PR after thi
 - `dialect-lint`: dialect 1 and its docs and bundle modes.
 - `publish-workflow`: the reusable workflow's interface, modes, signing and tool pinning.
 - `bundle-pull`: the pull config, tag resolution, signature verification, unpack layout, cache and lock.
+- `tool-release`: the release assets of every docs-kit release, and how consumers pin and verify them.
 
 ### Modified Capabilities
 
@@ -52,7 +53,7 @@ None. The repository has no specs yet.
 
 ## Impact
 
-- Code: everything under `cmd/opm-docs/`, `internal/`, `schema/`; `.github/workflows/{publish,ci,release,spike}.yml`; `release-please-config.json`, `.release-please-manifest.json`; `Taskfile.yml`, `AGENTS.md`, `README.md`, `docs/contracts.md`.
+- Code: everything under `cmd/opm-docs/`, `internal/`, `schema/`; `.github/workflows/{publish,ci,release,spike}.yml`; `release-please-config.json`, `.release-please-manifest.json`, `.goreleaser.yml`; `Taskfile.yml`, `AGENTS.md`, `README.md`, `docs/contracts.md`.
 - Consumers: catalog_opm (change `publish-docs-bundle`) and opmodel.dev (change `add-catalogs-tab`) build against the contracts; `orchestration.md` lists what each must do and in which order. cli carries one link fix (`docs/site/reference/registry-namespaces.md` links the contract page that moves). core, opm-operator, library and opm are untouched until phase 2.
 - Registry: a new public package `ghcr.io/open-platform-model/docs/catalog-opm` (the owner makes it public), and a throwaway `docs/spike` for section 1.
 - Workspace: the root `AGENTS.md` registry rule ("a version-named OCI tag is never overwritten") conflicts with the bundles' moving tags (`4.4.5`, `4.4`, `4`, `edge`); only full tags (`4.4.5.0`) are immutable. An owner item in `orchestration.md`, handled by a workspace PR, not here.

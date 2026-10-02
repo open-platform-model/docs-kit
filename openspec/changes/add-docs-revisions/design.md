@@ -57,7 +57,7 @@ A change to `metadata.description` is a value change and is refused: the member'
 |---|---|---|
 | `revision` | `workflow_dispatch` | checkout `main` with full history; `revise --tag <tag> --fix <sha>`; `push`; `cosign sign`; `promote` |
 
-Permissions as `release` (`contents: read`, `packages: write`, `id-token: write`); the `refs/heads/main` guard and the concurrency group apply, so two revisions of one project never race for a revision number.
+Permissions as `release` (`contents: read`, `packages: write`, `id-token: write`); the `refs/heads/main` guard and the GHCR read login apply. The job runs in the release's concurrency group, `docs-release-<project>-<version>` with `cancel-in-progress: false` (phase-1 C5), so revisions of one release are serialized, never race for a revision number, and never cancel the release publish.
 
 ## Risks / Trade-offs
 

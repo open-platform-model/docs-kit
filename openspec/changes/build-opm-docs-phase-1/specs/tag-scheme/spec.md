@@ -37,6 +37,10 @@ Release builds SHALL be ordered by SemVer 2.0.0 precedence of their `version` an
 - **WHEN** `promote` runs for a new build 4.4.6.0 and no newer 4.x build exists
 - **THEN** `4.4.6`, `4.4` and `4` point at 4.4.6.0
 
+#### Scenario: Concurrent releases leave the newest in place
+- **WHEN** 4.5.0.0 has moved `4`, and a slower publish of 4.4.6.0 reaches `promote` afterwards
+- **THEN** `promote` resolves `4` again, finds 4.5.0.0 newer than 4.4.6.0, and leaves `4` alone while moving `4.4.6` and `4.4`
+
 #### Scenario: An unsigned digest is not promoted
 - **WHEN** `promote` runs for a digest with no valid signature
 - **THEN** it exits 2 naming the digest and moves no tag

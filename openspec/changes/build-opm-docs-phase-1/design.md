@@ -174,7 +174,7 @@ Rules:
 2. **Full tags are immutable.** `push` refuses to write a full tag that already names a different digest ("`4.4.5.0` is already published as sha256:...; a documentation fix is a docs revision"). The same digest is a no-op, so a re-run of a failed workflow is safe.
 3. **Revision numbers.** A release's first build is revision `0`. A docs revision (change `add-docs-revisions`) takes `1 +` the highest revision published for that version, and is refused when revision `0` does not exist. Phase 1 publishes only revision `0`, but `promote` and `pull` already handle any revision.
 4. **Edge** builds carry `version: "edge"`, `revision: 0` and no full tag; they are pushed by digest and reached only through `edge`.
-5. **Moving a tag.** `promote --digest D` moves each moving tag of D's line to D only when D is the newest build of that tag's line, and only after D's signature verifies. It never points a tag at any other digest. Promote enumerates builds from every tag of the repository that equals `<version>.<revision>` of its own manifest's annotations; other tags (moving tags, `edge`, `sha256-*`) are not builds.
+5. **Moving a tag.** `promote --digest D` moves each moving tag of D's line to D only when D is the newest build of that tag's line, and only after D's signature verifies. Just before each move it resolves the tag's current build again and skips the move when that build is newer than D, because releases of different versions may publish at once (C5, Concurrency). It never points a tag at any other digest. Promote enumerates builds from every tag of the repository that equals `<version>.<revision>` of its own manifest's annotations; other tags (moving tags, `edge`, `sha256-*`) are not builds.
 6. **No release-branch bundles.** Every publishing mode runs on `refs/heads/main` (DESIGN decision 9); `pull` checks the same ref in the signature (C9).
 
 A consumer selects a tab's versions by tag name: every tag matching `^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$` (a minor tag) at or above the tab's `from`, plus `edge` when asked. It then trusts only the resolved manifest's annotations and `manifest.json`, and refuses a minor tag whose build's version is not in that minor.
@@ -191,7 +191,7 @@ Pinning a tag, not a SHA, is the plan (decided in planning): the signing certifi
 
 > **Known conflict, unresolved; left to review.** The org convention pins every action and reusable workflow by full commit SHA with the version in a comment (`@de0fac2e... # v6.0.2`), and SHA-pinning tools (Dependabot, actionlint rules, reviewers) expect it. This contract asks callers to pin `publish.yml` by tag instead. The alternative keeps the convention: callers pin `publish.yml@<full SHA> # v0.1.0`, the certificate SAN then ends in `@<SHA>`, and `pull`'s `signer.refs` becomes an allowlist of docs-kit release commit SHAs (each release adds its SHA to `site/bundles.cue`), instead of the `refs/tags/v*` glob. The cost is one site commit per docs-kit release; the gain is the org-wide pinning rule and no dependence on tag immutability. Nothing else in this design changes with the choice: C9's other checks, the tool-version literal and the modes are the same.
 
-**The tool version follows the ref.** `publish.yml` installs `opm-docs` from the docs-kit release named by a literal in the file, `OPM_DOCS_VERSION: "0.1.0" # x-release-please-version`, which release-please rewrites in every release PR. So `publish.yml@v0.3.0` always runs `opm-docs` 0.3.0, and a caller upgrades both with one ref bump. It downloads `opm-docs_<version>_linux_amd64.tar.gz` and `checksums.txt` from that release and checks the SHA-256 before installing.
+**The tool version follows the ref.** `publish.yml` installs `opm-docs` from the docs-kit release named by a literal in the file, `OPM_DOCS_VERSION: "0.1.0" # x-release-please-version`, which release-please rewrites in every release PR. So `publish.yml@v0.3.0` always runs `opm-docs` 0.3.0, and a caller upgrades both with one ref bump. It downloads `opm-docs_<version>_linux_amd64.tar.gz` and `checksums.txt` from that release and checks the SHA-256 before installing, exactly as C12 requires of every consumer.
 
 ```yaml
 on:
@@ -227,6 +227,8 @@ No secrets are declared: the workflow uses `github.token`. The caller's job MUST
 | `check` | `read` | `read` | none |
 | `edge`, `release` | `read` | `write` | `write` |
 
+**Registry read login.** Before `build` or `check` in every mode, the job logs in to `ghcr.io` with `github.token` (`docker login ghcr.io -u ${{ github.actor }} --password-stdin`), so the extractor's CUE dependency resolution (`opmodel.dev/core@v2` and the catalog's other dependencies on GHCR) is authenticated and not rate-limited. `check` needs only `packages: read` for this; the publishing modes' `packages: write` includes it. The same login is the credential `push` and `promote` use later.
+
 What each mode does (all but `check` refuse unless `github.ref` is `refs/heads/main`):
 
 | Mode | Caller runs it on | Steps |
@@ -237,13 +239,23 @@ What each mode does (all but `check` refuse unless `github.ref` is `refs/heads/m
 
 `add-docs-revisions` adds a `revision` mode (`workflow_dispatch`, inputs `tag` and `fix`, the same permissions as `release`) without changing these three. A caller on `v0.1.0` gets an error naming the mode if it asks for `revision`.
 
-Signing: `sigstore/cosign-installer` pinned by SHA with a pinned cosign v3 release, then `cosign sign --yes --new-bundle-format=true ghcr.io/open-platform-model/docs/<project>@<digest>`. Never a tag. The job sets `concurrency: {group: opm-docs-<repository>-<project>, cancel-in-progress: false}`, so two publishes of one project never race on revision numbers or tag moves. Every action is pinned by commit SHA with its version in a comment, like the sibling repositories' workflows.
+Signing: `sigstore/cosign-installer` pinned by SHA with a pinned cosign v3 release, then `cosign sign --yes --new-bundle-format=true ghcr.io/open-platform-model/docs/<project>@<digest>`. Never a tag. Every action is pinned by commit SHA with its version in a comment, like the sibling repositories' workflows.
 
-**Config for a release cut before the repository adopted docs-kit** (decided in planning): `build --source src` reads `src/docs-kit.cue` when the release tree has one, and the checked-out `main`'s `docs-kit.cue` otherwise. This is how catalog_opm publishes `4.4.5.0` for a release cut before its first `docs-kit.cue`, which DESIGN decision 8 needs.
+**Concurrency** (supervisor decision, 2026-10-02). GitHub keeps at most one running and one pending run per concurrency group, and a new pending run cancels the older pending one whatever `cancel-in-progress` says. One shared group per project would therefore let a burst of `main` pushes cancel a queued release publish. The job uses separate groups:
+
+| Mode | Group | `cancel-in-progress` | Why |
+|---|---|---|---|
+| `check` | none | n/a | writes nothing |
+| `edge` | `docs-edge-<project>` | `true` | only the newest `main` matters; a cancelled run leaves at most an unpromoted digest, which the next run supersedes |
+| `release` | `docs-release-<project>-<version>` | `false` | a re-run of one release waits for the running one; no other run can cancel it |
+
+`add-docs-revisions` puts the `revision` mode in the same `docs-release-<project>-<version>` group, so revisions of one release are serialized (their revision numbers depend on it) and a revision never cancels its release. Releases of different versions may run at once. `promote` stays correct under that: before moving a tag it resolves the tag's current build and skips the move when that build is already newer than D (C4 rule 5), so a slower, older publish never pulls `4` or `4.4` back.
+
+**Config and sources for a release cut before the repository adopted docs-kit** (decided in planning, sources clarified by supervisor decision 2026-10-02): `build --source src` reads `src/docs-kit.cue` when the release tree has one, and the checked-out `main`'s `docs-kit.cue` otherwise. Only the config comes from `main`: every source in it (the `cue-catalog` `module` and the `markdown` `dir`) resolves against the release tree at `src/`, so the bundle documents the release, never `main`. When the config came from `main` and a `markdown` dir does not exist in the release tree, that source yields no pages and is not an error; the bundle then has only the generated landing (C8). In every other build a missing `markdown` dir is an error, so a typo in `docs-kit.cue` fails the PR check. This is how catalog_opm publishes `4.4.5.0` for a release cut before its first `docs-kit.cue`, which DESIGN decision 8 needs.
 
 ### C6. `docs-kit.cue`
 
-One file at the repository root, validated against `schema/config.cue`:
+One file at the repository root, validated against `schema/config.cue`. A `package` clause is optional and ignored: the file is loaded as a single CUE file and its top-level fields are validated, whatever package it names or whether it names one.
 
 ```cue
 package schema
@@ -274,7 +286,7 @@ package schema
 })
 ```
 
-`bundles` is keyed by project because one repository can publish several, as core and cli will in phase 2 and catalog_opm would with a second catalog (decided in planning; DESIGN.md shows a single top-level `project`). Phase 1 has one entry. A `layout` choice for catalogs is left out until a second layout has a consumer. The `markdown` kind in phase 1 copies one directory of authored pages, lints them and records their git dates; phase 3 extends it, it does not replace it. A path in content/ written by two sources fails the build, except a root `_index.md` from a `markdown` source, which replaces the renderer's generated landing.
+`bundles` is keyed by project because one repository can publish several, as core and cli will in phase 2 and catalog_opm would with a second catalog (decided in planning; DESIGN.md shows a single top-level `project`). Phase 1 has one entry. A `layout` choice for catalogs is left out until a second layout has a consumer. The `markdown` kind in phase 1 copies one directory of authored pages, lints them and records their git dates; phase 3 extends it, it does not replace it. A path in content/ written by two sources fails the build, except a root `_index.md` from a `markdown` source: it does not replace the generated landing, the renderer appends its generated block to it (C8).
 
 catalog_opm's file, as the sibling change writes it:
 
@@ -391,7 +403,7 @@ Page paths the renderer writes:
 
 | Path | Page |
 |---|---|
-| `_index.md` | landing: generated, or the authored one (catalog_opm supplies the contract page) |
+| `_index.md` | landing: the authored root `_index.md` when a `markdown` source has one (catalog_opm supplies the contract page), followed by the generated "Catalog members" block; otherwise a generated page holding only that block |
 | `blueprints/_index.md`, `resources/_index.md`, `traits/_index.md` | kind index, weights 1, 2, 3 |
 | `<kind>/<name>.md` | the member page of the newest `apiVersion` of that name and kind |
 | `<kind>/<name>-<apiVersion>.md` | every older `apiVersion` of the same name and kind in the same build |
@@ -513,6 +525,14 @@ Written by `cue-catalog` (schema id `docs.opmodel.dev/data/cue-catalog/v1`). Pha
 
 Every violation prints as `<file>:<line>: <message>`, the shell lint's format.
 
+### C12. Tool distribution
+
+Callers and the site never `go run` or `go install` `opm-docs` (supervisor decision, 2026-10-02): every consumer runs a released binary, so the bytes that built a bundle are the bytes a release names.
+
+- **Assets.** Every docs-kit release `vX.Y.Z` carries `opm-docs_X.Y.Z_<os>_<arch>.tar.gz` for `linux_amd64`, `linux_arm64`, `darwin_arm64` and `darwin_amd64` (each holding the `opm-docs` binary and `LICENSE`), and `checksums.txt` (SHA-256, `sha256sum` format, one line per archive). Built by goreleaser in a draft-first release workflow, the pattern cli already uses (decided in planning: the owner's draft-first runbook, the immutable-release setting and reviewers' knowledge carry over unchanged; a hand-rolled Task build would re-implement archives and checksums for no gain). URL: `https://github.com/open-platform-model/docs-kit/releases/download/vX.Y.Z/<asset>`.
+- **Pin file.** A consumer that runs the tool outside `publish.yml` (opmodel.dev for `pull`, catalog_opm for its local `docs:bundle` tasks) pins it in a repo-root file `.opm-docs-version`: one line, the release tag (`v0.1.0`), matching `^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$`. `publish.yml` pins itself through its `OPM_DOCS_VERSION` literal (C5). In a repository that has both, the `.opm-docs-version` tag and the `publish.yml@` ref name the same release and move in one PR.
+- **Verification.** Download the archive and `checksums.txt` for the host's os and arch, check with `grep ' <archive>$' checksums.txt | sha256sum -c -` (refusing an archive with no line), then extract only `opm-docs`. A failed check stops the task; nothing falls back to building from source. The install target is a gitignored repo-local directory (`.bin/` or `site/.bin/`), never a global path.
+
 ### Site decisions recorded here (supervisor, 2026-10-02; the owner may override)
 
 These are the opmodel.dev change's to build, recorded here so docs-kit's pull output and the sibling plan agree:
@@ -582,7 +602,19 @@ The mark strings, kept from refgen byte for byte:
 > This catalog defines the %s and ships no transformer that handles it. On a platform where no other catalog handles it, %s.
 ```
 
-with `%s` "a component that attaches it still renders, and the render warns that the trait is not handled and ignores its values" for an advisory trait, else "rendering a component that declares it fails" (resource) or "... that attaches it fails" (trait). The kind index lists the marked members in the two sentences refgen writes today. The generated landing (when no authored `_index.md` is supplied) states the module path, the version (or edge commit) and links each kind index with its count.
+with `%s` "a component that attaches it still renders, and the render warns that the trait is not handled and ignores its values" for an advisory trait, else "rendering a component that declares it fails" (resource) or "... that attaches it fails" (trait). The kind index lists the marked members in the two sentences refgen writes today. The landing always ends with a generated block (supervisor decision, 2026-10-02):
+
+```markdown
+## Catalog members
+
+`opmodel.dev/catalogs/opm@v4` version `4.4.5`.
+
+- [Blueprints](/catalogs/opm/4.4/blueprints/): 5
+- [Resources](/catalogs/opm/4.4/resources/): 12
+- [Traits](/catalogs/opm/4.4/traits/): 28
+```
+
+For edge the second line reads "`<module path>` at `main` (commit `<12 hex>`), unreleased." When a `markdown` source supplies a root `_index.md`, its front matter and body come first, unchanged except for C8's alias pinning, then one blank line and the block; the authored body must not already hold a `## Catalog members` heading (the build refuses it, naming the file). The page is recorded in `manifest.json` with `generated: false` and `source` the authored file. Without an authored landing, the renderer writes front matter (`title` "<catalog name> catalog", `description` "Every member of `<module path>`, by kind.") and the block alone, `generated: true`.
 
 No page carries a generator marker comment: a bundle's pages are wholly generated and never committed, so there is no authored text to keep apart (decided in planning).
 
@@ -638,7 +670,8 @@ No page carries a generator marker comment: a bundle's pages are wholly generate
 
 | Decision | Lands in |
 |---|---|
-| C1 to C11, the contracts | `docs/contracts.md` (new), linked from `AGENTS.md` and `README.md` |
+| C1 to C12, the contracts | `docs/contracts.md` (new), linked from `AGENTS.md` and `README.md` |
 | How callers pin `publish.yml` (a tag, or a SHA allowlist if review chooses it; C5) | `docs/contracts.md` C5 and `README.md` "Using the workflow" |
 | Commands, flags, exit codes | `README.md` "Commands" |
+| Consumers install a released, checksum-verified `opm-docs` pinned in `.opm-docs-version`, never `go run` (C12) | `docs/contracts.md` C12 and `README.md` "Installing" |
 | How to release docs-kit, and that `publish.yml`'s version literal is release-please's | `AGENTS.md` |

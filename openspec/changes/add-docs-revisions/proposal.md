@@ -29,5 +29,5 @@ Scope: three implementation sections, then the archive step.
 ## Impact
 
 - Code: `internal/gitsrc` (worktrees, cherry-pick, the documentation-only check), `cmd/opm-docs/revise.go`, `.github/workflows/publish.yml`, `README.md`.
-- Consumers: catalog_opm moves `docs.yml` and its Taskfile to `v0.2.0` and adds `revision` (with a `fix` input) to its dispatch choices: a `ci` PR, no OpenSpec change. opmodel.dev: nothing; `pull` already handles revisions.
+- Consumers: catalog_opm moves `docs.yml` and its `.opm-docs-version` to `v0.2.0` and adds `revision` (with a `fix` input) to its dispatch choices: a `ci` PR, no OpenSpec change. opmodel.dev: nothing; `pull` already handles revisions.
 - Risk: a fix that touches code and docs is refused whole; the author splits it, or ships a patch release.
