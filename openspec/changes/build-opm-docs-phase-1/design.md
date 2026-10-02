@@ -1,0 +1,654 @@
+# Design: build-opm-docs-phase-1
+
+## Context
+
+`DESIGN.md` is the approved design and its twelve decisions bind this change. Phase 1 builds `opm-docs` far enough to publish the opm catalog's reference as a signed OCI bundle from catalog_opm's CI, and to let opmodel.dev pull it into a Catalogs tab. Two sibling changes carry the other repositories' halves (`orchestration.md`). This document fixes every contract those siblings depend on, so they can be planned and built against it without reading docs-kit's code.
+
+What exists today, and what phase 1 learns from:
+
+| Generator | Lines | What phase 1 keeps |
+|---|---|---|
+| catalog_opm `tools/refgen` | 2,042 | Port target. Member enumeration from the catalog maps, served-by and blueprint matching, the two marks, the enforcement rows, the spec block (authored `spec:` plus in-module definitions it references), doc-comment cleanup, citation stripping, Markdown escaping. |
+| core `tools/refgen` | 1,790 | Learn from: `SPEC.md §` and experiment-reference stripping, the colon-only citation form, the WHY line inside a doc comment, `{{<` refusal. Ported in phase 2. |
+| cli `internal/cmdref` | ~1,180 | Learn from: shortcode escaping `{{</* */>}}`, line-start escaping. Phase 2 (`cobra` with `cobradump`). |
+| opm-operator `hack/crdref` | 950 | Learn from: citations linked rather than stripped, schema-derived rules. Phase 2 (`crd`). |
+
+The shared rules phase 1 ports, stated once so later extractors reuse them (package names in "Packages" below):
+
+- **Maintainer comments.** Inside a definition, a comment group whose first line (after `//` and trimming) starts with `WHY` or with `//` (a `////` banner) is dropped. A `WHY` line inside a doc comment is dropped on its own (core's rule, adopted now).
+- **Citations.** Removed from prose and from comments in spec blocks. The pattern accepts `0010:D28`, `0010 D28`, `OQ` numbers, `:R2` and `/R1/R2` requirement suffixes, `/D9` continuations, lists joined by `,`, `;` or `and`, an optional `(see|per|enhancement)` lead and the parenthesised form; then refgen's six clean-up rewrites (empty parens, comma before paren, space after paren, space before punctuation, double spaces, trim). Also removed: `See SPEC.md § N.` sentences, inline `SPEC.md § N`, `NNNN experiment N` and `enhancements/NNNN/experiments/...` (core's rules, adopted now). A changed comment paragraph in a spec block is re-wrapped to `80 - indent - 3` columns, minimum 40; an unchanged one keeps its breaks; a trailing comment that becomes empty is removed.
+- **Summary.** A member's doc comment opens with `metadata.description` plus `.` (whitespace collapsed), or the build refuses the member naming both texts. The summary is the page's front-matter `description` and is not repeated in the body. The remaining paragraphs are the notes.
+- **Escaping.** Outside backtick code spans: `\ < > * _ [ ] |` are backslash-escaped and `{{` becomes `{\{`. A table cell escapes every `|`, inside code spans too. A code span lengthens its fence past any backtick it holds. A YAML front-matter string escapes `\` and `"`. A rendered page that still holds `{{<` or `{{%` fails the build.
+- **Doc-note links.** `docs/<name>.md` in prose becomes a link to that file on the source repository at the bundle's commit, only when the file exists and the text is outside a code span.
+- **Marks.** A resource or trait that no transformer in its own catalog requires or optionally reads is marked **Provided by your platform** when its `fulfilment` default is `provider`, and **Not implemented** otherwise; a blueprint is never marked. Exact strings in "Page renderer".
+- **Enforcement tags.** Only where derivable: the spec schema and each required match label are enforced by `cue`; a provider-fulfilled contract's single provider and a load-bearing trait's refused render are enforced by the `kernel`. Nothing else is tagged.
+
+## Goals / Non-Goals
+
+**Goals:**
+
+- `opm-docs build`, `lint`, `check`, `push`, `promote`, `pull` and `revise`, with the `cue-catalog` extractor, a minimal `markdown` source, the renderer and the dialect lint.
+- The bundle format, the tag scheme, `docs-kit.cue`, the pull config and the lock, each with a CUE schema embedded in the tool.
+- The reusable workflow `publish.yml`, cosign keyless signing in it, and signature verification in `pull` and `promote`.
+- docs-kit's own CI and release, so a caller can pin `publish.yml@v0.1.0`.
+
+**Non-Goals:**
+
+- The `cue-definitions`, `crd`, `cobra` and `go-api` extractors, `cobradump`, `opm-docs serve`, git-date-aware authored pages for whole `docs/site/` trees (phases 2 and 3).
+- Version history badges (phase 1b). Phase 1 only extracts the structured spec they need.
+- Any edit in catalog_opm or opmodel.dev. Their changes are specified in `orchestration.md`.
+
+## Contracts
+
+Everything in this section is read by another repository. A change to any of it follows constitution Principle II.
+
+### C1. Where bundles live
+
+```text
+ghcr.io/open-platform-model/docs/<project>
+```
+
+| Project | Source | Release tag prefix | Placement |
+|---|---|---|---|
+| `catalog-opm` | catalog_opm `opm/` (`opmodel.dev/catalogs/opm@v4`) | `opm-v` | tab, `/catalogs/opm/` |
+| `catalog-k8s` | catalog_opm `k8s/` (`opmodel.dev/catalogs/k8s@v1`) | `k8s-v` | tab, `/catalogs/k8s/` (decided in planning, see R2) |
+
+A project name matches `^[a-z0-9]+(-[a-z0-9]+)*$`. Phases 2 and 3 add `core`, `cli`, `opm-operator`, `library` and `opm` under the same path.
+
+### C2. Media types and annotations
+
+An OCI 1.1 image manifest, packed with `oras.PackManifestVersion1_1`:
+
+| Part | Value |
+|---|---|
+| `artifactType` | `application/vnd.opmodel.docs.bundle.v1` |
+| config | the empty descriptor, `application/vnd.oci.empty.v1+json` (`{}`) |
+| layers | exactly one, `application/vnd.opmodel.docs.bundle.layer.v1.tar+gzip` |
+
+Manifest annotations:
+
+| Annotation | Value |
+|---|---|
+| `org.opencontainers.image.version` | the release version (`4.4.5`, `1.0.0-beta.2`) or `edge` |
+| `org.opencontainers.image.revision` | the 40-hex source commit (`source.commit`) |
+| `org.opencontainers.image.source` | `https://github.com/<owner>/<repo>` of the **calling** repository |
+| `org.opencontainers.image.created` | the source commit's committer time, RFC 3339 UTC (decided in planning: DESIGN.md says build time, which would change the digest of every rebuild) |
+| `dev.opmodel.docs.project` | the project, `catalog-opm` |
+| `dev.opmodel.docs.revision` | the docs revision, decimal (`0` for edge) |
+| `dev.opmodel.docs.dialect` | the page-dialect version the content passed, decimal |
+| `dev.opmodel.docs.tool` | the `opm-docs` version that built it, without `v` |
+
+`org.opencontainers.image.source` names the calling repository because GHCR links a new package to the repository named there, and the workflow's `GITHUB_TOKEN` can create a package only when that link is in its first push.
+
+The layer is a gzip-compressed tar of the bundle tree (C3), built deterministically: entries sorted by path, directories before their contents, mode `0644` for files and `0755` for directories, uid and gid `0`, empty user and group names, modification time equal to `created`, no extended headers, gzip header with no name and no time. The same source, config and tool version give the same digest.
+
+**Spike fallback (only if section 1 finds GHCR rejects the form above).** Outcome B: no `artifactType`, config media type `application/vnd.opmodel.docs.bundle.config.v1+json` whose content is `manifest.json`, the same layer and annotations. Both producer and consumer are `opm-docs`, so outcome B changes no sibling contract; the spike records which outcome holds in this section.
+
+Signatures are cosign v3 Sigstore bundles (`--new-bundle-format=true`): a referrer manifest with `artifactType` `application/vnd.dev.sigstore.bundle.v0.3+json` whose subject is the bundle's digest. GHCR has no referrers API, so the referrer is stored under the fallback tag `sha256-<hex>`; every consumer ignores tags of that form when it lists versions.
+
+### C3. Bundle tree and `manifest.json`
+
+```text
+manifest.json
+content/      pages in the page dialect, paths relative to the bundle's URL root (C8)
+data/         the doc model, JSON, one file per extractor kind (C10)
+```
+
+Nothing else is allowed at the top level. `schema/manifest.cue`, embedded in the tool, validates `manifest.json` on build, push and pull:
+
+```cue
+package schema
+
+import (
+	"list"
+	"time"
+)
+
+#Manifest: close({
+	schema:   "docs.opmodel.dev/bundle/v1"
+	project:  #Project
+	version:  #Version
+	revision: int & >=0
+	if version == "edge" {revision: 0}
+	source: close({
+		repo:   =~"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" // "open-platform-model/catalog_opm"
+		commit: #SHA                                  // the commit built (a revision: the release commit)
+		ref:    string & !=""                         // the release tag "opm-v4.4.5", or the branch built ("main" for edge)
+		dirty?: true                                  // built from a work tree with uncommitted changes; push refuses it
+		// A docs revision only: the fix commits applied to the release tree, oldest first,
+		// every earlier revision's fixes included (decided in planning).
+		patches?: [#SHA, ...#SHA]
+	})
+	tool:      #SemVer // the opm-docs version, without "v"
+	dialect:   int & >=1
+	placement: #Placement
+	pages: list.MinItems(1) & [...#Page]
+	data: [...#DataFile]
+})
+
+#Project:  =~"^[a-z0-9]+(-[a-z0-9]+)*$"
+#SHA:      =~"^[0-9a-f]{40}$"
+#SemVer:   =~"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"
+#Version:  #SemVer | "edge"
+
+#Placement: close({
+	// "tab": its own section with its own versions, /catalogs/<name>/<MAJOR.MINOR>/.
+	// "docs": merged into a site version's /docs/ tree (phase 2; refused by phase-1 pull).
+	kind: "tab" | "docs"
+	if kind == "tab" {root: =~"^/catalogs/[a-z0-9]+(-[a-z0-9]+)*/$"}
+	if kind == "docs" {root: "/docs/"}
+})
+
+#Page: close({
+	path:      =~"^([a-z0-9]+(-[a-z0-9]+)*/)*(_index|[a-z0-9]+(-[a-z0-9]+)*)\\.md$" // under content/
+	source?:   string & !=""  // repo-relative file the page came from ("Edit this page", "View source")
+	lastmod?:  time.Time      // that file's last commit date at the commit built, RFC 3339
+	generated: bool           // generated reference, or an authored page
+})
+
+#DataFile: close({
+	path:   =~"^[a-z0-9-]+\\.json$" // under data/
+	schema: string & !=""           // the file's own schema id, e.g. "docs.opmodel.dev/data/cue-catalog/v1"
+})
+```
+
+Tightened from DESIGN.md: closed structs, the SHA and SemVer patterns, `revision: 0` for edge, `patches`, typed `data` entries, and a placement root bound to its kind. `pages` lists every file under `content/`, and only those; `data` lists every file under `data/`, and only those. `lastmod` is set when the checkout has the file's history (the workflow checks out with full history) and omitted otherwise.
+
+### C4. Tags
+
+A **build** is one pushed manifest. Its identity is read from its annotations (`version`, `revision`), never parsed out of a tag name.
+
+| Tag | Example | Points at | Moves |
+|---|---|---|---|
+| full | `4.4.5.0`, `4.4.5.1`, `1.0.0-beta.2.0` | one build: `<version>.<revision>` | never; written once |
+| release | `4.4.5`, `1.0.0-beta.2` | the newest revision of that version | on a docs revision |
+| minor | `4.4`, `1.0` | the newest build whose version has that MAJOR.MINOR, prereleases included | on a patch, a prerelease or a revision |
+| major | `4`, `1` | the newest build with that MAJOR, prereleases included | on a minor, patch, prerelease or revision |
+| edge | `edge` | the newest build of `main` | on every push to `main` |
+
+Rules:
+
+1. **Order.** Builds of released versions order by SemVer 2.0.0 precedence of `version`, then numerically by `revision`. `4.4.5.1` follows `4.4.5.0` and precedes `4.4.6.0`; `4.5.0-rc.1.0` follows `4.4.6.0`. Edge builds take no part in the order.
+2. **Full tags are immutable.** `push` refuses to write a full tag that already names a different digest ("`4.4.5.0` is already published as sha256:...; a documentation fix is a docs revision"). The same digest is a no-op, so a re-run of a failed workflow is safe.
+3. **Revision numbers.** A release's first build is revision `0`. `revise` takes `1 +` the highest revision published for that version, and refuses when revision `0` does not exist.
+4. **Edge** builds carry `version: "edge"`, `revision: 0` and no full tag; they are pushed by digest and reached only through `edge`.
+5. **Moving a tag.** `promote --digest D` moves each moving tag of D's line to D only when D is the newest build of that tag's line, and only after D's signature verifies. It never points a tag at any other digest. Promote enumerates builds from every tag of the repository that equals `<version>.<revision>` of its own manifest's annotations; other tags (moving tags, `edge`, `sha256-*`) are not builds.
+6. **No release-branch bundles.** Every publishing mode runs on `refs/heads/main` (DESIGN decision 9); `pull` checks the same ref in the signature (C9).
+
+A consumer selects a tab's versions by tag name: every tag matching `^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$` (a minor tag) at or above the tab's `from`, plus `edge` when asked. It then trusts only the resolved manifest's annotations and `manifest.json`, and refuses a minor tag whose build's version is not in that minor.
+
+### C5. The reusable workflow
+
+File `.github/workflows/publish.yml` in this repository. A caller pins a docs-kit **tag**:
+
+```yaml
+uses: open-platform-model/docs-kit/.github/workflows/publish.yml@v0.1.0
+```
+
+Pinning a tag, not a SHA, is required (decided in planning): the signing certificate names the workflow at the ref the caller wrote, and `pull` accepts only `refs/tags/v*` (C9). docs-kit's tags are immutable once the owner adds docs-kit to the tag rulesets (`orchestration.md`, owner setup).
+
+**The tool version follows the ref.** `publish.yml` installs `opm-docs` from the docs-kit release named by a literal in the file, `OPM_DOCS_VERSION: "0.1.0" # x-release-please-version`, which release-please rewrites in every release PR. So `publish.yml@v0.3.0` always runs `opm-docs` 0.3.0, and a caller upgrades both with one ref bump. It downloads `opm-docs_<version>_linux_amd64.tar.gz` and `checksums.txt` from that release and checks the SHA-256 before installing.
+
+```yaml
+on:
+  workflow_call:
+    inputs:
+      project:
+        description: The project, a key under `bundles` in the caller's docs-kit.cue
+        type: string
+        required: true
+      mode:
+        description: "check | edge | release | revision"
+        type: string
+        required: true
+      tag:
+        description: release and revision modes, the release's git tag (opm-v4.4.5)
+        type: string
+        default: ""
+      fix:
+        description: revision mode, the 40-hex commit on main whose documentation change to apply
+        type: string
+        default: ""
+      cue-registry:
+        description: CUE_REGISTRY for the extractors
+        type: string
+        default: "opmodel.dev=ghcr.io/open-platform-model,registry.cue.works"
+    outputs:
+      digest:
+        description: The pushed manifest digest (empty in check mode)
+      tag:
+        description: The full tag written (empty in check and edge modes)
+```
+
+No secrets are declared: the workflow uses `github.token`. The caller's job MUST grant:
+
+| Mode | `contents` | `packages` | `id-token` |
+|---|---|---|---|
+| `check` | `read` | `read` | none |
+| `edge`, `release`, `revision` | `read` | `write` | `write` |
+
+What each mode does (all but `check` refuse unless `github.ref` is `refs/heads/main`):
+
+| Mode | Caller runs it on | Steps |
+|---|---|---|
+| `check` | `pull_request` | checkout the PR head; `opm-docs check --project P` |
+| `edge` | `push` to `main` | checkout `github.sha` with full history; `build --edge`; `push`; `cosign sign`; `promote` |
+| `release` | the job that runs release-please, gated on that package's release (not on `release: published`); or `workflow_dispatch` for a release that has no bundle yet | checkout `main` and, at `src/`, the tag with full history; `build --release <tag> --source src`; `push`; `cosign sign`; `promote` |
+| `revision` | `workflow_dispatch` | checkout `main` with full history; `revise --tag <tag> --fix <sha>`; `push`; `cosign sign`; `promote` |
+
+Signing: `sigstore/cosign-installer` pinned by SHA with a pinned cosign v3 release, then `cosign sign --yes --new-bundle-format=true ghcr.io/open-platform-model/docs/<project>@<digest>`. Never a tag. The job sets `concurrency: {group: opm-docs-<repository>-<project>, cancel-in-progress: false}`, so two publishes of one project never race on revision numbers or tag moves. Every action is pinned by commit SHA with its version in a comment, like the sibling repositories' workflows.
+
+**Config for a release cut before the repository adopted docs-kit** (decided in planning): `build --source src` reads `src/docs-kit.cue` when the release tree has one, and the checked-out `main`'s `docs-kit.cue` otherwise. This is how catalog_opm publishes `4.4.5.0` for a release cut before its first `docs-kit.cue`, which DESIGN decision 8 needs.
+
+### C6. `docs-kit.cue`
+
+One file at the repository root, validated against `schema/config.cue`:
+
+```cue
+package schema
+
+#Config: close({
+	bundles: [#Project]: #Bundle
+})
+
+#Bundle: close({
+	placement: #Placement
+	version: close({
+		from:   "tag"          // phase 1: the release version comes from the git tag
+		prefix: string & !=""  // "opm-v": tag "opm-v4.4.5" is version "4.4.5"
+	})
+	sources: [#Source, ...#Source]
+})
+
+#Source: #CueCatalog | #Markdown
+
+#CueCatalog: close({
+	kind:   "cue-catalog"
+	module: =~"^\\./[^/]"     // the CUE module root, repo-relative: "./opm"
+	layout: *"members" | "table"
+})
+
+#Markdown: close({
+	kind: "markdown"
+	dir:  =~"^[^/.][^.]*$"    // repo-relative directory, copied to content/ as it is
+})
+```
+
+`bundles` is keyed by project because one repository can publish several (decided in planning; DESIGN.md shows a single top-level `project`). The `markdown` kind in phase 1 copies one directory of authored pages, lints them and records their git dates; phase 3 extends it, it does not replace it. A path in content/ written by two sources fails the build, except a root `_index.md` from a `markdown` source, which replaces the renderer's generated landing.
+
+catalog_opm's file, as the sibling change writes it:
+
+```cue
+bundles: {
+	"catalog-opm": {
+		placement: {kind: "tab", root: "/catalogs/opm/"}
+		version: {from: "tag", prefix: "opm-v"}
+		sources: [
+			{kind: "cue-catalog", module: "./opm"},
+			{kind: "markdown", dir: "docs/catalogs/opm"},
+		]
+	}
+	"catalog-k8s": {
+		placement: {kind: "tab", root: "/catalogs/k8s/"}
+		version: {from: "tag", prefix: "k8s-v"}
+		sources: [
+			{kind: "cue-catalog", module: "./k8s", layout: "table"},
+			{kind: "markdown", dir: "docs/catalogs/k8s"},
+		]
+	}
+}
+```
+
+### C7. Pull config, unpack layout and lock
+
+The site's `site/bundles.cue`, validated against `schema/pull.cue`:
+
+```cue
+package schema
+
+#Pull: close({
+	registry: *"ghcr.io/open-platform-model/docs" | string
+	signer: close({
+		issuer:   *"https://token.actions.githubusercontent.com" | string
+		workflow: *"https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml" | string
+		refs: *["refs/tags/v*"] | [string, ...string] // glob over the workflow ref in the certificate
+	})
+	tabs: [#Project]: close({
+		repo: =~"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" // the only repository allowed to sign this project
+		root: =~"^/catalogs/[a-z0-9]+(-[a-z0-9]+)*/$"
+		from: =~"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" // the oldest minor shown
+		edge: *true | bool
+	})
+	// Phase 2 adds `versions:` for bundles placed in a site version's /docs/.
+})
+```
+
+The file opmodel.dev writes:
+
+```cue
+tabs: {
+	"catalog-opm": {repo: "open-platform-model/catalog_opm", root: "/catalogs/opm/", from: "4.4"}
+	"catalog-k8s": {repo: "open-platform-model/catalog_opm", root: "/catalogs/k8s/", from: "1.0"}
+}
+```
+
+Command:
+
+```text
+opm-docs pull --config site/bundles.cue --out site/.bundles --lock site/.bundles/lock.json
+              [--frozen <lock>] [--offline] [--local <project>=<dir>]...
+```
+
+- Default: list each tab's tags (C4), resolve, verify (C9), fetch the layer **by digest** after verification, unpack, lint, write the lock.
+- `--frozen <lock>`: pull exactly the digests in that lock, no tag resolution; verification and lint still run. The recovery path, as `frozen.conf` is for site versions.
+- `--offline`: no network; requires `--frozen` and every blob in the cache. Fails naming the first missing digest.
+- `--local catalog-opm=../catalog_opm/out/catalog-opm`: take that project from a local `opm-docs build` output instead of the registry, unsigned, as one segment named by its manifest (`edge` for a local build). The lock marks it `"local": true`. For an author's preview only; CI never passes it.
+- Cache: blobs under `$XDG_CACHE_HOME/opm-docs/blobs/sha256/<hex>` (else `~/.cache/...`), reused by digest. The Sigstore trusted root is cached beside it.
+
+Unpack layout, owned entirely by `pull` (it removes any project or segment directory it did not write this run):
+
+```text
+site/.bundles/
+  lock.json
+  catalog-opm/
+    4.4/      manifest.json  content/  data/
+    4.5/      ...
+    edge/     ...
+  catalog-k8s/
+    1.0/      ...
+    edge/     ...
+```
+
+The segment directory is the URL segment: `<MAJOR>.<MINOR>` of the build's version, or `edge`. Unpacking refuses an absolute path, `..`, a symlink, a hard link, a device or FIFO, a duplicate path, a top-level entry other than `manifest.json`, `content/` and `data/`, more than 10,000 entries, or more than 64 MiB uncompressed; and checks every file is listed in `manifest.json` and every listed file exists.
+
+Lock, `schema/lock.cue` (`docs.opmodel.dev/lock/v1`), written with sorted keys and no timestamps, so the same resolution writes the same bytes:
+
+```json
+{
+  "schema": "docs.opmodel.dev/lock/v1",
+  "tool": "0.1.0",
+  "config": "sha256:<hex of the bundles.cue bytes>",
+  "bundles": [
+    {
+      "project": "catalog-opm",
+      "segment": "4.4",
+      "tag": "4.4",
+      "repository": "ghcr.io/open-platform-model/docs/catalog-opm",
+      "digest": "sha256:<hex>",
+      "version": "4.4.5",
+      "revision": 1,
+      "commit": "<40 hex>",
+      "dialect": 1,
+      "builtBy": "0.1.0",
+      "signer": {
+        "workflow": "https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml@refs/tags/v0.1.0",
+        "repository": "https://github.com/open-platform-model/catalog_opm",
+        "ref": "refs/heads/main"
+      },
+      "dir": "catalog-opm/4.4"
+    }
+  ]
+}
+```
+
+Entries sort by project, then by version newest first, `edge` last. A `local` entry has `"local": true` and `"dir"`, and no `digest`, `repository` or `signer`.
+
+### C8. URLs and links
+
+A tab bundle's `content/<path>` publishes at `<root><segment>/<page URL>`, where `x/_index.md` is `x/` and `x/y.md` is `x/y/`. For `catalog-opm` 4.4: `content/traits/backup.md` is `/catalogs/opm/4.4/traits/backup/`; edge is `/catalogs/opm/edge/traits/backup/`.
+
+Page paths the renderer writes:
+
+| Layout | Path | Page |
+|---|---|---|
+| `members` | `_index.md` | landing: generated, or the authored one (catalog_opm supplies the contract page) |
+| `members` | `blueprints/_index.md`, `resources/_index.md`, `traits/_index.md` | kind index, weights 1, 2, 3 |
+| `members` | `<kind>/<name>.md` | the member page of the newest `apiVersion` of that name and kind |
+| `members` | `<kind>/<name>-<apiVersion>.md` | every older `apiVersion` of the same name and kind in the same build |
+| `table` | `_index.md` | landing: generated, or authored |
+| `table` | `resources.md` | the one generated table of every member |
+
+The newest `apiVersion` is the most stable level, then the highest number (`v1` > `v1beta2` > `v1beta1` > `v1alpha1`). So the bare path names the newest contract of a name in every minor, and the switcher keeps a reader on it (decided in planning; refgen suffixes both pages instead).
+
+Links the renderer writes, and the forms the dialect lint (C11) allows:
+
+| From | To | Form |
+|---|---|---|
+| a tab page | a page of the same bundle | `<root><segment>/<path>/`, e.g. `/catalogs/opm/4.4/resources/volumes/`; must resolve inside the bundle |
+| a tab page | another catalog | its major alias, `/catalogs/k8s/1/...` |
+| a tab page | the docs | `/docs/<section>/<page>/`; the site resolves it in its default version |
+| a tab page | an enhancement | `/enhancements/<NNNN>/` or `/enhancements/<NNNN>/<document>/` |
+| a docs page (any repository's `docs/site/`) | a catalog | `/catalogs/<name>/<MAJOR>/` plus an optional page path; never a minor or `edge` |
+
+An authored page in a bundle (a `markdown` source) links into its own catalog through the major alias, `/catalogs/<name>/<MAJOR>/<path>/`, the form that also reads correctly on GitHub and in docs mode. When `<MAJOR>` is the build's major (or the build is edge), the `markdown` source rewrites that link to the build's own segment, `/catalogs/<name>/<segment>/<path>/`, before bundle-mode lint checks that it names a page of the bundle (decided in planning).
+
+Aliases the site serves: `/catalogs/<name>/` and `/catalogs/<name>/<MAJOR>/` go to the newest minor (of that major), and `/catalogs/<name>/<MAJOR>/<path>/` to the same path in that minor, so docs pages can deep-link through the alias. For `catalog-opm` the contract page is the landing, so `/catalogs/opm/4/` replaces `/docs/reference/catalog-contract/`.
+
+### C9. Signing identity
+
+Every publishing mode signs the pushed digest with cosign keyless from the reusable workflow's GitHub OIDC token. The certificate's subject is the **reusable** workflow; the caller appears only in Fulcio's extensions. `pull` and `promote` accept a bundle only when its Sigstore bundle verifies with sigstore-go against the public-good trusted root (signed certificate timestamp, transparency-log entry and an observer timestamp, one each), with an artifact digest equal to the manifest digest, and:
+
+| Certificate field | Must equal |
+|---|---|
+| issuer | `https://token.actions.githubusercontent.com` |
+| SAN (Build Signer URI) | `https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml@<ref>` with `<ref>` matching a `signer.refs` glob, default `refs/tags/v*` |
+| Source Repository URI | `https://github.com/<tabs[project].repo>` |
+| Source Repository Ref | `refs/heads/main` |
+
+The Source Repository URI check is the tenant check: without it any repository calling `publish.yml` could sign a bundle for another project. `promote` applies the same policy with the repository taken from `GITHUB_REPOSITORY`. Humans can check the same thing:
+
+```text
+cosign verify ghcr.io/open-platform-model/docs/catalog-opm@sha256:<hex> \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github\.com/open-platform-model/docs-kit/\.github/workflows/publish\.yml@refs/tags/v' \
+  --certificate-github-workflow-repository open-platform-model/catalog_opm \
+  --certificate-github-workflow-ref refs/heads/main
+```
+
+### C10. The doc model, `data/catalog.json`
+
+Written by `cue-catalog` (schema id `docs.opmodel.dev/data/cue-catalog/v1`). Phase 1b's history reads it across minors, so it is a contract, and the renderer reads nothing else.
+
+```json
+{
+  "schema": "docs.opmodel.dev/data/cue-catalog/v1",
+  "modulePath": "opmodel.dev/catalogs/opm@v4",
+  "version": "4.4.5",
+  "members": [
+    {
+      "kind": "trait",
+      "name": "backup",
+      "apiVersion": "v1alpha1",
+      "level": "alpha",
+      "fqn": "opmodel.dev/catalogs/opm/traits/backup@v1alpha1",
+      "modulePath": "opmodel.dev/catalogs/opm/traits/v1alpha1",
+      "title": "Backup",
+      "definition": "#BackupTrait",
+      "wrapper": "#Backup",
+      "file": "opm/traits/v1alpha1/backup.cue",
+      "page": "traits/backup",
+      "description": "Scheduled backup policy for a component's persistent state",
+      "notes": ["<cleaned paragraph>"],
+      "category": "storage",
+      "fulfilment": "provider",
+      "optional": false,
+      "appliesTo": ["opmodel.dev/catalogs/opm/resources/volumes@v1beta1"],
+      "composedResources": [],
+      "composedTraits": [],
+      "matchLabels": [{"key": "...", "value": "...", "concrete": true, "required": true}],
+      "servedBy": [{"transformer": "...", "fqn": "...", "demand": "required"}],
+      "mark": "provided-by-platform",
+      "enforcement": [{"rule": "<sentence>", "by": "cue"}],
+      "spec": {
+        "key": "backup",
+        "cue": "<the formatted spec block, citations stripped>",
+        "fields": [
+          {
+            "path": "schedule",
+            "type": "string",
+            "presence": "required",
+            "default": null,
+            "doc": "<cleaned doc comment>",
+            "ref": null
+          }
+        ],
+        "linked": [{"definition": "#X", "page": "resources/volumes"}],
+        "external": [{"package": "opmodel.dev/core/v2", "vendored": false}]
+      }
+    }
+  ],
+  "transformers": [
+    {
+      "name": "...", "fqn": "...", "description": "...",
+      "requiredLabels": [], "requiredResources": [], "optionalResources": [],
+      "requiredTraits": [], "optionalTraits": []
+    }
+  ]
+}
+```
+
+`mark` is `"not-implemented"`, `"provided-by-platform"` or `null`. `demand` is `"required"` or `"optional"`. `spec.fields` is the structured spec, read from the evaluated value: every field under the spec key, depth first, regular, optional and required alike (`presence` is `"regular"`, `"optional"` or `"required"` from the selector's constraint type), with `path` dot-separated, `[]` for a list element and `[string]` for a pattern constraint; `type` the formatted constraint; `default` the formatted default or `null`; `ref` the definition name when the field's value is a definition outside this member's package, where the walk stops instead of expanding it. The walk stops at the module boundary and at a visited definition, and caps depth at 12. `spec.cue` keeps the authored text, so a field the walk cannot express still shows on the page.
+
+### C11. The page dialect, version 1
+
+`opm-docs lint` ports `opmodel.dev/site/scripts/lint-sources.sh` rule for rule and adds the `/catalogs/` link forms (C8). Dialect 1 is exactly that set; the opmodel.dev change updates its shell lint to the same set (`orchestration.md`). The rules:
+
+- A tree holds only regular `.md` files: no symlink, no `.mdx`, no other file; names are lower-case kebab-case; no `index.md` (a section page is `_index.md`).
+- Front matter opens on line 1 with `---` and closes with `---`; keys are only `title`, `description`, `type`, `weight`; `title` and `description` are required and non-empty; `type` is required on a leaf page and is one of `tutorial`, `how-to`, `explanation`, `reference`; an `_index.md` declares no `type`; `weight` is a positive integer; `sidebar:` is named as Starlight front matter.
+- Shortcodes, checked on every line, code fences included: only `{{< opm/<figure> >}}` with one of the seven figure names, no parameters and no closing tag; `{{</* ... */>}}` is a shown shortcode and passes.
+- No `:::` line, no `import ... from` line, no component tag line, no image (`![`, `<img`), no raw `href=` or `src=`.
+- Every code fence carries a language tag.
+- An alert marker is exactly `> [!NOTE]` (or `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`) alone on its line.
+- Every link destination (inline and reference definitions) is `http:`, `https:`, `mailto:` or `#...`, or one of: `/docs/(<seg>/)*` with an optional fragment; `/enhancements/`, `/enhancements/<NNNN>/` or `/enhancements/<NNNN>/<document>/` with `<document>` one of `problem`, `design`, `decisions`, `graduation`, `risks`, `operational`, `questions`; `/catalogs/<name>/` or `/catalogs/<name>/<segment>/(<seg>/)*` with `<segment>` a major (`4`), a minor (`4.4`) or `edge`, with an optional fragment.
+- Bundle mode (`lint --bundle <dir>`, run by `build` and `pull`) adds: a link into the bundle's own root uses the bundle's own segment and names a page in the bundle; and `manifest.json` lists exactly the pages present.
+- Docs mode (the default) adds: a `/catalogs/` link uses a major segment only.
+
+Every violation prints as `<file>:<line>: <message>`, the shell lint's format.
+
+## Commands
+
+Syntax `opm-docs <command> [args] [flags]`. Exit codes: `0` success, `1` usage error (unknown flag, missing argument, unreadable config), `2` execution error (lint violations, a refused build, a registry or signature failure). Every error names what failed and the fix.
+
+| Command | Flags (type, default) | Does |
+|---|---|---|
+| `build` | `--config` (path, `docs-kit.cue`), `--project` (string, repeatable; default every project), `--out` (path, `out`), `--source` (path, `.`), one of `--edge` (default) or `--release <tag>`, `--revision` (int, 0, internal to `revise`) | Extract, render, lint; write `out/<project>/`. A dirty work tree is allowed for a local preview and recorded as `source.dirty: true`, which `push` refuses. |
+| `lint` | `--bundle` (bool, false), `--dialect` (int, 1) | Lint one or more page directories (or bundle directories) against the dialect. |
+| `check` | `--config`, `--project` | `build` into a temporary directory; exit 2 on any failure. The PR gate. |
+| `push` | `--dir` (path, required), `--registry` (string, `ghcr.io/open-platform-model/docs`) | Validate, pack deterministically, push; write the full tag for a release build; print `{"digest": ..., "tag": ...}` as JSON on stdout. |
+| `promote` | `--project` (required), `--digest` (required), `--registry` | Verify the signature of the digest (C9), then move the moving tags of its line to it (C4 rule 5). |
+| `pull` | see C7 | Resolve, verify, unpack, lint, lock. |
+| `revise` | `--project` (required), `--tag` (required), `--fix` (40 hex, required), `--out`, `--registry` | Docs revision: check the fix is on `origin/main` and a single-parent commit; read the patches of the newest published revision of that version; apply them and the fix to the release tree with `git cherry-pick --no-commit` in a temporary worktree; refuse unless the result changes documentation only; build `<version>` at the next revision into `out/`. `push`, signing and `promote` follow in the workflow. |
+| `version` | none | Print `opm-docs <version>`. |
+
+"Documentation only", checked between the release tree and the patched tree: a `.md` file may be added, changed, renamed or removed; a `.cue` file may only change, and only in comments (both versions parsed with comments, every comment removed, both formatted with `cue/format`, bytes compared); a `.go` file likewise with `go/parser` (no comments) and `go/printer`; any other change is refused, naming the file. `revise` stops at step 3 of DESIGN.md's "Docs revisions" and leaves pushing to the workflow (decided in planning: `push` and `promote` already exist, and keeping them separate lets the signature land before any tag moves).
+
+## Packages
+
+```text
+cmd/opm-docs/            cobra root and one file per command; flag parsing only
+schema/                  manifest.cue, config.cue, pull.cue, lock.cue; embedded with go:embed
+internal/version/        build identity
+internal/config/         load and validate docs-kit.cue and bundles.cue
+internal/bundle/         the tree model, manifest, deterministic pack and guarded unpack
+internal/tags/           version parsing, ordering, full and moving tags, revision numbers (pure)
+internal/doctext/        maintainer-comment dropping, citation stripping, summary split, wrapping
+internal/mdtext/         escaping, code spans, table cells, YAML strings
+internal/extract/cuecatalog/   the cue-catalog extractor: doc model, structured spec, served-by, marks
+internal/extract/markdown/     the markdown source
+internal/render/         embedded templates: landing, kind index, member page, raw table
+internal/dialect/        the page-dialect lint
+internal/gitsrc/         git dates, worktrees, cherry-pick and the documentation-only check
+internal/oci/            oras-go: push, list, resolve, fetch by digest, tag
+internal/verify/         sigstore-go: find the Sigstore bundle, apply the C9 policy
+internal/pull/           tab resolution, cache, unpack layout, lock
+```
+
+Dependencies: `cuelang.org/go` v0.17.1 (the version catalog_opm and cli use), `oras.land/oras-go/v2` at v2.6.2 or later (the hard-link extraction fix), `github.com/sigstore/sigstore-go` and `github.com/spf13/cobra`. `internal/tags` implements SemVer 2.0.0 precedence itself rather than use `golang.org/x/mod/semver`, which requires a leading `v`. Tests run offline: an in-process registry (`go-containerregistry`'s `pkg/registry`, or `zot` if the spike shows referrer fallback needs it) and sigstore-go's virtual Sigstore for signatures.
+
+## Page renderer
+
+Templates are Go `text/template` files embedded in the binary, one per page kind. A member page follows refgen's order: front matter (`title`, `description` = `metadata.description`, `type: reference`), `## At a glance` (an optional mark alert, then a `| Field | Value |` table: FQN, API version with level and a link to the contract landing, Module path, Definition with its file, Component wrapper, Catalog with module path and version, Category, Fulfilment, Optional posture, Applies to, Composed resources and traits, Match label), `## Spec` (`cue` fence, then "Defined elsewhere" links), `## Notes`, `## Served by`, `## Enforcement` (links `/docs/concepts/what-enforces-a-rule/`).
+
+For an edge build, the Catalog row reads "`<module path>` at `main` (commit `<12 hex>`), unreleased" instead of a version.
+
+The mark strings, kept from refgen byte for byte:
+
+```markdown
+> [!IMPORTANT]
+> **Provided by your platform**
+>
+> This catalog defines the contract and ships no transformer for it. Your platform needs exactly one catalog that implements it. Without one, %s; with two, the kernel refuses every render on that platform.
+```
+
+```markdown
+> [!WARNING]
+> **Not implemented**
+>
+> This catalog defines the %s and ships no transformer that handles it. On a platform where no other catalog handles it, %s.
+```
+
+with `%s` "a component that attaches it still renders, and the render warns that the trait is not handled and ignores its values" for an advisory trait, else "rendering a component that declares it fails" (resource) or "... that attaches it fails" (trait). The kind index lists the marked members in the two sentences refgen writes today. The generated landing (when no authored `_index.md` is supplied) states the module path, the version (or edge commit) and links each kind index with its count. The `table` layout's `resources.md` is refgen's raw table, its Served by cell "`name` (required)", "none, **Not implemented**" or "none, **Provided by your platform**".
+
+No page carries a generator marker comment: a bundle's pages are wholly generated and never committed, so there is no authored text to keep apart (decided in planning).
+
+## Risks / Trade-offs
+
+- [GHCR drops `artifactType` or the empty config, or mangles annotations] → Section 1's spike gates everything else; outcome B (C2) keeps every sibling contract.
+- [sigstore-go cannot find or verify a cosign v3 bundle stored under the `sha256-` fallback tag] → the spike verifies the round trip with the real tools before `internal/verify` is written. If it fails, `pull` shells out to a pinned `cosign verify` with the C9 flags (a second binary on the site host, recorded as a regression of DESIGN decision 3).
+- [The Sigstore trusted root needs network] → `pull` runs on the host step that already has network; the root is cached and `--offline` refuses with a message rather than skipping verification.
+- [A deterministic layer is not byte-stable across Go versions (gzip)] → the digest only has to be stable for one tool build; a test pins the digest of a fixture tree for the tool's own Go version.
+- [Six sections exceed the constitution's "about five"] → accepted for the owner-requested single change; the split point is section 5 (`revise`), see the proposal.
+- [Edge builds pushed by digest accumulate untagged versions on GHCR] → harmless to readers; pruning is a later concern, never automatic deletion of a full tag.
+
+## Research & Decisions
+
+### R1. Where the tool version comes from
+
+**Context**: A reusable workflow has no context variable for its own ref, so `publish.yml` cannot ask which docs-kit release it is.
+**Explored**: an extra `version` input; checking out docs-kit at `github.workflow_sha` (that is the caller's SHA); a literal in the file.
+**Options considered**:
+1. A `version` input the caller passes - two pins that can disagree.
+2. A literal maintained by release-please's generic updater - one pin, the ref.
+**Decision**: option 2, decided in planning.
+**Rationale**: the caller pins one ref and gets the matching tool; a mismatch is impossible.
+
+### R2. The raw Kubernetes catalog's page
+
+**Context**: refgen writes both catalogs' reference; phase 1 removes refgen, and DESIGN.md only places the opm catalog.
+**Explored**: keeping refgen for k8s until phase 2; folding the k8s table into the opm bundle (two release lines in one bundle); a second bundle.
+**Options considered**:
+1. Keep refgen for k8s - phase 1 would not remove refgen, and two generators would run.
+2. A `catalog-k8s` bundle at `/catalogs/k8s/<MAJOR.MINOR>/` with the `table` layout - one more workflow matrix entry and one more tab entry.
+**Decision**: option 2, decided in planning. The owner may instead choose option 1; nothing in docs-kit changes either way except whether `layout: "table"` ships.
+**Rationale**: the extractor is generic; the k8s catalog has its own release line, so it needs its own versions.
+
+### R3. Signing in the workflow, verifying in the tool
+
+**Context**: DESIGN decision 3 gives `opm-docs` its own OCI client; signing could also be in-process.
+**Options considered**:
+1. Sign and verify with sigstore-go in the tool - one binary, but our own Fulcio and Rekor client code.
+2. Sign with the pinned cosign CLI in the workflow, verify with sigstore-go in the tool - the standard signer, an in-process verifier, `cosign verify` usable by hand.
+**Decision**: option 2, decided in planning.
+**Rationale**: signing runs only in CI, where cosign is one pinned action; verification runs on every site build and belongs in the tool.
+
+### R4. Moving tags only after the signature
+
+**Context**: a moving tag pointed at an unsigned digest fails every site build until signing finishes.
+**Decision**: `push` writes only the full tag (or nothing, for edge); `cosign sign`; then `promote` verifies and moves. Decided in planning: DESIGN.md's `push` moved the tags itself.
+**Rationale**: no reader ever resolves a moving tag to an unsigned build.
+
+### R5. Lock file not committed
+
+**Context**: the site resolves tab versions from moving tags on every build, as line versions do.
+**Decision**: the lock is a build output under `site/.bundles/`, recorded in the build stamp; a recovery build passes `--frozen` with a saved lock. Decided in planning.
+**Rationale**: a committed lock would need a commit per catalog release, which DESIGN.md's "a new minor appears with no site commit" rules out.
+
+## Durable decisions
+
+| Decision | Lands in |
+|---|---|
+| C1 to C11, the contracts | `docs/contracts.md` (new), linked from `AGENTS.md` and `README.md` |
+| Callers pin a docs-kit tag, never a SHA | `docs/contracts.md` C5 and `README.md` "Using the workflow" |
+| A docs revision is the only way to change a published release's pages | `README.md` |
+| Commands, flags, exit codes | `README.md` "Commands" |
+| How to release docs-kit, and that `publish.yml`'s version literal is release-please's | `AGENTS.md` |

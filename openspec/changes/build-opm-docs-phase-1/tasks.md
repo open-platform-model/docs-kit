@@ -1,0 +1,73 @@
+# Tasks: build-opm-docs-phase-1
+
+One PR, titled `feat: build opm-docs phase 1`. Sections land as commits on the change branch; nothing is pushed to `main`. The archive rides the PR. Tests run offline (`task test`); the only registry writes in this change are the spike's, from GitHub Actions, to `ghcr.io/open-platform-model/docs/spike`.
+
+Environment for every command that loads a CUE catalog:
+
+```bash
+export CUE_REGISTRY='opmodel.dev=ghcr.io/open-platform-model,registry.cue.works'
+```
+
+Items marked **OWNER** are not implementer tasks.
+
+## 1. Spike: GHCR, OCI 1.1 artifacts and cosign v3 (gate for every later section)
+
+- [ ] 1.1 Add `hack/spike/` (its own `main` package, built with the module's `go.mod`): a program that packs a fixture tree with `oras.PackManifest(..., oras.PackManifestVersion1_1, "application/vnd.opmodel.docs.bundle.v1", ...)` using the C2 annotations, pushes it to a repository given by flag, tags `0.0.1.0`, then `0.0.1`, `0.0` and `0`, lists tags, fetches the manifest by tag and by digest, and prints the manifest bytes and annotations; and a `verify` subcommand that finds the Sigstore bundle with `repo.Referrers(..., "application/vnd.dev.sigstore.bundle.v0.3+json", ...)` and verifies it with sigstore-go under the C9 policy. Verify: `go build ./hack/spike` and `go vet ./...` pass.
+- [ ] 1.2 Add `.github/workflows/spike.yml`, `workflow_dispatch` only, `permissions: {contents: read, packages: write, id-token: write}`, every action pinned by SHA: run the spike push to `ghcr.io/open-platform-model/docs/spike` with `org.opencontainers.image.source` set to `https://github.com/open-platform-model/docs-kit`; `cosign sign --yes --new-bundle-format=true <repo>@<digest>` with a pinned cosign v3; `cosign verify` with the C9 flags (repository `open-platform-model/docs-kit`); the spike's `verify`; then a deliberate negative: `verify` with an expected repository of `open-platform-model/cli`, which must fail. Verify: `actionlint .github/workflows/spike.yml` is clean.
+- [ ] 1.3 **OWNER** runs `spike.yml` from the change branch (`gh workflow run spike.yml --ref <branch>`) after the PR is opened as a draft, and makes the package `docs/spike` public in its package settings afterwards if 1.5 needs anonymous pulls.
+- [ ] 1.4 From the run log, record in design.md C2 under a new "Spike findings (date, run URL)" paragraph: whether GHCR kept `artifactType`, the empty config and every annotation byte for byte; whether the tag list contains the moving tags and a `sha256-<hex>` signature tag; whether the referrer was found by the fallback tag schema; whether sigstore-go verified the cosign v3 bundle with the C9 policy and refused the wrong repository; and therefore outcome A or B. If outcome B, rewrite C2's table to B and adjust `bundle-format` spec accordingly. If sigstore-go could not verify, apply the R3 fallback and record it as a regression of DESIGN decision 3.
+- [ ] 1.5 Anonymous pull check: with no credentials, `go run ./hack/spike pull --repository ghcr.io/open-platform-model/docs/spike --tag 0.0` resolves, verifies and fetches the layer. Record the result in the same paragraph.
+- [ ] 1.6 CUE spike: add `hack/spike/specdump`, which loads catalog_opm's `opm/` module at tag `opm-v4.4.5` (path by flag) and prints, for `container`, `volumes` and `backup`, the C10 `spec.fields` walk: path, type, presence, default, `ref`. Record in design.md C10 any field kind the walk cannot express (closed `...`, disjunction defaults, pattern constraints, if-guards) and how `spec.fields` represents it. Verify: the dump for `backup` lists its required fields with presence `required`.
+- [ ] 1.7 **OWNER** deletes the `docs/spike` package once 1.4 to 1.6 are recorded (or keeps it private; it is never referenced again).
+- [ ] 1.8 `task check` green, then commit `docs(openspec): record the GHCR and cosign spike findings` (the spike program and workflow ride this commit).
+
+## 2. Bundle model, configuration, tags and the dialect lint (offline core)
+
+- [ ] 2.1 `schema/`: `manifest.cue`, `config.cue`, `pull.cue`, `lock.cue` exactly as design.md C3, C6 and C7 fix them, embedded with `go:embed`; `internal/config` loads `docs-kit.cue` and `bundles.cue` with `cuelang.org/go` v0.17.1 and validates them (closedness errors name the file and field). Verify: table tests for a valid file, a misspelled key, a bad project name, a tab root outside `/catalogs/`.
+- [ ] 2.2 `internal/tags`: SemVer 2.0.0 parse and precedence (no leading `v`), build ordering, full-tag and moving-tag names, `MAJOR.MINOR` segments, next revision, and the promote decision ("which moving tags move to D, given these builds"). Verify: table tests for every row of design.md C4, the prerelease cases (`1.0.0-beta.5.0`, `4.5.0-rc.1` after `4.4.6`), a revision of an older patch, and an edge build.
+- [ ] 2.3 `internal/bundle`: the tree model, `manifest.json` read and write with schema validation, the pages and data listing check, deterministic pack (C2 rules) and guarded unpack (bundle-format spec). Verify: a test that packs a fixture tree twice and gets one digest; a test pinning that digest; one test per refused unpack case (traversal, absolute, symlink, hard link, device, duplicate, extra top-level entry, entry and size limits).
+- [ ] 2.4 `internal/dialect`: port `opmodel.dev/site/scripts/lint-sources.sh` rule for rule, plus the C11 `/catalogs/` forms, docs mode and bundle mode. Copy the shell lint's fixtures (`opmodel.dev/site/tests/lint/*` and `site/tests/dialect/*`) into `internal/dialect/testdata/` with a README naming their source commit. Verify: a test asserts the Go lint reports the same `<file>:<line>` set as the shell lint on every fixture (expected output captured once by running the shell script, committed beside each fixture); new fixtures for the catalog link forms in both modes.
+- [ ] 2.5 `cmd/opm-docs`: a cobra root with `version` and `lint` (`--bundle`, `--dialect`), exit codes 0, 1 and 2. Verify: `go run ./cmd/opm-docs lint internal/dialect/testdata/clean` exits 0 and on `link-md` exits 2 with the shell lint's message.
+- [ ] 2.6 `task check` green, then commit `feat(lint): add the bundle model, tag rules and page-dialect lint`.
+
+## 3. The cue-catalog extractor, the renderer, build and check
+
+- [ ] 3.1 `internal/doctext` and `internal/mdtext`: port refgen's `stripMaintainerComments`, `cite.go`, `splitDoc`, wrapping, `mdText`, `cell`, `code`, `yamlString`, `linkDocNotes`, adding core's SPEC.md, experiment and in-comment WHY rules (design.md "Context"). Verify: refgen's `TestSplitDoc`, `TestMdText`, `TestCodeAndCell`, `TestStripCitations` cases ported as table tests, plus cases for each core rule.
+- [ ] 3.2 `internal/extract/cuecatalog`: load the module, enumerate members and transformers, index source definitions, served-by, blueprint matching, marks, enforcement rows, `spec.cue` (refgen's `renderSpec`) and the `spec.fields` walk as section 1 recorded it; write `data/catalog.json` (C10). Add `testdata/catalog/` (a small self-contained CUE module with no registry dependency, covering: two apiVersions of one trait, a provider-fulfilled trait, an unserved catalog-fulfilled resource, an advisory trait, a blueprint matched by labels, a vendored-type field, a WHY block and citations). Verify: a golden test of `catalog.json` for the fixture.
+- [ ] 3.3 `internal/extract/markdown`: copy one directory into `content/`, pin own-catalog alias links to the build's segment (design.md C8), lint it, record `source` and `lastmod` (`git log -1 --format=%cI` at the commit built; omitted without history). Verify: a test with a temporary git repository, including an alias link rewritten for a release segment and for edge, and another catalog's alias left alone.
+- [ ] 3.4 `internal/render`: embedded templates for the landing, kind index, member page and raw table (C8 paths, links and the "Page renderer" strings); collision rule for authored `_index.md`. Verify: golden pages for the fixture catalog in both layouts, a release segment and an edge segment; every golden page passes `internal/dialect` in bundle mode.
+- [ ] 3.5 `cmd/opm-docs`: `build` (`--config`, `--project`, `--out`, `--source`, `--edge`, `--release`) and `check`, writing `out/<project>/` with a valid `manifest.json` (pages with `source` and `lastmod`, `created` from the commit). Verify: `go run ./cmd/opm-docs build --config testdata/docs-kit.cue` twice gives byte-identical trees; `check` exits 2 on a fixture member whose doc comment does not open with its description.
+- [ ] 3.6 Parity against catalog_opm (opt-in, needs GHCR reads): `go test ./internal/extract/cuecatalog -run TestCatalogOPMParity` with `OPM_DOCS_CATALOG_OPM=<path to a catalog_opm checkout at opm-v4.4.5>` builds `catalog-opm` and `catalog-k8s` and compares each member page's body with refgen's committed page at that tag, after normalizing the expected differences (no marker comments, C8 link forms, the contract link). Record any other difference in design.md and fix it or justify it. Verify: the test passes locally; CI skips it when the variable is unset.
+- [ ] 3.7 `task check` green, then commit `feat(extract): add the cue-catalog extractor, the renderer and build`.
+
+## 4. Registry and trust: push, promote, pull
+
+- [ ] 4.1 `internal/oci` (oras-go v2.6.2 or later): push blobs and manifest, tag, list tags with pagination, resolve, fetch by digest, credentials from the docker config or `GITHUB_TOKEN`; never fetch a layer by tag. Verify: tests against an in-process registry for push, a no-op re-push, tag listing past one page, and filtering `sha256-*` tags.
+- [ ] 4.2 `internal/verify` (sigstore-go): find the Sigstore bundle by referrer (tag-schema fallback), verify against a trusted root (TUF fetch with a cache, or a file for tests) under the C9 policy. Verify: tests with sigstore-go's virtual Sigstore for a good signature, the wrong issuer, the wrong SAN ref (`refs/heads/main` of docs-kit), the wrong source repository, the wrong source ref, a digest mismatch, and no signature.
+- [ ] 4.3 `push` and `promote` commands: `push` validates, refuses a dirty bundle, packs, writes the full tag per C4 rule 2, prints `{"digest","tag"}`; `promote` verifies D then moves tags per C4 rule 5 using `internal/tags`. Verify: in-process registry tests for the C4 scenarios (re-run no-op, refused different build, revision of an older patch, new patch, edge, unsigned digest refused).
+- [ ] 4.4 `internal/pull` and the `pull` command: config, tab resolution (C4 consumer rule), verification before any layer fetch, cache, unpack layout, stale-directory removal, bundle-mode lint, lock (C7), `--frozen`, `--offline`, `--local`. Verify: tests for a new minor appearing, `from` filtering, a project signed by the wrong repository, unsigned edge, byte-identical locks across two runs, an offline frozen rebuild, a local project.
+- [ ] 4.5 `task check` green, then commit `feat(oci): push, promote and pull signed bundles`.
+
+## 5. Docs revisions
+
+- [ ] 5.1 `internal/gitsrc`: ancestor and single-parent checks, temporary worktree at a tag, ordered `cherry-pick --no-commit`, conflict reporting, worktree cleanup on every path.
+- [ ] 5.2 The documentation-only check: `.md` free; `.cue` comment-only (parse with comments, remove all, `cue/format`, compare); `.go` comment-only (`go/parser` without comments, `go/printer`, compare); anything else refused with the file and reason. Verify: table tests with a temporary repository for each case, including a `metadata.description` value change (refused) and a comment change (allowed).
+- [ ] 5.3 `revise` command: reads the newest revision's `source.patches` from the registry, applies them and `--fix`, checks, and builds the next revision into `--out` (pushes nothing). Verify: in-process registry tests for the docs-revision scenarios (fix not on main, first revision, second revision carrying the first fix, no revision 0 published).
+- [ ] 5.4 `task check` green, then commit `feat(revise): build docs revisions of a published release`.
+
+## 6. Workflows, release and durable docs
+
+- [ ] 6.1 `.github/workflows/publish.yml` per design.md C5: inputs, outputs, the `refs/heads/main` guard, `OPM_DOCS_VERSION` literal with `# x-release-please-version`, download and checksum check, pinned `sigstore/cosign-installer` with a pinned cosign v3, the four modes, `concurrency`, every action pinned by SHA. Verify: `actionlint` clean; a `workflow_call` dry run is not possible, so 6.6 is the end-to-end check.
+- [ ] 6.2 `.github/workflows/ci.yml` (pull requests and pushes to `main`): `task check` with Go from `go.mod`, golangci-lint and openspec 1.12.0 pinned, and `actionlint` over `.github/workflows/`. `publish.yml` installs a released tool, so docs-kit's own CI does not call it; 8.1 is its end-to-end proof. Verify: `actionlint` clean.
+- [ ] 6.3 Release: `release-please-config.json` (release-type `go`, `bump-minor-pre-major: true`, `extra-files` the generic updater on `.github/workflows/publish.yml`), `.release-please-manifest.json` at `0.0.0`, and `.github/workflows/release.yml` copying cli's draft-first pattern: release-please as the release App, build `opm-docs` for linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 with the version ldflag, archives named `opm-docs_<version>_<os>_<arch>.tar.gz`, `checksums.txt`, attach to the draft, publish last. Verify: `actionlint` clean; `task build` stamps the version.
+- [ ] 6.4 Durable decisions (design.md): write `docs/contracts.md` (C1 to C11, moved from design.md with the spike findings), update `README.md` (status, commands, "Using the workflow" with a caller example for each mode and the permissions table) and `AGENTS.md` (layout, release process, the version literal rule). Verify: every link resolves (`grep` for relative links and check each file exists).
+- [ ] 6.5 `task check` green, then commit `ci(workflow): add the publish workflow, CI and the release pipeline`.
+
+## 7. Archive (rides this PR)
+
+- [ ] 7.1 `openspec archive build-opm-docs-phase-1 --yes` on the change branch. This creates the nine main specs under `openspec/specs/` with their Purpose text. Verify: `task openspec:check` green; every durable decision in design.md is landed (6.4).
+- [ ] 7.2 `task check` green, then commit `chore(openspec): archive build-opm-docs-phase-1`. The commit touches only `openspec/`.
+
+## After merge
+
+- [ ] 8.1 **OWNER** merges the release PR release-please opens (`0.1.0`) and confirms the published release has four archives and `checksums.txt`. The catalog_opm `publish-docs-bundle` PR's `check` job, calling `publish.yml@v0.1.0`, is the first end-to-end run of the workflow.
