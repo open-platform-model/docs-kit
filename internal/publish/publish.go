@@ -55,21 +55,9 @@ func Push(ctx context.Context, o PushOptions) (*PushResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	if o.Limits == (bundle.Limits{}) {
-		o.Limits = bundle.DefaultLimits
-	}
-	if o.MaxLayer == 0 {
-		o.MaxLayer = bundle.MaxLayerSize
-	}
-	if err := bundle.CheckLimits(o.Dir, o.Limits); err != nil {
-		return nil, fmt.Errorf("%w; a pull would refuse it", err)
-	}
-	layer, err := bundle.Pack(o.Dir, created)
+	layer, err := packWithin(o, created)
 	if err != nil {
 		return nil, err
-	}
-	if len(layer) > o.MaxLayer {
-		return nil, fmt.Errorf("%s packs to a %d-byte layer, more than the %d bytes a pull fetches", o.Dir, len(layer), o.MaxLayer)
 	}
 	md, raw, ld, err := oci.Pack(ctx, bundle.ArtifactType, bundle.LayerType, layer, m.Annotations())
 	if err != nil {
@@ -96,6 +84,27 @@ func Push(ctx context.Context, o PushOptions) (*PushResult, error) {
 		return nil, err
 	}
 	return res, nil
+}
+
+// packWithin packs the bundle, refusing one over the limits pull applies.
+func packWithin(o PushOptions, created time.Time) ([]byte, error) {
+	if o.Limits == (bundle.Limits{}) {
+		o.Limits = bundle.DefaultLimits
+	}
+	if o.MaxLayer == 0 {
+		o.MaxLayer = bundle.MaxLayerSize
+	}
+	if err := bundle.CheckLimits(o.Dir, o.Limits); err != nil {
+		return nil, fmt.Errorf("%w; a pull would refuse it", err)
+	}
+	layer, err := bundle.Pack(o.Dir, created)
+	if err != nil {
+		return nil, err
+	}
+	if len(layer) > o.MaxLayer {
+		return nil, fmt.Errorf("%s packs to a %d-byte layer, more than the %d bytes a pull fetches", o.Dir, len(layer), o.MaxLayer)
+	}
+	return layer, nil
 }
 
 // readForPush reads and checks a bundle a push may publish: valid, clean,
