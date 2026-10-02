@@ -145,10 +145,11 @@ func Promote(ctx context.Context, o PromoteOptions) (*PromoteResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	d, raw, err := buildOf(ctx, repo, desc)
+	pd, err := buildOf(ctx, repo, desc)
 	if err != nil {
 		return nil, err
 	}
+	d, raw := pd.build, pd.raw
 	if _, err := o.Verifier.Digest(ctx, repo.Graph(), desc, o.Policy); err != nil {
 		return nil, fmt.Errorf("%s@%s is not promoted: %w", repo.Name, desc.Digest, err)
 	}
@@ -160,7 +161,7 @@ func Promote(ctx context.Context, o PromoteOptions) (*PromoteResult, error) {
 	}
 	res := &PromoteResult{Build: d.String()}
 	for _, t := range tags.Promotion(d, builds) {
-		newer, err := newerAt(ctx, repo, t, d)
+		newer, err := newerAt(ctx, repo, t, pd)
 		if err != nil {
 			return nil, err
 		}
@@ -192,24 +193,32 @@ func contains(xs []string, x string) bool {
 	return false
 }
 
+// pushedBuild is a pushed manifest's build identity, read from its
+// annotations, and its bytes.
+type pushedBuild struct {
+	build   tags.Build
+	created string // org.opencontainers.image.created
+	raw     []byte
+}
+
 // buildOf reads a manifest's build identity from its annotations.
-func buildOf(ctx context.Context, repo *oci.Repo, desc ocispec.Descriptor) (tags.Build, []byte, error) {
+func buildOf(ctx context.Context, repo *oci.Repo, desc ocispec.Descriptor) (pushedBuild, error) {
 	m, raw, err := repo.Manifest(ctx, desc)
 	if err != nil {
-		return tags.Build{}, nil, err
+		return pushedBuild{}, err
 	}
 	if m.ArtifactType != bundle.ArtifactType {
-		return tags.Build{}, nil, fmt.Errorf("%s@%s is not a docs bundle (artifactType %q)", repo.Name, desc.Digest, m.ArtifactType)
+		return pushedBuild{}, fmt.Errorf("%s@%s is not a docs bundle (artifactType %q)", repo.Name, desc.Digest, m.ArtifactType)
 	}
 	rev, err := strconv.Atoi(m.Annotations[bundle.AnnDocsRev])
 	if err != nil {
-		return tags.Build{}, nil, fmt.Errorf("%s@%s: annotation %s: %w", repo.Name, desc.Digest, bundle.AnnDocsRev, err)
+		return pushedBuild{}, fmt.Errorf("%s@%s: annotation %s: %w", repo.Name, desc.Digest, bundle.AnnDocsRev, err)
 	}
 	b, err := tags.NewBuild(m.Annotations[bundle.AnnVersion], rev, desc.Digest.String())
 	if err != nil {
-		return tags.Build{}, nil, fmt.Errorf("%s@%s: %w", repo.Name, desc.Digest, err)
+		return pushedBuild{}, fmt.Errorf("%s@%s: %w", repo.Name, desc.Digest, err)
 	}
-	return b, raw, nil
+	return pushedBuild{build: b, created: m.Annotations[bundle.AnnCreated], raw: raw}, nil
 }
 
 // releaseBuilds lists the repository's release builds: every tag of the
@@ -228,22 +237,24 @@ func releaseBuilds(ctx context.Context, repo *oci.Repo) ([]tags.Build, error) {
 		if err != nil {
 			return nil, err
 		}
-		b, _, err := buildOf(ctx, repo, desc)
+		pb, err := buildOf(ctx, repo, desc)
 		if err != nil {
 			return nil, err
 		}
-		if !b.Edge && b.FullTag() == n {
+		if b := pb.build; !b.Edge && b.FullTag() == n {
 			out = append(out, b)
 		}
 	}
 	return out, nil
 }
 
-// newerAt returns the build tag t names now when it is newer than d, else "".
-func newerAt(ctx context.Context, repo *oci.Repo, t string, d tags.Build) (string, error) {
-	if d.Edge {
-		return "", nil
-	}
+// newerAt returns the build tag t names now when it is newer than d, else
+// "". It refuses a tag that already is some build's full tag, which a
+// prerelease's release tag can collide with (the release tag 1.0.0-beta.5
+// is also the full tag of 1.0.0-beta revision 5): a full tag never moves.
+// An edge tag never moves back to an older commit: the current edge build
+// stays when its created time is later than d's.
+func newerAt(ctx context.Context, repo *oci.Repo, t string, d pushedBuild) (string, error) {
 	cur, err := repo.Resolve(ctx, t)
 	if err != nil {
 		if oci.IsNotFound(errors.Unwrap(err)) || oci.IsNotFound(err) {
@@ -251,15 +262,32 @@ func newerAt(ctx context.Context, repo *oci.Repo, t string, d tags.Build) (strin
 		}
 		return "", err
 	}
-	if cur.Digest.String() == d.Digest {
+	if cur.Digest.String() == d.build.Digest {
 		return "", nil
 	}
-	b, _, err := buildOf(ctx, repo, cur)
+	pb, err := buildOf(ctx, repo, cur)
 	if err != nil {
 		return "", err
 	}
-	if !b.Edge && tags.CompareBuilds(b, d) > 0 {
+	b := pb.build
+	if !b.Edge && b.FullTag() == t {
+		return "", fmt.Errorf("%s is the full tag of build %s@%s and never moves; %s cannot take it as a moving tag", t, b, cur.Digest, d.build)
+	}
+	if d.build.Edge {
+		if b.Edge && laterThan(pb.created, d.created) {
+			return fmt.Sprintf("edge built at %s", pb.created), nil
+		}
+		return "", nil
+	}
+	if !b.Edge && tags.CompareBuilds(b, d.build) > 0 {
 		return b.String(), nil
 	}
 	return "", nil
+}
+
+// laterThan compares two RFC 3339 times; an unreadable time is never later.
+func laterThan(a, b string) bool {
+	ta, err1 := time.Parse(time.RFC3339, a)
+	tb, err2 := time.Parse(time.RFC3339, b)
+	return err1 == nil && err2 == nil && ta.After(tb)
 }

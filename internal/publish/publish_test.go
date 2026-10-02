@@ -235,3 +235,46 @@ func TestConcurrentReleases(t *testing.T) {
 		t.Fatalf("4=%s 4.4=%s 4.4.6=%s %+v", e.at("4"), e.at("4.4"), e.at("4.4.6"), pr)
 	}
 }
+
+func TestPrereleaseTagCollision(t *testing.T) {
+	e := newEnv(t)
+	// Build 1.0.0-beta revision 5 owns the full tag 1.0.0-beta.5...
+	owner := e.publish("1.0.0-beta", 5, "")
+	// ...which is also the release tag of version 1.0.0-beta.5.
+	res := e.push(e.bundleDir("1.0.0-beta.5", 0, ""))
+	e.sign(res.Digest)
+	_, err := e.promote(res.Digest)
+	if err == nil || !strings.Contains(err.Error(), "1.0.0-beta.5 is the full tag of build 1.0.0-beta.5") || !strings.Contains(err.Error(), "never moves") {
+		t.Fatalf("err = %v", err)
+	}
+	if e.at("1.0.0-beta.5") != owner {
+		t.Fatal("a full tag moved")
+	}
+}
+
+func TestEdgeNeverMovesBack(t *testing.T) {
+	e := newEnv(t)
+	edge := func(created, body string) string {
+		dir := e.bundleDir("edge", 0, body)
+		m, _ := bundle.Read(dir)
+		m.Created = created
+		if err := bundle.Write(dir, m); err != nil {
+			t.Fatal(err)
+		}
+		res := e.push(dir)
+		e.sign(res.Digest)
+		if _, err := e.promote(res.Digest); err != nil {
+			t.Fatal(err)
+		}
+		return res.Digest
+	}
+	newer := edge("2026-10-02T12:00:00Z", "Newer.")
+	edge("2026-10-01T12:00:00Z", "Older.")
+	if e.at("edge") != newer {
+		t.Fatal("edge moved back to an older commit")
+	}
+	newest := edge("2026-10-03T12:00:00Z", "Newest.")
+	if e.at("edge") != newest {
+		t.Fatal("edge did not move forward")
+	}
+}

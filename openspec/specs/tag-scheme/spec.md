@@ -42,6 +42,14 @@ Release builds SHALL be ordered by SemVer 2.0.0 precedence of their `version` an
 - **WHEN** 4.5.0.0 has moved `4`, and a slower publish of 4.4.6.0 reaches `promote` afterwards
 - **THEN** `promote` resolves `4` again, finds 4.5.0.0 newer than 4.4.6.0, and leaves `4` alone while moving `4.4.6` and `4.4`
 
+#### Scenario: A moving tag never takes over a full tag
+- **WHEN** `1.0.0-beta.5` is the full tag of build 1.0.0-beta revision 5, and `promote` runs for a build of version 1.0.0-beta.5
+- **THEN** `promote` exits 2 naming the tag and that a full tag never moves, and `1.0.0-beta.5` still names the revision-5 build
+
+#### Scenario: Edge never moves back
+- **WHEN** `edge` names a build created 2026-10-02 and a late run promotes an edge build created 2026-10-01
+- **THEN** `edge` still names the 2026-10-02 build
+
 #### Scenario: An unsigned digest is not promoted
 - **WHEN** `promote` runs for a digest with no valid signature
 - **THEN** it exits 2 naming the digest and moves no tag
