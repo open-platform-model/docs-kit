@@ -67,8 +67,8 @@ Items marked **OWNER** are not implementer tasks.
 
 Not an implementation section: it only moves the change into the archive, as in the sibling repos' changes. The implementation is sections 1 to 5.
 
-- [ ] 6.1 `openspec archive build-opm-docs-phase-1 --yes` on the change branch. This creates the nine main specs under `openspec/specs/` with their Purpose text. Verify: `task openspec:check` green; every durable decision in design.md is landed (5.4).
-- [ ] 6.2 `task check` green, then commit `chore(openspec): archive build-opm-docs-phase-1`. The commit touches only `openspec/`.
+- [x] 6.1 `openspec archive build-opm-docs-phase-1 --yes` on the change branch. This creates the nine main specs under `openspec/specs/` with their Purpose text. Verify: `task openspec:check` green; every durable decision in design.md is landed (5.4).
+- [x] 6.2 `task check` green, then commit `chore(openspec): archive build-opm-docs-phase-1`. The commit touches only `openspec/`.
 
 ## After merge
 

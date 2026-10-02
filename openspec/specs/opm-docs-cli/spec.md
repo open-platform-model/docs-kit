@@ -1,0 +1,54 @@
+# opm-docs-cli Specification
+
+## Purpose
+The `opm-docs` command set, its configuration file `docs-kit.cue`, and its exit codes and messages.
+
+## Requirements
+
+### Requirement: The command set
+`opm-docs` SHALL provide the commands `build`, `lint`, `check`, `push`, `promote`, `pull` and `version`, with the flags `docs/contracts.md` lists under "Commands". It SHALL exit 0 on success, 1 on a usage error (unknown command or flag, missing argument, unreadable or invalid config) and 2 on an execution error (lint violations, a refused build, a registry or signature failure). Every error message SHALL name what failed and the fix.
+
+#### Scenario: Version
+- **WHEN** `opm-docs version` runs
+- **THEN** it prints `opm-docs <version>` and exits 0
+
+#### Scenario: Unknown flag
+- **WHEN** `opm-docs build --nope` runs
+- **THEN** it exits 1 naming `--nope`
+
+### Requirement: docs-kit.cue configures the bundles a repository builds
+`build` and `check` SHALL read `docs-kit.cue` (or `--config`) and validate it against the embedded `#Config` schema before any extraction. A `package` clause in the file SHALL be optional and ignored. The file SHALL hold `bundles`, keyed by project, each with a `placement`, a `version` (`from: "tag"` and a tag `prefix`) and at least one source of kind `cue-catalog` (`module`) or `markdown` (`dir`).
+
+#### Scenario: Package clause ignored
+- **WHEN** one `docs-kit.cue` starts with `package docs` and another has no package clause, with the same fields
+- **THEN** both validate and configure the same bundles
+
+#### Scenario: A misspelled key is refused
+- **WHEN** `docs-kit.cue` holds `bundles: "catalog-opm": {placment: ...}`
+- **THEN** `opm-docs build` exits 1 naming the field `placment` and the file, before loading any CUE module
+
+### Requirement: build writes one bundle tree per project
+`opm-docs build` SHALL write `out/<project>/` (or under `--out`) for every project in the config, or only those named with `--project`. With `--release <tag>` it SHALL derive the version by removing the project's tag prefix and SHALL refuse a tag without that prefix or whose remainder is not SemVer. Without `--release` it SHALL build an edge bundle. With `--source <dir>` it SHALL take `docs-kit.cue` from that directory when present, else from the current directory, and SHALL resolve every source (each `cue-catalog` `module` and `markdown` `dir`) and all git history against that directory, wherever the config came from. A `markdown` dir that does not exist SHALL yield no pages when the config came from outside the `--source` tree, and SHALL fail the build otherwise. A build from a work tree with uncommitted changes SHALL record `source.dirty: true`, and `push` SHALL refuse such a bundle.
+
+#### Scenario: Release build from a tag
+- **WHEN** `opm-docs build --project catalog-opm --release opm-v4.4.5 --source src` runs on a checkout of that tag
+- **THEN** `out/catalog-opm/manifest.json` has version `4.4.5`, revision 0, `source.ref` `opm-v4.4.5` and `source.commit` the tag's commit
+
+#### Scenario: Release older than docs-kit adoption
+- **WHEN** the tree at `src/` has no `docs-kit.cue` and the current directory has one
+- **THEN** `build --source src` uses the current directory's `docs-kit.cue`, and extracts the `cue-catalog` module and the `markdown` dir from `src/`, not from the current directory
+
+#### Scenario: A missing markdown dir in a normal build
+- **WHEN** `docs-kit.cue` names `docs/catalogs/opm` and the same tree has no such directory
+- **THEN** `build` exits 2 naming the dir and the config file
+
+#### Scenario: Wrong prefix
+- **WHEN** `--release v4.4.5` is passed for project `catalog-opm`, whose prefix is `opm-v`
+- **THEN** `build` exits 1 naming the tag and the expected prefix
+
+### Requirement: check is the pull-request gate
+`opm-docs check` SHALL run `build` for the configured projects into a temporary directory, including the dialect lint, and SHALL exit 2 on any failure, printing every violation, and 0 otherwise. It SHALL write nothing in the work tree.
+
+#### Scenario: A doc comment that does not open with the description
+- **WHEN** a member's doc comment does not start with its `metadata.description`
+- **THEN** `check` exits 2 naming the member's FQN, its file, and both texts
