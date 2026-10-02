@@ -33,7 +33,7 @@ Status: phase 1 is built: `build`, `check`, `lint`, `push`, `promote`, `pull`, t
 - `openspec/config.yaml` is the constitution (principles, gates, artifact rules). Feature work ships as an OpenSpec change (`spec-driven` schema, specs included), cut into mergeable sections that each end green and close with their own commit.
 - Never push to `main`. Every change lands by PR; the OpenSpec archive commit rides the implementing PR.
 - The bundle format, tag scheme, workflow interface, `docs-kit.cue`, pull config and lock are contracts other repositories read (constitution Principle II). A change to one names every consuming repository.
-- Never push to a registry from a laptop. Registry writes happen in GitHub Actions through this repo's workflows (and, for the phase-1 spike, only when the owner runs `spike.yml`).
+- Never push to a registry from a laptop. Registry writes happen in GitHub Actions, through `publish.yml` in a caller's CI.
 - Never move or delete a tag. Releases are release-please's; a full bundle tag (`4.4.5.0`) is never overwritten. Callers pin `publish.yml` by docs-kit release tag (`docs/contracts.md` C5), so a moved docs-kit tag would let other code sign as the trusted publisher.
 
 ## Entrypoint
@@ -62,9 +62,8 @@ internal/verify/              sigstore-go: find and verify signatures under the 
 internal/publish/             push and promote
 internal/pull/                tab resolution, cache, unpack layout, lock
 internal/gittest/, internal/ocitest/, internal/verify/sigtest/   test helpers
-hack/spike/                   the phase-1 GHCR and cosign spike (kept for its record)
 docs/contracts.md             the contracts other repositories read
-.github/workflows/            publish.yml (the reusable workflow), ci.yml, release.yml, spike*.yml
+.github/workflows/            publish.yml (the reusable workflow), ci.yml, release.yml
 openspec/                     OpenSpec workspace: config.yaml (constitution), specs/, changes/
 DESIGN.md                     the approved design and its decisions
 Taskfile.yml                  build and gate tasks

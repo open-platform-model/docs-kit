@@ -16,7 +16,7 @@ docs-kit moves both jobs to the producer. Each repository builds, lints and publ
 
 ## Decisions
 
-Made by the owner on 2026-10-02. Decisions 13 to 16 were approved by the owner later the same day, while phase 1 was planned (`openspec/changes/build-opm-docs-phase-1/`); where they differ from the text below, the text has been amended to match.
+Made by the owner on 2026-10-02. Decisions 13 to 16 were approved by the owner later the same day, while phase 1 was planned (`openspec/changes/archive/2026-10-02-build-opm-docs-phase-1/`); where they differ from the text below, the text has been amended to match.
 
 | # | Decision |
 |---|---|
