@@ -660,7 +660,7 @@ Syntax `opm-docs <command> [args] [flags]`. Exit codes: `0` success, `1` usage e
 | `check` | `--config`, `--project` | `build` into a temporary directory; exit 2 on any failure. The PR gate. |
 | `push` | `--dir` (path, required), `--registry` (string, `ghcr.io/open-platform-model/docs`) | Validate, pack deterministically, push; write the full tag for a release build; print `{"digest": ..., "tag": ...}` as JSON on stdout. |
 | `promote` | `--project` (required), `--digest` (required), `--registry` | Verify the signature of the digest (C9), then move the moving tags of its line to it (C4 rule 5). |
-| `pull` | see C7 | Resolve, verify, unpack, lint, lock. |
+| `pull` | see C7; `--config` (path, `bundles.cue`), `--out` (path, `.bundles`), `--lock` (path, `<out>/lock.json`) | Resolve, verify, unpack, lint, lock. |
 | `version` | none | Print `opm-docs <version>`. |
 
 `add-docs-revisions` adds `opm-docs revise` (and a `--revision` flag on `build`); its documentation-only check and patch handling are specified there.
@@ -686,7 +686,12 @@ internal/verify/         sigstore-go: find the Sigstore bundle, apply the C9 pol
 internal/pull/           tab resolution, cache, unpack layout, lock
 internal/build/          build and check: version and commit resolution, sources, render, manifest, bundle-mode lint (added in implementation, so cmd/ stays flag parsing only)
 internal/gittest/        throwaway git repositories for tests (added in implementation)
+internal/publish/        push and promote (added in implementation, so cmd/ stays flag parsing only)
+internal/ocitest/        an in-process registry for tests, without the referrers API and paging tag lists like GHCR (added in implementation)
+internal/verify/sigtest/ a private certificate authority that signs like cosign in GitHub Actions, for tests (added in implementation)
 ```
+
+**Signature tests (implementation finding).** sigstore-go's virtual Sigstore issues leaf certificates with an e-mail SAN and no GitHub extensions, and embeds no SCT, so it cannot exercise the C9 policy. `internal/verify` is tested two ways instead: the spike's real GitHub Actions signature (its manifest, referrer and Sigstore bundle, byte for byte) against a snapshot of the public-good trusted root, with SCT, transparency log and observer timestamp all required and every policy mismatch refused, offline; and `internal/verify/sigtest`, which uses the virtual Sigstore's CA helpers to issue keyless certificates with the GitHub extensions, signs DSSE in-toto statements with sigstore-go's `sign` package, and stores them as cosign does, for the push, promote and pull flows. sigstore-go verifies the certificate chain and signature; `internal/verify` then checks the identity itself (issuer, SAN workflow and ref glob, Source Repository URI and Ref), so each refusal names the field that failed.
 
 Dependencies: `cuelang.org/go` v0.17.1 (the version catalog_opm and cli use), `oras.land/oras-go/v2` at v2.6.2 or later (the hard-link extraction fix), `github.com/sigstore/sigstore-go` and `github.com/spf13/cobra`. `internal/tags` implements SemVer 2.0.0 precedence itself rather than use `golang.org/x/mod/semver`, which requires a leading `v`. Tests run offline: an in-process registry (`go-containerregistry`'s `pkg/registry`, or `zot` if the spike shows referrer fallback needs it) and sigstore-go's virtual Sigstore for signatures.
 
