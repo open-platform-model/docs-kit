@@ -798,3 +798,15 @@ No page carries a generator marker comment: a bundle's pages are wholly generate
 | Commands, flags, exit codes | `README.md` "Commands" |
 | Consumers install a released, checksum-verified `opm-docs` pinned in `.opm-docs-version`, never `go run` (C12) | `docs/contracts.md` C12 and `README.md` "Installing" |
 | How to release docs-kit, and that `publish.yml`'s version literal is release-please's | `AGENTS.md` |
+
+## Amended in review (2026-10-02)
+
+Changes made on the PR after archiving; `docs/contracts.md` carries each in its contract:
+
+- `publish.yml` installs the release the caller's `.opm-docs-version` names; no version literal (owner decision; C5, C12).
+- `promote` refuses to move a tag that already is a build's full tag, and never moves `edge` to an older `created` time (C4).
+- `push` refuses a bundle over the limits `pull` applies (C7).
+- A frozen lock may name only `<registry>/<project>` and segments the config shows; a pulled bundle unpacks and lints beside its segment and replaces it only after both pass (C7).
+- The `markdown` source leaves alias links inside fenced code as written (C8).
+- The default signer ref glob is `refs/tags/v[0-9]*` (C7, C9).
+- The spike program and workflows are removed; their findings stay in C2 and C10 and in git history.
