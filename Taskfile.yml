@@ -1,0 +1,82 @@
+version: "3"
+
+# Silent by default - set TASK_VERBOSE=1 or use --verbose to show commands
+silent: true
+
+vars:
+  BINARY_NAME: opm-docs
+  BUILD_DIR: bin
+  VERSION:
+    sh: git describe --tags --always --dirty 2>/dev/null | sed 's/^v//' || echo "0.0.0-dev"
+  LDFLAGS: -X github.com/open-platform-model/docs-kit/internal/version.Version={{.VERSION}}
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  build:
+    desc: Build ./bin/opm-docs with the version stamped in
+    cmds:
+      - go build -ldflags "{{.LDFLAGS}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} ./cmd/opm-docs
+
+  fmt:
+    desc: Format Go code (gofmt and goimports)
+    cmds:
+      - go fmt ./...
+      - goimports -w .
+
+  fmt:check:
+    desc: Fail when a Go file is not gofmt-formatted; writes nothing
+    cmds:
+      - |
+        out=$(gofmt -l .)
+        if [ -n "$out" ]; then echo "not gofmt-formatted:"; echo "$out"; exit 1; fi
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run ./...
+
+  tidy:
+    desc: Tidy the Go module
+    cmds:
+      - go mod tidy
+
+  test:
+    desc: Run every Go test (offline; no registry, no cluster)
+    cmds:
+      - go test ./...
+
+  openspec:install:
+    desc: Install the openspec CLI at the version CI pins
+    cmds:
+      - npm install -g @fission-ai/openspec@1.12.0
+
+  openspec:check:
+    desc: Validate every main spec and active change under openspec strict mode
+    preconditions:
+      - sh: command -v openspec >/dev/null
+        msg: "openspec not found: run `task openspec:install` (needs npm)"
+    cmds:
+      - openspec validate --all --strict --no-interactive
+
+  check:
+    desc: Run every gate (fmt:check, vet, lint, openspec:check, test)
+    cmds:
+      - task: fmt:check
+      - task: vet
+      - task: lint
+      - task: openspec:check
+      - task: test
+
+  clean:
+    desc: Remove build output
+    cmds:
+      - rm -rf {{.BUILD_DIR}} out

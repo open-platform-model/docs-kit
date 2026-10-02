@@ -1,0 +1,242 @@
+schema: spec-driven
+
+context: |
+  # docs-kit Development Constitution
+
+  ## Core Principles (Docs Bundle Tool)
+
+  This repo holds one Go program, `opm-docs`, and the reusable GitHub workflow that runs it.
+  Each OPM repository builds, lints and publishes its documentation as a signed OCI artifact,
+  a docs bundle, in its own CI; the site, opmodel.dev, pulls the bundles it needs and builds
+  from them. The approved design is `DESIGN.md`; its Decisions table is binding, and a change
+  that departs from a decision says so and names the owner's sign-off.
+
+  ### I. The Producer Builds, the Site Assembles
+  Reference facts are generated in the repository that owns their source, by this tool, in
+  that repository's CI. The site reads bundles; it never reads a source repository for them
+  and never generates a page.
+  - The renderer never reads source. Extractors turn source into the doc model (`data/`); the
+    renderer turns the doc model into pages (`content/`). A feature that needs source in the
+    renderer needs a richer doc model instead.
+  - Every project renders through the same embedded templates. A presentation change happens
+    once, here, and reaches a project when that project moves its pinned docs-kit release.
+
+  ### II. A Bundle Is a Published Contract
+  The bundle format (media types, annotations, `manifest.json`, the `data/` model), the tag
+  scheme, the reusable workflow's interface, `docs-kit.cue` and the site's pull config are read
+  by other repositories. Treat them like a published API.
+  - Prefer additive evolution. A field added to a schema is cheap; a field removed, renamed or
+    tightened breaks a consumer. A breaking change bumps the schema identifier
+    (`docs.opmodel.dev/bundle/v1` to `v2`) and the tool keeps reading the old one for a
+    deprecation window the change states.
+  - A full tag (`4.4.5.0`) names one immutable build and is never overwritten. Only the
+    moving tags (`4.4.5`, `4.4`, `4`, `edge`) move, and only through `opm-docs`.
+  - A change to a contract names every repository that consumes it and what each must do.
+
+  ### III. A Generated Entry States Only What Its Source Proves
+  Carried over from the site's rules (workspace `STYLE.md`, "Site Pages").
+  - A member's one-line summary is its `metadata.description`; a rule is tagged with what
+    enforces it only where the source shows it; a mark (Not implemented, Provided by your
+    platform) is derived, never authored.
+  - Every page the tool writes passes the page dialect before it is packed. A page that fails
+    is a bug in the tool or its source, never a reason to relax the lint.
+
+  ### IV. Verify Before Trust
+  A bundle is code-adjacent input to a public site.
+  - `opm-docs pull` unpacks nothing it has not verified: the cosign signature, the signer's
+    identity (issuer, docs-kit's publish workflow at an allowed ref, the repository that owns
+    the project) and the manifest schema.
+  - Unpacking refuses path traversal, absolute paths, symlinks, hard links, device files and
+    oversized trees.
+  - Credentials are the workflow's `GITHUB_TOKEN` for a push and nothing for a pull. The tool
+    never reads, stores or prints any other secret.
+
+  ### V. Deterministic and Pinned
+  - The same source, config and tool version produce the same bytes and the same digest: tar
+    entries sorted with fixed owner, mode and time, gzip without a timestamp,
+    `org.opencontainers.image.created` taken from the source commit.
+  - Callers pin a docs-kit release; every bundle records the tool version that built it. Never
+    float a tool, action or dependency version in a workflow.
+
+  ### VI. Simplicity & YAGNI
+  Start simple. Complexity MUST be justified.
+  - A new command, flag, extractor or source kind solves a need a phase of `DESIGN.md` names.
+  - Prefer one explicit input over inference; prefer refusing with a clear message over
+    guessing.
+
+  ### VII. Mergeable Sections (Iterative & Incremental Delivery)
+  A change is delivered as the sections of its `tasks.md` (`## N. Title` headings with `N.M`
+  checkboxes). Two invariants hold at every section boundary; they replace any size limit on
+  the change itself.
+  - **Every merge leaves `main` releasable.** A section MUST end green under the validation
+    gates and MUST close with a commit task naming the Conventional Commit it lands as
+    (§ Commit Standards below). Nothing that would break `main` is carried across a section boundary.
+  - **Work survives a session boundary.** The commit task is the pause point: a session that
+    stops there leaves checked boxes and a clean tree, and the next session resumes by running
+    apply again.
+  - One PR per change, one commit per section, is the default. Section 1 is a spike whenever
+    design.md carries an unverified assumption.
+  - **WARNING & BLOCK**: when a request cannot be cut into sections that each satisfy both
+    invariants, or needs more than about five, the Agent MUST warn, block, and propose a split
+    into sequential changes (Execution Gate).
+
+  ## Execution Gate (Agent Directive)
+  Before beginning ANY implementation, the Agent MUST evaluate the request against the
+  "Mergeable Sections" principle. Block only when the request cannot be cut into sections that
+  each end green and leave `main` releasable, or when it needs more than about five such
+  sections. In that case the Agent MUST reply with:
+  "🛑 **Scope Warning**: This request does not cut into a handful of mergeable sections. I
+  suggest we split it into the following changes: [list 2-3 changes, each a few sections that
+  leave main releasable]. Should we start with the first?"
+
+  ## Technology Standards
+
+  Can be found in [AGENTS.md](../AGENTS.md).
+
+  ## Code Style
+
+  ### Go Patterns
+  - Accept interfaces, return structs
+  - Context propagation for all network and file-tree operations
+  - Wrap errors with context: fmt.Errorf("pulling %s: %w", ref, err)
+  - Table-driven tests; tests run offline (in-process registry, virtual Sigstore)
+
+  ### Comments and References
+  - Default to no reference: say what the code does and why, in the comment's own words.
+  - docs-kit has no enhancement entry. Cite a design decision as `DESIGN decision 9`, never a
+    bare `D9`, which names nothing. An enhancement, when one applies, is cited as `0021:D4`
+    (id, colon, decision; `0021:D4/D9`; `0021:D7:R1`).
+  - Never cite a section, slice, phase, task or design-doc-local id (`§8.1`, `task 4.2`).
+  - Never put a reference in a page the tool renders, a template, a fixture a reader copies or
+    a CLI output string. Those reach people with no access to the design record.
+  - No `Was:` rename history in comments; `git log` owns it.
+
+  ## Validation Gates (before merge)
+  1. task fmt:check — every Go file gofmt-formatted
+  2. task vet and task lint — go vet and golangci-lint pass
+  3. task test — every test passes, offline
+  4. task openspec:check — main specs and active changes validate under --strict
+  `task check` runs all four.
+
+  ## Commit Standards
+  - Format: type(scope): description
+  - Types: feat, fix, refactor, docs, test, chore, build, ci
+  - Scopes: cmd, bundle, tags, config, extract, render, lint, oci, pull, revise, workflow,
+    openspec
+  - feat and fix release `opm-docs` (release-please); docs, test, chore, build and ci do not
+  - Commits may end with the plain `Co-Authored-By: Claude <noreply@anthropic.com>` trailer
+    (optional); never a session ID/URL or generated-with footer
+  - Never a bare `@name` in a commit message, PR title or PR body (AGENTS.md); PR bodies stay
+    under 250 words
+
+rules:
+  # Every entry in a rules list MUST be a plain string. OpenSpec drops the WHOLE artifact's
+  # rules if any entry is a mapping, so keep multi-line entries as block scalars.
+  proposal:
+    - "Focus: WHY we're doing this, WHAT's in/out of scope"
+    - "Updates when: Scope changes, intent clarifies, approach fundamentally shifts"
+    - Identify affected command(s), package(s) and contracts (bundle format, tag scheme,
+      workflow interface, docs-kit.cue, pull config, lock file).
+    - Name every repository that consumes a contract the change touches (catalog_opm, core,
+      cli, opm-operator, library, opm, opmodel.dev) and what each has to do.
+    - "State the release class per SemVer. docs-kit is on 0.x: a breaking contract change is a
+      minor bump with a `BREAKING CHANGE:` footer that is the migration note."
+    - Scope MUST cut into at most about five tasks.md sections, each ending green and leaving
+      `main` releasable on its own (Principle VII).
+    - "Delivery mode: one PR per change is the default and needs no statement. When a downstream
+      consumer must pick up a published release mid-change, add exactly one line to the
+      proposal, `Delivery: one PR per section (<consumer> needs <release> after section <N>)`,
+      and the change ships section by section."
+    - Complexity additions MUST include justification (Principle VI).
+    - Cite DESIGN.md decisions as `DESIGN decision N`.
+
+  design:
+    - "Focus: HOW we'll implement it technically"
+    - "Updates when: Implementation reveals better approach, constraints change"
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+    - MUST include a "Research & Decisions" section when exploration was done
+    - |
+      Format:
+      ## Research & Decisions
+
+      ### [Topic]
+      **Context**: [Why this decision was needed]
+      **Explored**: [What was investigated]
+      **Options considered**:
+      1. [Option A] - [pros/cons]
+      2. [Option B] - [pros/cons]
+      **Decision**: [Chosen option]
+      **Rationale**: [Why this option was selected]
+    - Show every contract concretely (the CUE schema, the YAML interface, the JSON shape, the
+      tag table), never a description of it.
+    - Mark any choice DESIGN.md leaves open as "decided in planning".
+    - 'Define command syntax: "opm-docs <command> [args] [flags]"; document flags with types and defaults'
+    - Specify exit codes (0 success, 1 usage error, 2 execution error, lint violations included)
+    - Specify error messages and the fix each names
+    - MUST include a "Durable decisions" section listing every decision a future maintainer or
+      a consuming repository needs and where it lands at archive (`AGENTS.md`, `README.md`,
+      `docs/<note>.md`, or "stays with the change"). Write "None." when empty.
+
+  specs:
+    - "Focus: WHAT behavior is changing (not HOW it's implemented)"
+    - "Updates when: New or changed requirements emerge"
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+    - Describe observable behavior: files written, bytes pushed, tags moved, exit codes,
+      messages
+    - Cite a DESIGN.md decision in a requirement's body (`DESIGN decision 6`), never inside the
+      `### Requirement:` header, which tools read as the requirement's name.
+    - Use ADDED/MODIFIED/REMOVED sections to show deltas from current behavior
+    - Include scenarios that demonstrate requirements
+
+  tasks:
+    - "Focus: STEPS to take for implementation"
+    - "Updates when: Tasks complete, new tasks discovered, blockers identified"
+    - "CRITICAL: Every `## N.` section MUST end green under the validation gates and MUST close
+      with a commit task: an ordinary `- [ ] N.M` checkbox whose text names the Conventional
+      Commit to make, e.g. `- [ ] 2.6 task check green, then commit feat(lint): port the page dialect lint`
+      (types and scopes per § Commit Standards). The commit task is the pause point; nothing
+      uncommitted is carried across a section boundary."
+    - "CRITICAL: Cut the change into at most about seven sections, each a coherent unit that
+      leaves main releasable by itself. If it needs more, or a section cannot end green on its
+      own, split into a new OpenSpec change. Section 1 is a spike whenever design.md carries an
+      unverified assumption; its commit task lands what the spike produced (a test, a fixture,
+      or the finding written into design.md)."
+    - Every verification task names an observable check (a test, a command and its output, a
+      registry listing, a signature verification).
+    - Group implementation tasks by package
+    - Include the validation gates (`task check`) in every section's commit task, not as a
+      trailing section.
+    - "The section-closing commit is the ONLY delivery operation allowed in tasks.md: no pushing,
+      branching, opening or merging PRs, tagging, cutting releases, and no commit-message or
+      PR-body hygiene checks. Everything past the commit happens under the repo's normal git
+      workflow. Sole exception: a task whose stated deliverable is itself a registry or
+      publishing operation (a spike push); there those steps ARE the implementation, and the
+      task says who may run them."
+
+# Operation hooks: served to the agent by `openspec instructions apply|archive --change <name>
+# --json` as operationGuidance.
+operations:
+  apply:
+    guidance:
+      - "Work section by section: every `## N.` block of tasks.md ends with a commit task. Before
+        checking that box, run `task check` on the whole tree and make exactly the named
+        Conventional Commit (types and scopes per § Commit Standards; optional plain
+        Co-Authored-By: Claude <noreply@anthropic.com> trailer only, never a session link, never
+        a bare @name, and no body line starting with word( because the squash body reaches
+        release-please). Do not start the next section with uncommitted work in the tree."
+      - "The commit task is the only delivery operation apply performs: no push, no PR, no tag,
+        no release. Commit on the working branch the run started on. If the run started on
+        main, create the working branch before the first commit task; never commit to main."
+      - "Never push to a registry from a laptop. A task that pushes to GHCR runs in GitHub
+        Actions through a workflow in this repo, and only when its task text says so."
+      - "Pausing: when the user asks to pause, or a blocker appears, finish the current section's
+        commit task first if its gates are green; otherwise report exactly which boxes are
+        checked and what is uncommitted in the tree. A new session resumes by running apply
+        again: the checked boxes plus a clean tree are the resume state."
+  archive:
+    guidance:
+      - "The archive rides the implementing PR: archive on the change's branch, before merge,
+        never as a separate commit on main."
+      - "Before archiving, read design.md's Durable decisions section. Every entry marked for
+        promotion MUST already be landed in its target file; if one is not, stop and land it
+        first. An archived change must not be the only home of a contract."

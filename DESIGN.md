@@ -16,7 +16,7 @@ docs-kit moves both jobs to the producer. Each repository builds, lints and publ
 
 ## Decisions
 
-Made by the owner on 2026-10-02.
+Made by the owner on 2026-10-02. Decisions 13 to 16 were approved by the owner later the same day, while phase 1 was planned (`openspec/changes/build-opm-docs-phase-1/`); where they differ from the text below, the text has been amended to match.
 
 | # | Decision |
 |---|---|
@@ -32,6 +32,10 @@ Made by the owner on 2026-10-02.
 | 10 | A site version shows the docs of the versions its cli pins (library, core, opm-operator), as it does today. |
 | 11 | Third-party catalogs in the Catalogs tab are a possible future extension, out of scope for now. |
 | 12 | Version history in the Catalogs tab is badges and a per-member change list only; no side-by-side diff view. |
+| 13 | Phase 1's done criterion is split: phase 1 ends when the site shows opm 4.4 and edge in the Catalogs tab from pulled, verified bundles; the docs-revision half (`opm-docs revise` and a revision reaching the site) is the follow-up change `add-docs-revisions`. |
+| 14 | The site runs `opm-docs pull` inside its build image, with network on for that step only, instead of on the host. |
+| 15 | `org.opencontainers.image.created` is the source commit's time, not the build time, so a rebuild of the same commit gives the same digest. |
+| 16 | `push` and `promote` are separate commands: `push` writes only the immutable full tag, the workflow signs the digest, then `promote` verifies the signature and moves the moving tags. |
 
 Carried over from the site's existing rules: reference facts are generated in the repository that owns their source; a generated entry states only what its source proves; pages follow the page dialect in the workspace `STYLE.md` ("Site Pages").
 
@@ -51,8 +55,9 @@ Carried over from the site's existing rules: reference facts are generated in th
  └───────────────────────────────┬───────────────────────────────┘
                                  ▼
  opmodel.dev build
-   host:   opm-docs pull  (resolve tags ─► verify signature ─► pin digest ─► unpack)
+   image:  opm-docs pull  (resolve tags ─► verify signature ─► pin digest ─► unpack)
            writes site/.bundles/<project>/<version>/ and a lock file
+           (in the build image, network on for this step only; decision 14)
    Docker: Hugo mounts the unpacked bundles, offline, as it mounts source trees today
 ```
 
@@ -90,7 +95,7 @@ Annotations on the manifest, so a client can choose a bundle without downloading
 | `org.opencontainers.image.version` | `4.4.5` (the release; `edge` for main) |
 | `org.opencontainers.image.revision` | the source commit |
 | `org.opencontainers.image.source` | `https://github.com/open-platform-model/catalog_opm` |
-| `org.opencontainers.image.created` | build time, RFC 3339 |
+| `org.opencontainers.image.created` | the source commit's time, RFC 3339 (decision 15) |
 | `dev.opmodel.docs.revision` | `0`, `1`, ... (decision 6) |
 | `dev.opmodel.docs.project` | `catalog-opm` |
 | `dev.opmodel.docs.dialect` | `1` (the page-dialect version the content passed) |
@@ -179,9 +184,10 @@ A fix to released docs, for example a wrong doc comment in opm 4.4.5:
 | `opm-docs build` | Reads `docs-kit.cue` in the repository, runs the extractors and the renderer, lints the result and writes the bundle tree to `out/`. |
 | `opm-docs lint` | Lints a directory of pages against the page dialect. `build` runs it, and so does the site on pull. |
 | `opm-docs check` | Builds into a temporary directory and fails if it does not lint. The PR gate. |
-| `opm-docs push` | Packs `out/` and pushes it with the computed tags (above). |
+| `opm-docs push` | Packs `out/` and pushes it under its immutable full tag only (decision 16). |
+| `opm-docs promote` | After the workflow has signed the pushed digest, verifies the signature and moves the moving tags (above) to it (decision 16). |
 | `opm-docs pull` | For the site: resolves tags, verifies signatures, pins digests, unpacks, writes the lock. |
-| `opm-docs revise` | The docs-revision steps 3 and 4. |
+| `opm-docs revise` | The docs-revision steps 3 and 4 (change `add-docs-revisions`, decision 13). |
 | `opm-docs serve` | Builds and serves one repository's bundle on a local Hugo, for an author previewing their pages. |
 
 ### Configuration
@@ -245,7 +251,7 @@ Credentials: push uses the workflow's `GITHUB_TOKEN` with `packages: write`. Pul
 
 ### Pull and lock
 
-`task versions:prepare` gains one step, run on the host with network, before the offline Docker build:
+The site gains one step, run inside its build image with network on for that step only (decision 14), before the offline build:
 
 ```text
 opm-docs pull --config site/bundles.cue --out site/.bundles --lock site/.bundles/lock.json
@@ -271,10 +277,10 @@ The site's checks keep running on what it built: page set, links, stray files, s
 
 ### Phase 1: the tool and the Catalogs tab
 
-- docs-kit: `build`, `lint`, `check`, `push`, `pull`; the `cue-catalog` extractor; the renderer; the manifest schema; the publish workflow; signing and verification.
+- docs-kit: `build`, `lint`, `check`, `push`, `promote`, `pull`; the `cue-catalog` extractor; the renderer; the manifest schema; the publish workflow; signing and verification.
 - catalog_opm: `docs-kit.cue`, the workflow call, `tools/refgen` and its committed pages removed, the release-workflow regeneration step removed.
-- opmodel.dev: `opm-docs pull` in the host step, the Catalogs tab with its switcher, aliases and index rules; catalog pages leave Reference.
-- Done when: the site shows opm 4.4 and edge in the Catalogs tab from pulled bundles, and a docs revision of 4.4.x reaches the site without a catalog release.
+- opmodel.dev: `opm-docs pull` in its build image, the Catalogs tab with its switcher, aliases and index rules; catalog pages leave Reference.
+- Done when: the site shows opm 4.4 and edge in the Catalogs tab from pulled, verified bundles (decision 13). A docs revision of 4.4.x reaching the site without a catalog release is the done criterion of the follow-up change `add-docs-revisions`.
 
 ### Phase 1b: version history in the Catalogs tab
 
