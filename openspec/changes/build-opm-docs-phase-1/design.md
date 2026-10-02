@@ -339,13 +339,13 @@ Command:
 
 ```text
 opm-docs pull --config site/bundles.cue --out site/.bundles --lock site/.bundles/lock.json
-              [--frozen <lock>] [--offline] [--local <project>=<dir>]...
+              [--frozen <lock>] [--offline] [--local <project>@<segment>=<dir>]...
 ```
 
 - Default: list each tab's tags (C4), resolve, verify (C9), fetch the layer **by digest** after verification, unpack, lint, write the lock.
 - `--frozen <lock>`: pull exactly the digests in that lock, no tag resolution; verification and lint still run. The recovery path, as `frozen.conf` is for site versions.
 - `--offline`: no network; requires `--frozen` and every blob in the cache. Fails naming the first missing digest.
-- `--local catalog-opm=../catalog_opm/out/catalog-opm`: take that project from a local `opm-docs build` output instead of the registry, unsigned, as one segment named by its manifest (`edge` for a local build). The lock marks it `"local": true`. For an author's preview only; CI never passes it.
+- `--local <project>@<segment>=<dir>`, repeatable (supervisor decision, 2026-10-02): take that segment of that project from a local bundle tree (an `opm-docs build` output or a test fixture) instead of the registry, e.g. `--local catalog-opm@4.4=fixtures/catalog-opm/4.4 --local catalog-opm@4.5=... --local catalog-opm@edge=...`. The segment must equal the one the tree's `manifest.json` implies (`MAJOR.MINOR` of its version, or `edge`), and the project must be a tab in the config. A local entry is unsigned: `pull` skips signature verification and never fetches the Sigstore trusted root for it, but still validates the manifest, applies the unpack guards and lints it in bundle mode. When `--local` names a project, registry resolution is skipped for that whole project, so a pull whose every tab is local needs no network at all. Each local entry is marked `"local": true` in the lock. For an author's preview and the site's tests; a publishing CI build never passes it.
 - Cache: blobs under `$XDG_CACHE_HOME/opm-docs/blobs/sha256/<hex>` (else `~/.cache/...`), reused by digest. The Sigstore trusted root is cached beside it.
 
 Unpack layout, owned entirely by `pull` (it removes any project or segment directory it did not write this run):
@@ -373,6 +373,7 @@ Lock, `schema/lock.cue` (`docs.opmodel.dev/lock/v1`), written with sorted keys a
   "bundles": [
     {
       "project": "catalog-opm",
+      "root": "/catalogs/opm/",
       "segment": "4.4",
       "tag": "4.4",
       "repository": "ghcr.io/open-platform-model/docs/catalog-opm",
@@ -393,7 +394,7 @@ Lock, `schema/lock.cue` (`docs.opmodel.dev/lock/v1`), written with sorted keys a
 }
 ```
 
-Entries sort by project, then by version newest first, `edge` last. A `local` entry has `"local": true` and `"dir"`, and no `digest`, `repository` or `signer`.
+Entries sort by project, then by version newest first, `edge` last. Every entry carries `root`, the tab's placement root (supervisor decision, 2026-10-02), so a consumer maps a `dir` to its URLs without reading `bundles.cue`. A `local` entry has `"local": true`, `root`, `segment`, `version`, `revision`, `commit` and `dir` from its manifest, and no `digest`, `repository`, `tag` or `signer`.
 
 ### C8. URLs and links
 
@@ -521,7 +522,9 @@ Written by `cue-catalog` (schema id `docs.opmodel.dev/data/cue-catalog/v1`). Pha
 - An alert marker is exactly `> [!NOTE]` (or `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`) alone on its line.
 - Every link destination (inline and reference definitions) is `http:`, `https:`, `mailto:` or `#...`, or one of: `/docs/(<seg>/)*` with an optional fragment; `/enhancements/`, `/enhancements/<NNNN>/` or `/enhancements/<NNNN>/<document>/` with `<document>` one of `problem`, `design`, `decisions`, `graduation`, `risks`, `operational`, `questions`; `/catalogs/<name>/` or `/catalogs/<name>/<segment>/(<seg>/)*` with `<segment>` a major (`4`), a minor (`4.4`) or `edge`, with an optional fragment.
 - Bundle mode (`lint --bundle <dir>`, run by `build` and `pull`) adds: a link into the bundle's own root uses the bundle's own segment and names a page in the bundle; and `manifest.json` lists exactly the pages present.
-- Docs mode (the default) adds: a `/catalogs/` link uses a major segment only.
+- Docs mode (the default) adds: a `/catalogs/` link is the bare tab root (`/catalogs/opm/`) or uses a major segment (`/catalogs/opm/4/...`); a minor or `edge` segment is a violation.
+
+**Agreement with the site's shell lint until phase 3** (supervisor decision, 2026-10-02). Until phase 3 retires `opmodel.dev/site/scripts/lint-sources.sh`, the site lints `docs/site/` trees with the shell script and every bundle with `opm-docs lint`, so the two must agree. They are kept in agreement by one conformance fixture set: docs-kit's `internal/dialect/testdata/conformance/` is a copy of opmodel.dev `site/tests/lint/` (with its source commit recorded), each fixture paired with the expected `<file>:<line>` output, and both linters must pass every fixture. A rule change lands in both repositories with the fixture that proves it, in docs-kit first (the Go lint is the reference) and in the same week in opmodel.dev; neither side changes a rule without the other.
 
 Every violation prints as `<file>:<line>: <message>`, the shell lint's format.
 
@@ -530,7 +533,8 @@ Every violation prints as `<file>:<line>: <message>`, the shell lint's format.
 Callers and the site never `go run` or `go install` `opm-docs` (supervisor decision, 2026-10-02): every consumer runs a released binary, so the bytes that built a bundle are the bytes a release names.
 
 - **Assets.** Every docs-kit release `vX.Y.Z` carries `opm-docs_X.Y.Z_<os>_<arch>.tar.gz` for `linux_amd64`, `linux_arm64`, `darwin_arm64` and `darwin_amd64` (each holding the `opm-docs` binary and `LICENSE`), and `checksums.txt` (SHA-256, `sha256sum` format, one line per archive). Built by goreleaser in a draft-first release workflow, the pattern cli already uses (decided in planning: the owner's draft-first runbook, the immutable-release setting and reviewers' knowledge carry over unchanged; a hand-rolled Task build would re-implement archives and checksums for no gain). URL: `https://github.com/open-platform-model/docs-kit/releases/download/vX.Y.Z/<asset>`.
-- **Pin file.** A consumer that runs the tool outside `publish.yml` (opmodel.dev for `pull`, catalog_opm for its local `docs:bundle` tasks) pins it in a repo-root file `.opm-docs-version`: one line, the release tag (`v0.1.0`), matching `^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$`. `publish.yml` pins itself through its `OPM_DOCS_VERSION` literal (C5). In a repository that has both, the `.opm-docs-version` tag and the `publish.yml@` ref name the same release and move in one PR.
+- **Pinned in a build image** (supervisor decision, 2026-10-02). A consumer may instead pin the `linux_amd64` archive by its SHA-256 in its own build image (opmodel.dev does this in `site/Dockerfile`, as it pins Hugo and Pagefind) and run `opm-docs` inside that image, with network on for the `pull` step only. The SHA-256 it pins is the archive's line in that release's `checksums.txt`. docs-kit therefore keeps shipping the `linux_amd64` archive and `checksums.txt` in every release, under the names above.
+- **Pin file.** A consumer that runs the tool on the host, outside `publish.yml` (catalog_opm for its local `docs:bundle` tasks; opmodel.dev only if it does not use the image pattern) pins it in a repo-root file `.opm-docs-version`: one line, the release tag (`v0.1.0`), matching `^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$`. `publish.yml` pins itself through its `OPM_DOCS_VERSION` literal (C5). In a repository that has both, the `.opm-docs-version` tag and the `publish.yml@` ref name the same release and move in one PR.
 - **Verification.** Download the archive and `checksums.txt` for the host's os and arch, check with `grep ' <archive>$' checksums.txt | sha256sum -c -` (refusing an archive with no line), then extract only `opm-docs`. A failed check stops the task; nothing falls back to building from source. The install target is a gitignored repo-local directory (`.bin/` or `site/.bin/`), never a global path.
 
 ### Site decisions recorded here (supervisor, 2026-10-02; the owner may override)

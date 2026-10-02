@@ -34,14 +34,22 @@ For each tab, `pull` SHALL list the repository's tags, ignore `sha256-*` signatu
 - **THEN** `pull` exits 2 naming `edge` and the digest
 
 ### Requirement: The unpack layout and lock are fixed
-`pull` SHALL unpack each bundle into `<out>/<project>/<segment>/` (segment `<MAJOR>.<MINOR>` or `edge`), remove every project or segment directory under `<out>` it did not write in this run, and write the lock (`docs.opmodel.dev/lock/v1`) with the fields `design.md` C7 fixes, sorted, with no timestamps. The same resolution SHALL write byte-identical lock files.
+`pull` SHALL unpack each bundle into `<out>/<project>/<segment>/` (segment `<MAJOR>.<MINOR>` or `edge`), remove every project or segment directory under `<out>` it did not write in this run, and write the lock (`docs.opmodel.dev/lock/v1`) with the fields `design.md` C7 fixes, every entry including the tab's placement `root`, sorted, with no timestamps. The same resolution SHALL write byte-identical lock files.
 
 #### Scenario: Stable lock
 - **WHEN** `pull` runs twice and no tag moved in between
 - **THEN** both runs write the same `lock.json` bytes
 
 ### Requirement: Frozen, offline and local pulls
-With `--frozen <lock>`, `pull` SHALL fetch exactly the digests the lock names, still verifying and linting. With `--offline` (only beside `--frozen`) it SHALL use only the cache and fail naming the first missing digest. With `--local <project>=<dir>` it SHALL take that project from a local build output, unsigned, and mark its lock entry `"local": true`.
+With `--frozen <lock>`, `pull` SHALL fetch exactly the digests the lock names, still verifying and linting. With `--offline` (only beside `--frozen`) it SHALL use only the cache and fail naming the first missing digest. With `--local <project>@<segment>=<dir>`, repeatable, it SHALL take that segment of that project from a local bundle tree, refusing a segment that differs from the one the tree's manifest implies; it SHALL skip signature verification and the Sigstore trusted root for local entries, still validate, guard and lint them, skip registry resolution for every project named by `--local`, and mark each local lock entry `"local": true`.
+
+#### Scenario: An all-local pull needs no network
+- **WHEN** `pull` runs with `--local catalog-opm@4.4=a --local catalog-opm@4.5=b --local catalog-opm@edge=c` and every tab is `catalog-opm`, on a host with no network
+- **THEN** it unpacks `catalog-opm/4.4/`, `catalog-opm/4.5/` and `catalog-opm/edge/` and writes a lock with three entries marked `local`, without contacting the registry or the Sigstore infrastructure
+
+#### Scenario: Segment mismatch
+- **WHEN** `--local catalog-opm@4.5=dir` names a tree whose manifest version is 4.4.5
+- **THEN** `pull` exits 1 naming the segment and the version
 
 #### Scenario: Offline rebuild from a lock
 - **WHEN** a previous pull cached every blob and `pull --frozen site/.bundles/lock.json --offline` runs with no network

@@ -8,19 +8,30 @@ The page-dialect lint in `opm-docs`: dialect 1, and its docs and bundle modes.
 `opm-docs lint` SHALL enforce, for dialect 1, every rule of `opmodel.dev/site/scripts/lint-sources.sh` as of 2026-10-02 (file kinds and names, front matter, shortcodes on every line, Starlight and MDX forms, component tags, images, raw `href=`/`src=`, fence language tags, alert markers, link destinations), and SHALL additionally accept the link forms `/catalogs/<name>/` and `/catalogs/<name>/<segment>/(<seg>/)*` with an optional fragment, where `<segment>` is a major (`4`), a minor (`4.4`) or `edge`. Each violation SHALL print as `<file>:<line>: <message>` and the command SHALL exit 2 when any is found.
 
 #### Scenario: The shell lint's fixtures agree
-- **WHEN** `opm-docs lint` runs over each fixture under `opmodel.dev/site/tests/lint/` (copied into `internal/dialect/testdata/`)
-- **THEN** it reports the same files and lines the shell lint reports
+- **WHEN** `opm-docs lint` runs over each fixture of the conformance set, `internal/dialect/testdata/conformance/` (a copy of opmodel.dev `site/tests/lint/`)
+- **THEN** it reports the same files and lines the shell lint reports, which the committed expected output records
 
 #### Scenario: A catalog link passes
 - **WHEN** a page links `/catalogs/opm/4/traits/backup/`
 - **THEN** the lint reports nothing for that line
 
 ### Requirement: Docs mode allows only major catalog links
-In docs mode (the default), a `/catalogs/` link SHALL use a major segment; a minor or `edge` segment SHALL be a violation naming the major form.
+In docs mode (the default), a `/catalogs/` link SHALL be the bare tab root (`/catalogs/<name>/`) or use a major segment; a minor or `edge` segment SHALL be a violation naming the major form.
 
 #### Scenario: A docs page pins a minor
 - **WHEN** a `docs/site` page links `/catalogs/opm/4.4/traits/backup/`
 - **THEN** the lint reports the line, saying docs pages link catalogs through `/catalogs/opm/4/`
+
+#### Scenario: The bare tab root
+- **WHEN** a `docs/site` page links `/catalogs/opm/`
+- **THEN** the lint reports nothing for that line
+
+### Requirement: The conformance fixture set binds both linters until phase 3
+Until phase 3 retires the site's shell lint, docs-kit SHALL ship the conformance fixture set copied from opmodel.dev `site/tests/lint/`, with each fixture's expected `<file>:<line>` output and the source commit, and `task test` SHALL fail when `opm-docs lint` disagrees with any expected output. A dialect rule change SHALL add or change a conformance fixture in the same change.
+
+#### Scenario: A rule added on one side only
+- **WHEN** a change makes the Go lint refuse a form the expected output of a conformance fixture accepts
+- **THEN** `task test` fails naming the fixture and the line
 
 ### Requirement: Bundle mode checks links into the bundle
 With `--bundle`, the lint SHALL read the bundle's `manifest.json` and SHALL report a link into the bundle's own root that uses a segment other than the bundle's own, or that names no page of the bundle, and a mismatch between `pages` and the files under `content/`. `build` and `pull` SHALL run the lint in bundle mode.

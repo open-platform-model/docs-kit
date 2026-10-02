@@ -24,24 +24,26 @@ Phase 1, as planned here, is done when the site shows opm 4.4 and edge in the Ca
  2 release PR 0.1.0 merge ──► 3 publish-docs-bundle §1 PR
                                  (uses publish.yml@v0.1.0)
                                  merge: edge publishes
-                              4 OWNER: make packages public,
-                                 dispatch the backfills ─────► 5 add-catalogs-tab PR
-                                                                  (pulls real bundles)
-                                                                  merge ─────────────────► 6 link fix PR
-                                                                                              merge
-                              7 publish-docs-bundle §2 PR ◄──────────────────────────────────┘
-                                 (refgen retired; also waits
-                                  for the k8s-catalog removal
-                                  on catalog_opm main) merge
+                              4 OWNER: make package public,
+                                 dispatch the backfill ──────► 5 add-catalogs-tab PR
+                                                                  (pulls real bundles;
+                                                                   excludes the old pages)
+                                                                  merge ──────────┬──────► 6 link fix PR
+                                                                                  │          merge
+                              7 publish-docs-bundle §2 PR ◄───────────────────────┘
+                                 (refgen retired; waits for
+                                  the k8s-catalog removal on
+                                  catalog_opm main) merge
+                              (6 and 7 in either order)
 ```
 
 1. **docs-kit `build-opm-docs-phase-1`.** One PR. Section 1 is a gate: the owner runs `spike.yml` from the PR branch (tasks.md 1.3) and nothing past section 1 starts until its findings are recorded. Merge when every section is done and archived.
 2. **docs-kit release `v0.1.0`.** release-please opens the release PR after step 1's merge; the owner merges it; the draft-first release publishes the binaries. Nothing downstream may reference docs-kit before this tag exists.
 3. **catalog_opm `publish-docs-bundle`, section 1 (adopt).** Its `check` jobs on the PR are the first end-to-end run of `publish.yml`. On merge, the `Docs` workflow publishes `edge`; the first push creates the GHCR package `docs/catalog-opm`, private.
 4. **Owner, in catalog_opm.** Make `docs/catalog-opm` public. Dispatch the backfill for the current release, so the tab has its first minor (DESIGN decision 8; `release` mode reads `main`'s `docs-kit.cue` because the tag has none, but extracts the `opm/` module and the `docs/catalogs/opm` dir from the tag; the tag has no such dir, so `4.4.5.0` gets the generated landing only, C5): `gh workflow run docs.yml -R open-platform-model/catalog_opm -f mode=release -f tag=opm-v4.4.5` (or the newest `opm-v4.4.*` tag by then). Check: anonymous `opm-docs pull` with a scratch `bundles.cue` (C7) resolves `4.4` and `edge` and verifies both.
-5. **opmodel.dev `add-catalogs-tab`.** Built and tested against fixture bundles, merged once step 4 holds, so its first `main` build pulls real ones. From this merge until step 7 the catalog member pages exist twice (Reference, from git, and the Catalogs tab); keep the window short.
-6. **cli docs link fix.** Needs step 5 (the site lint accepts `/catalogs/` links) and must merge before step 7 (which deletes the page it links today).
-7. **catalog_opm `publish-docs-bundle`, section 2 (retire refgen).** External dependency: it starts only after the removal of the k8s catalog (`k8s/`, owned by another session) has landed on catalog_opm `main`, because until then refgen still writes the k8s table (`docs/site/reference/kubernetes-resources.md`) and no bundle replaces it. It also waits for steps 5 and 6. It removes the generator and the committed pages; the Reference copies disappear from the next site build. Phase 1 is done when the site's next build shows the Catalogs tab and no catalog pages under Reference.
+5. **opmodel.dev `add-catalogs-tab`.** Built and tested against fixture bundles, merged once step 4 holds, so its first `main` build pulls real ones. No double publish (supervisor decision, 2026-10-02): the build that gains the tab stops mounting catalog_opm's `docs/site/reference/catalog-members/**` and `docs/site/reference/catalog-contract.md`, and its link hook maps links to the old targets (`/docs/reference/catalog-members/<kind>/<page>/`, `/docs/reference/catalog-contract/`) to the tab's alias forms. So the old pages vanish from the site at this merge, whatever catalog_opm still commits.
+6. **cli docs link fix.** Needs step 5 (the site lint accepts `/catalogs/` links). Because step 5 already maps the old link targets, it no longer has to land before step 7; steps 6 and 7 merge in either order.
+7. **catalog_opm `publish-docs-bundle`, section 2 (retire refgen).** External dependency: it starts only after the removal of the k8s catalog (`k8s/`, owned by another session) has landed on catalog_opm `main`, because until then refgen still writes the k8s table (`docs/site/reference/kubernetes-resources.md`) and no bundle replaces it. It also waits for step 5 (not for step 6). It removes the generator and the committed pages the site already ignores. Phase 1 is done when step 5's build shows the Catalogs tab and no catalog pages under Reference; steps 6 and 7 clean up the sources.
 
 If catalog_opm releases a new opm version after step 3, its `publish-docs` job publishes `<version>.0` by itself.
 
@@ -53,7 +55,7 @@ If catalog_opm releases a new opm version after step 3, its `publish-docs` job p
 
 ## catalog_opm: `publish-docs-bundle`
 
-Proposal must state: two sections, `Delivery: one PR per section (opmodel.dev needs the published bundles after section 1)`; release class `ci` for both commits (no catalog release: no published member changes); no member moves `apiVersion`; downstream consumers are opmodel.dev (pulls the bundles) and cli (one docs link, step 6); section 2 depends on the k8s-catalog removal having landed on `main` (an external dependency owned by another session); Before/After shows `docs-kit.cue` (Before: none) and the removed `tools/refgen` task block. Only the opm catalog gets a bundle; nothing is planned for `k8s/`.
+Proposal must state: two sections, `Delivery: one PR per section (opmodel.dev needs the published bundles after section 1)`; release class `ci` for both commits (no catalog release: no published member changes); no member moves `apiVersion`; downstream consumers are opmodel.dev (pulls the bundles; already ignores the old pages, step 5) and cli (two docs links, step 6, in either order with section 2); section 2 depends on the k8s-catalog removal having landed on `main` (an external dependency owned by another session); Before/After shows `docs-kit.cue` (Before: none) and the removed `tools/refgen` task block. Only the opm catalog gets a bundle; nothing is planned for `k8s/`.
 
 ### Section 1: publish bundles with docs-kit
 
@@ -69,7 +71,7 @@ Proposal must state: two sections, `Delivery: one PR per section (opmodel.dev ne
 7. `AGENTS.md`: a "Docs bundles" paragraph (what publishes, when, how to preview with `task docs:bundle`, how to backfill a release with the dispatch, that `docs/catalogs/` holds bundle-only pages and `docs/site/` holds site-version pages).
 8. Gate: `task check` green; the PR's `check` job green (the first real run of `publish.yml`). Commit `ci(docs): publish the opm catalog docs bundle with docs-kit`.
 
-### Section 2: retire tools/refgen (after the k8s-catalog removal has landed on catalog_opm `main`, and after opmodel.dev `add-catalogs-tab` and the cli link fix have merged)
+### Section 2: retire tools/refgen (after the k8s-catalog removal has landed on catalog_opm `main`, and after opmodel.dev `add-catalogs-tab` has merged; the cli link fix may land before or after)
 
 Precondition, checked by the planner and again before the PR: catalog_opm `main` has no `k8s/` module (the removal change has merged). If it has not, stop; this section does not plan around the k8s catalog.
 
@@ -89,9 +91,9 @@ Proposal must state: published URLs added (`/catalogs/opm/<MAJOR.MINOR>/`, `/cat
 
 Must do:
 
-1. **Tool pin.** A repo-root `.opm-docs-version` (one line, `v0.1.0`; C12), and `task tools:opm-docs`, which downloads that release's `opm-docs_<v>_<os>_<arch>.tar.gz` and `checksums.txt`, checks the SHA-256 and installs to `site/.bin/opm-docs` (gitignored). Host only; the Docker images do not need it.
+1. **Tool pin** (C12, image pattern; supervisor decision, 2026-10-02). `site/Dockerfile` downloads the `opm-docs_<version>_linux_amd64.tar.gz` of the pinned release and checks it against a SHA-256 written in the Dockerfile, as it pins Hugo and Pagefind; that SHA-256 is the archive's line in the release's `checksums.txt`. `opm-docs pull` runs inside the build image, with network on for that step only; every other step keeps `--network none`. No host install and no `.opm-docs-version` are needed; bumping the tool is a Dockerfile edit (version and SHA-256 together).
 2. **Pull config.** `site/bundles.cue` exactly as C7 shows (one tab, `catalog-opm`, owned by `open-platform-model/catalog_opm`, `from: "4.4"`).
-3. **The network step.** `versions:prepare` "never fetches", so add `task bundles:pull` (`opm-docs pull --config site/bundles.cue --out site/.bundles --lock site/.bundles/lock.json`), run by `task versions:fetch` and by CI before the build; `versions:prepare` then fails, naming `task bundles:pull`, when `site/.bundles/lock.json` is missing or its `config` digest does not match `site/bundles.cue`. A local preview of unpublished catalog pages passes `--local catalog-opm=<catalog_opm>/out/catalog-opm` through an `OPM_BUNDLES_LOCAL` variable. `site/.bundles/` is gitignored and `task clean` removes it.
+3. **The network step.** `versions:prepare` "never fetches", so add `task bundles:pull` (`opm-docs pull --config site/bundles.cue --out site/.bundles --lock site/.bundles/lock.json`, in the build image with network on for this step only), run by `task versions:fetch` and by CI before the build; `versions:prepare` then fails, naming `task bundles:pull`, when `site/.bundles/lock.json` is missing or its `config` digest does not match `site/bundles.cue`. A local preview of unpublished catalog pages passes `--local catalog-opm@edge=<catalog_opm>/out/catalog-opm` (repeatable, one per segment; C7) through an `OPM_BUNDLES_LOCAL` variable; an all-local pull needs no network. `site/.bundles/` is gitignored and `task clean` removes it.
 4. **Build stamp.** `gen-stamp.sh` adds `sections.catalogs`: per lock entry, project, segment, version, revision, digest, commit (C7 fields). A pull or lint failure fails the build naming project, tag and digest.
 5. **Mounts and adapter.** For each lock entry, mount `site/.bundles/<dir>/content` at `assets/catalogs/<project>/<segment>` into the default version only; a content adapter `site/catalogs/_content.gotmpl` adds every page with `url` `<root><segment>/<page URL>/` (C8), `lastmod` and the source link from `manifest.json` `pages[]` (GitHub blob at `source.commit`, or "View source" only for generated pages), `sitemap.disable` per the indexing rule, `params.catalog` (project, segment, version, edge). A data file `data/opm/catalogs.json`, written from the lock (minors newest first, newest per major, edge), feeds the adapter, the switcher, redirects, noindex and checks. Factor the Enhancements plumbing in `build-all.sh` and `serve.sh` rather than copy it a third time.
 6. **Navigation.** A Catalogs menu entry (only in a build with bundles), a `/catalogs/` section page listing the catalogs (one in phase 1), a sidebar root per catalog minor, `layouts/catalogs/` copies of the Enhancements wrappers, the navbar active rule.
@@ -99,9 +101,9 @@ Must do:
 8. **Aliases.** `/catalogs/<name>/` and `/catalogs/<name>/<MAJOR>/` to the newest minor (of that major), and `/catalogs/<name>/<MAJOR>/<path>/` to the same path there: `_redirects` lines plus meta-refresh stub pages for hosts that ignore `_redirects` (as `/latest/` does today). New `_redirects` lines must not match the `^/latest/\*` pattern the QA scripts parse. `edge` gets no alias stubs (supervisor decision, design.md "Site decisions").
 9. **Indexing.** Only the newest minor of each major is indexed, in `llms.txt` and in the sitemap; older minors and `edge` carry `noindex` and are left out of `llms.txt` and the sitemap (supervisor decision). Pagefind indexes each minor separately, and `edge` gets its own index too; search from a catalog page stays in that minor.
 10. **Links.** The global link hook accepts `/catalogs/` links (C8), resolves a `/docs/` link written on a catalog page in the default version, and the link checks know the alias stubs.
-11. **Dialect.** `site/scripts/lint-sources.sh` accepts the C11 `/catalogs/` forms in docs mode (major segment only); update its byte-identical contract copy and add lint fixtures. The Go lint in `opm-docs` is the reference: the site's fixtures and docs-kit's `internal/dialect/testdata` must agree.
-12. **Reference.** `content/docs/reference/_index.md` stops describing catalog members; Reference loses them when catalog_opm section 2 lands. Whether old URLs (`/v1.0/docs/reference/catalog-members/...`, `catalog-contract`) redirect to the alias forms is an owner decision; if yes it is a small follow-up after catalog_opm section 2, because before it the old pages still exist.
-13. **Checks and tests.** Fixture bundles under `site/tests/fixtures/bundles/catalog-opm/{4.4,4.5,edge}/` (plain trees with `manifest.json`; the tests use `--local`, never the registry), and failing cases for: a catalog page with no index (Q2), a stray file, a broken catalog link, catalogs without bundles, the redirects and stubs, a lock that disagrees with `bundles.cue`. QA screenshots of a catalog page, the switcher open and phone width.
+11. **Dialect.** `site/scripts/lint-sources.sh` accepts the C11 `/catalogs/` forms in docs mode (the bare tab root and major segments only); update its byte-identical contract copy and add lint fixtures to `site/tests/lint/`. Until phase 3 retires the shell lint, it and `opm-docs lint` agree through one conformance fixture set: docs-kit copies `site/tests/lint/` into `internal/dialect/testdata/conformance/`, and both must pass it (C11). A rule change lands in docs-kit first, then here with the same fixture.
+12. **Reference.** `content/docs/reference/_index.md` stops describing catalog members; Reference loses them when catalog_opm section 2 lands. The build that gains the tab stops mounting catalog_opm's `reference/catalog-members/**` and `reference/catalog-contract.md` and maps links to them onto the tab's alias forms (step 5). No redirects are served from the old `/<version>/docs/reference/catalog-*` URLs (supervisor decision, 2026-10-02): the site is still interim and `noindex`, so no reader or search index depends on them.
+13. **Checks and tests.** Fixture bundles under `site/tests/fixtures/bundles/catalog-opm/{4.4,4.5,edge}/` (plain trees with `manifest.json`; the tests pass them with `--local catalog-opm@4.4=... --local catalog-opm@4.5=... --local catalog-opm@edge=...`, never the registry, and run with no network), the lint conformance set kept in agreement with docs-kit's (design.md C11),, and failing cases for: a catalog page with no index (Q2), a stray file, a broken catalog link, catalogs without bundles, the redirects and stubs, a lock that disagrees with `bundles.cue`. QA screenshots of a catalog page, the switcher open and phone width.
 
 14. **Phase 1b reservation.** Read nothing else from `site/.bundles/`; `<project>/history.json` will be written by `opm-docs pull` in phase 1b (design.md "Site decisions"), and the site will read it, never compute history itself.
 
@@ -109,7 +111,7 @@ Durable decisions to land in opmodel.dev `AGENTS.md`/`README.md`: the Catalogs s
 
 ## cli: link fix (no OpenSpec change)
 
-`docs/site/reference/registry-namespaces.md`: the link `[The Catalog Contract](/docs/reference/catalog-contract/)` becomes `[The Catalog Contract](/catalogs/opm/4/)`. Commit `docs(reference): link the catalog contract in the Catalogs tab`. Only after opmodel.dev `add-catalogs-tab` has merged; before catalog_opm section 2.
+`docs/site/reference/registry-namespaces.md` links the contract page twice: line 19 (the `opmodel.dev/catalogs/<name>` table row) and line 38 (`[The Catalog Contract](/docs/reference/catalog-contract/)`). Both become `/catalogs/opm/4/`. Commit `docs(reference): link the catalog contract in the Catalogs tab`. Only after opmodel.dev `add-catalogs-tab` has merged; in either order with catalog_opm section 2.
 
 ## Owner setup
 
@@ -134,7 +136,8 @@ Workspace follow-ups (the supervisor handles the first in a workspace PR; the re
 ## Decisions recorded for the owner to confirm
 
 - Sitemap lists only the newest minor of each major; `edge` gets its own Pagefind index but no alias stubs; phase-1b history is a file written by `opm-docs pull` (supervisor decisions, 2026-10-02; design.md "Site decisions").
-- Callers pin `publish.yml` by tag; the conflict with SHA pinning is open in review (design.md C5).
+- opmodel.dev pins the tool by SHA-256 in its build image and pulls inside it; `pull --local` takes several segments per project and needs no network when every tab is local; lock entries carry `root`; no redirects from the old reference URLs; the site lint and `opm-docs lint` agree through one conformance fixture set until phase 3 (supervisor decisions, 2026-10-02).
+- Callers pin `publish.yml` by tag; the conflict with SHA pinning is open in review (design.md C5). The supervisor is taking it to the owner.
 
 ## Follow-up: docs-kit `add-docs-revisions`
 
