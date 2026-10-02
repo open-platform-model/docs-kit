@@ -1,0 +1,2 @@
+core/docs/site/concepts/versioned.md:7: link "/v1.0/docs/start/quickstart/": internal links are root-absolute /docs/<section>/<page>/ or /enhancements/<NNNN>/ (no relative, .md or version-prefixed links)
+core/docs/site/concepts/versioned.md:9: link "/latest/docs/concepts/fixture-concept/": internal links are root-absolute /docs/<section>/<page>/ or /enhancements/<NNNN>/ (no relative, .md or version-prefixed links)

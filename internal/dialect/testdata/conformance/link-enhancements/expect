@@ -1,0 +1,8 @@
+core/docs/site/concepts/enhancement-links.md:7: enhancement link "/enhancements": write /enhancements/
+core/docs/site/concepts/enhancement-links.md:7: enhancement link "/enhancements/0018": write /enhancements/
+core/docs/site/concepts/enhancement-links.md:8: enhancement link "/enhancements/18/": write /enhancements/
+core/docs/site/concepts/enhancement-links.md:8: enhancement link "/enhancements/graph/": write /enhancements/
+core/docs/site/concepts/enhancement-links.md:9: enhancement link "/enhancements/0018/decisions/d3/": write /enhancements/
+core/docs/site/concepts/enhancement-links.md:9: enhancement link "/enhancements/0018/notes/": write /enhancements/
+core/docs/site/concepts/enhancement-links.md:10: link "/v1.0/enhancements/0018/": internal links are root-absolute
+core/docs/site/concepts/enhancement-links.md:12: enhancement link "/enhancements/0018/Decisions/": write /enhancements/
