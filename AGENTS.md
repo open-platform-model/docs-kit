@@ -24,16 +24,17 @@ A PR body you write stays under 250 words of prose (code blocks, URLs and traile
 
 docs-kit builds each Open Platform Model repository's documentation into a versioned, signed OCI artifact (a docs bundle) in that repository's CI, and lets the opmodel.dev site pull and assemble those bundles. It holds one Go program, `opm-docs`, and the reusable workflow that runs it.
 
-Status: phase 1 is planned (`openspec/changes/build-opm-docs-phase-1/`), with docs revisions as the follow-up `openspec/changes/add-docs-revisions/`; only `opm-docs version` exists.
+Status: phase 1 is built: `build`, `check`, `lint`, `push`, `promote`, `pull`, the `cue-catalog` extractor, a minimal `markdown` source, the publish workflow and the release pipeline. Docs revisions are the follow-up `openspec/changes/add-docs-revisions/`.
 
 ## Repository Rules
 
 - `DESIGN.md` is the approved design; its Decisions table binds every change. Cite a decision as `DESIGN decision 9`, never a bare `D9`.
+- `docs/contracts.md` fixes every contract another repository reads (C1 to C12, "Commands", "Page renderer", "Doc-comment rules"). Other repositories cite it by number (`docs-kit C5`); a change to it follows Principle II.
 - `openspec/config.yaml` is the constitution (principles, gates, artifact rules). Feature work ships as an OpenSpec change (`spec-driven` schema, specs included), cut into mergeable sections that each end green and close with their own commit.
 - Never push to `main`. Every change lands by PR; the OpenSpec archive commit rides the implementing PR.
 - The bundle format, tag scheme, workflow interface, `docs-kit.cue`, pull config and lock are contracts other repositories read (constitution Principle II). A change to one names every consuming repository.
 - Never push to a registry from a laptop. Registry writes happen in GitHub Actions through this repo's workflows (and, for the phase-1 spike, only when the owner runs `spike.yml`).
-- Never move or delete a tag. Releases are release-please's; a full bundle tag (`4.4.5.0`) is never overwritten.
+- Never move or delete a tag. Releases are release-please's; a full bundle tag (`4.4.5.0`) is never overwritten. Callers pin `publish.yml` by docs-kit release tag (`docs/contracts.md` C5), so a moved docs-kit tag would let other code sign as the trusted publisher.
 
 ## Entrypoint
 
@@ -42,14 +43,32 @@ Read on entry: `AGENTS.md` (this file), `openspec/config.yaml`, `DESIGN.md`, `RE
 ## Repository Layout
 
 ```text
-cmd/opm-docs/     the opm-docs entrypoint
-internal/version/ build identity, stamped by -ldflags
-openspec/         OpenSpec workspace: config.yaml (constitution), specs/, changes/
-DESIGN.md         the approved design and its decisions
-Taskfile.yml      build and gate tasks
+cmd/opm-docs/                 cobra root and one file per command; flag parsing only
+schema/                       manifest.cue, config.cue, pull.cue, lock.cue, embedded with go:embed
+internal/version/             build identity, stamped by -ldflags
+internal/config/              load and validate docs-kit.cue and bundles.cue
+internal/bundle/              the tree model, manifest.json, deterministic pack, guarded unpack
+internal/tags/                SemVer, build order, full and moving tags (pure)
+internal/doctext/             maintainer comments, citations, summary split, wrapping
+internal/mdtext/              Markdown escaping, code spans, cells, YAML strings
+internal/extract/cuecatalog/  the cue-catalog extractor: data/catalog.json
+internal/extract/markdown/    the markdown source
+internal/render/              embedded templates: landing, kind index, member page
+internal/dialect/             the page-dialect lint, with the conformance fixtures
+internal/gitsrc/              commits, times, dirtiness and file dates from git
+internal/build/               build and check
+internal/oci/                 oras-go: push, tag, list, resolve, fetch by digest
+internal/verify/              sigstore-go: find and verify signatures under the signing policy
+internal/publish/             push and promote
+internal/pull/                tab resolution, cache, unpack layout, lock
+internal/gittest/, internal/ocitest/, internal/verify/sigtest/   test helpers
+hack/spike/                   the phase-1 GHCR and cosign spike (kept for its record)
+docs/contracts.md             the contracts other repositories read
+.github/workflows/            publish.yml (the reusable workflow), ci.yml, release.yml, spike*.yml
+openspec/                     OpenSpec workspace: config.yaml (constitution), specs/, changes/
+DESIGN.md                     the approved design and its decisions
+Taskfile.yml                  build and gate tasks
 ```
-
-Phase 1 adds `schema/`, the `internal/` packages and `.github/workflows/` listed in the change's `design.md` ("Packages"); update this tree as they land.
 
 ## Commands
 
@@ -57,7 +76,14 @@ Phase 1 adds `schema/`, the `internal/` packages and `.github/workflows/` listed
 - `task fmt` formats; `task fmt:check` fails on an unformatted file.
 - `task vet`, `task lint` (golangci-lint, config in `.golangci.yml`), `task test` (offline).
 - `task openspec:check` validates every spec and active change under `--strict`; `task openspec:install` installs openspec 1.12.0.
-- `task check` runs `fmt:check`, `vet`, `lint`, `openspec:check` and `test`: the gate before every commit task.
+- `task check` runs `fmt:check`, `vet`, `lint`, `openspec:check` and `test`: the gate before every commit task. CI also runs `actionlint` over `.github/workflows/`.
+
+## Releasing
+
+- release-please (as the release App) opens a release PR from `feat` and `fix` commits on `main`; merging it creates the tag `vX.Y.Z` and a draft release, and `release.yml` runs goreleaser (pinned), which attaches `opm-docs_X.Y.Z_<os>_<arch>.tar.gz` for linux and darwin on amd64 and arm64 plus `checksums.txt`, then publishes the release. Never publish a release by hand, never re-tag; a bad release is fixed by the next patch.
+- The `OPM_DOCS_VERSION` literal in `.github/workflows/publish.yml` (`# x-release-please-version`) is release-please's: it rewrites it in every release PR, so `publish.yml@vX.Y.Z` installs `opm-docs` X.Y.Z. Never edit it by hand.
+- The archive names, `checksums.txt` and the `linux_amd64` archive are a contract (`docs/contracts.md` C12): consumers pin them by name and SHA-256.
+- `goreleaser release --snapshot --clean` builds the four archives locally into `dist/` (gitignored); `goreleaser check` validates `.goreleaser.yml`.
 
 ## Environment Notes
 

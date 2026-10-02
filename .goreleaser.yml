@@ -1,0 +1,42 @@
+version: 2
+project_name: opm-docs
+
+builds:
+  - main: ./cmd/opm-docs
+    binary: opm-docs
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X github.com/open-platform-model/docs-kit/internal/version.Version={{ .Version }}
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+# opm-docs_<version>_<os>_<arch>.tar.gz holding opm-docs and LICENSE: the
+# names consumers pin (docs/contracts.md C12). Never rename them.
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+release:
+  prerelease: auto
+  # release-please creates the tag and a draft release; goreleaser attaches
+  # to that draft, uploads every asset while it is a draft and publishes it
+  # last. Never set draft, name_template or replace_existing_draft here.
+  use_existing_draft: true
+  mode: keep-existing
+  replace_existing_artifacts: true
+
+changelog:
+  disable: true

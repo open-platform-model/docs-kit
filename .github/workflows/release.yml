@@ -1,0 +1,121 @@
+name: Release
+
+# release-please (as the opm-release-please App) creates the release tag and
+# a draft GitHub Release. goreleaser then uploads every asset into the draft
+# (four archives and checksums.txt) and publishes it last, so no release is
+# published without its binaries. Release tags are immutable: nothing here
+# moves, deletes or re-creates a tag, and a published release never changes.
+#
+# The release-please step uses the App token with no GITHUB_TOKEN fallback:
+# only the App may create a tag, and release-please swallows a refused tag
+# creation, so another token would leave a draft with no tag.
+#
+# Recovery:
+#   - Draft with missing or partial assets: re-run the failed jobs, or run
+#     this workflow by hand with the tag.
+#   - Published release that is wrong or incomplete: cut the next patch;
+#     never re-tag, never delete.
+#   - Tag with no GitHub Release: re-run the release-please job of the run
+#     that merged the release PR.
+#   - A second, empty draft for one tag: the owner removes it in the browser.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: >-
+          Existing release tag, for example v0.1.0. A draft is finished and
+          published; a published release is refused (cut the next patch).
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    name: Release Please
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - name: Mint the release App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  goreleaser:
+    name: Build and publish release binaries
+    needs: release-please
+    # always(): on a manual run release-please is skipped, and a skipped need
+    # would skip this job too.
+    if: always() && (needs.release-please.outputs.releases_created == 'true' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    # One run per tag: two runs on one draft would delete each other's
+    # uploads.
+    concurrency:
+      group: goreleaser-${{ needs.release-please.outputs.tag_name || inputs.tag }}
+      cancel-in-progress: false
+    permissions:
+      # GitHub hides draft releases from read-only tokens.
+      contents: write
+    steps:
+      - name: Check the release is still a draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.release-please.outputs.tag_name || inputs.tag }}
+        run: |
+          set -euo pipefail
+          rc=0
+          out=$(gh release view "$TAG" --json isDraft --jq .isDraft 2>&1) || rc=$?
+          if [ "$rc" -eq 0 ]; then
+            case "$out" in
+              true) echo "release ${TAG} is a draft; building" ;;
+              false)
+                echo "::error::release ${TAG} is already published; its assets can no longer change and its tag never moves. Cut the next patch release instead."
+                exit 1 ;;
+              *)
+                echo "::error::unexpected draft state for ${TAG}: ${out}"
+                exit 1 ;;
+            esac
+          else
+            echo "::error::no draft release for ${TAG} (${out}); re-run the release-please job of the run that merged the release PR."
+            exit 1
+          fi
+
+      - name: Checkout release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name || inputs.tag }}
+          fetch-depth: 0
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          # Exact pin: the draft match and the publish step are
+          # version-specific.
+          version: v2.18.2
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
