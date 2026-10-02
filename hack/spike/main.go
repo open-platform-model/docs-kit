@@ -31,6 +31,7 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/verify"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content"
+	"oras.land/oras-go/v2/content/memory"
 	"oras.land/oras-go/v2/registry"
 	"oras.land/oras-go/v2/registry/remote"
 	"oras.land/oras-go/v2/registry/remote/auth"
@@ -124,7 +125,7 @@ func layer(version string, created time.Time) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func pushBundle(ctx context.Context, repo *remote.Repository, version, revision, source string) (ocispec.Descriptor, map[string]string, error) {
+func pushBundle(ctx context.Context, repo *remote.Repository, version, revision, source, tag string) (ocispec.Descriptor, map[string]string, error) {
 	created := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
 	blob, err := layer(version, created)
 	if err != nil {
@@ -144,14 +145,52 @@ func pushBundle(ctx context.Context, repo *remote.Repository, version, revision,
 		"dev.opmodel.docs.dialect":          "1",
 		"dev.opmodel.docs.tool":             "0.0.0-spike",
 	}
-	man, err := oras.PackManifest(ctx, repo, oras.PackManifestVersion1_1, artifactType, oras.PackManifestOptions{
+	// Pack into memory, then push the empty config and the manifest
+	// explicitly: by tag when one is given, by digest otherwise.
+	mem := memory.New()
+	man, err := oras.PackManifest(ctx, mem, oras.PackManifestVersion1_1, artifactType, oras.PackManifestOptions{
 		Layers:              []ocispec.Descriptor{desc},
 		ManifestAnnotations: ann,
 	})
 	if err != nil {
 		return ocispec.Descriptor{}, nil, fmt.Errorf("packing manifest: %w", err)
 	}
-	return man, ann, nil
+	empty := ocispec.DescriptorEmptyJSON
+	if err := repo.Push(ctx, empty, bytes.NewReader(empty.Data)); err != nil && !isExists(err) {
+		return ocispec.Descriptor{}, nil, fmt.Errorf("pushing empty config: %w", err)
+	}
+	raw, err := content.FetchAll(ctx, mem, man)
+	if err != nil {
+		return ocispec.Descriptor{}, nil, err
+	}
+	if tag != "" {
+		err = repo.PushReference(ctx, man, bytes.NewReader(raw), tag)
+	} else {
+		err = repo.Push(ctx, man, bytes.NewReader(raw))
+	}
+	if err != nil {
+		return ocispec.Descriptor{}, nil, fmt.Errorf("pushing manifest: %w", err)
+	}
+	fmt.Printf("pushed manifest %s (tag %q)\n", man.Digest, tag)
+	return man, ann, waitForDigest(ctx, repo, man.Digest)
+}
+
+// waitForDigest fetches a manifest by digest until the registry serves it,
+// logging every attempt, to tell eventual consistency from refusal.
+func waitForDigest(ctx context.Context, repo *remote.Repository, d digest.Digest) error {
+	var err error
+	for i := 1; i <= 15; i++ {
+		var rc io.ReadCloser
+		_, rc, err = repo.FetchReference(ctx, d.String())
+		if err == nil {
+			rc.Close()
+			fmt.Printf("fetch by digest %s: ok on attempt %d\n", d, i)
+			return nil
+		}
+		fmt.Printf("fetch by digest %s: attempt %d: %v\n", d, i, err)
+		time.Sleep(2 * time.Second)
+	}
+	return fmt.Errorf("manifest %s not fetchable by digest: %w", d, err)
 }
 
 func isExists(err error) bool {
@@ -169,12 +208,12 @@ func cmdPush(ctx context.Context, args []string) error {
 		return err
 	}
 
-	tagged, ann, err := pushBundle(ctx, repo, "0.0.1", "0", *source)
+	tagged, ann, err := pushBundle(ctx, repo, "0.0.1", "0", *source, "0.0.1.0")
 	if err != nil {
 		return err
 	}
 	fmt.Printf("pushed tagged manifest %s\n", tagged.Digest)
-	for _, t := range []string{"0.0.1.0", "0.0.1", "0.0", "0"} {
+	for _, t := range []string{"0.0.1", "0.0", "0"} {
 		if err := repo.Tag(ctx, tagged, t); err != nil {
 			return fmt.Errorf("tagging %s: %w", t, err)
 		}
@@ -182,7 +221,7 @@ func cmdPush(ctx context.Context, args []string) error {
 	}
 
 	// The edge pattern: a manifest pushed by digest only, never tagged.
-	untagged, _, err := pushBundle(ctx, repo, "edge", "0", *source)
+	untagged, _, err := pushBundle(ctx, repo, "edge", "0", *source, "")
 	if err != nil {
 		return err
 	}
