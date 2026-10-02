@@ -28,6 +28,9 @@ Made by the owner on 2026-10-02.
 | 6 | A fix to released docs ships as a docs-only revision of that release, never by overwriting it. |
 | 7 | The bundle is its own artifact under its own path, so its tags follow docs-kit's scheme, not CUE's module rules. |
 | 8 | The Catalogs tab starts at opm 4.4. Earlier minors are not backfilled. |
+| 9 | A site version follows release tags, never branch heads: it shows the newest release of its line plus that release's docs revisions. No bundle is published from a release branch. |
+| 10 | A site version shows the docs of the versions its cli pins (library, core, opm-operator), as it does today. |
+| 11 | Third-party catalogs in the Catalogs tab are a possible future extension, out of scope for now. |
 
 Carried over from the site's existing rules: reference facts are generated in the repository that owns their source; a generated entry states only what its source proves; pages follow the page dialect in the workspace `STYLE.md` ("Site Pages").
 
@@ -201,7 +204,7 @@ Each extractor turns one kind of source into the doc model in `data/`. The rende
 
 | Kind | Reads | Replaces | Generic? |
 |---|---|---|---|
-| `cue-catalog` | a catalog module, evaluated with the CUE Go API: members, fulfilment, `optional`, served-by from the transformers, doc comments | catalog_opm `tools/refgen` | yes |
+| `cue-catalog` | a catalog module, evaluated with the CUE Go API: members, fulfilment, `optional`, served-by from the transformers, doc comments, and each spec as structured fields (path, type, default, required) beside its formatted CUE | catalog_opm `tools/refgen` | yes |
 | `cue-definitions` | a CUE package's exported definitions, parsed with their doc comments | core `tools/refgen` | yes |
 | `crd` | controller-gen CRD YAML, plus `config/samples` | opm-operator `hack/crdref` | yes |
 | `cobra` | a JSON dump of a cobra command tree | cli `internal/cmdref` | needs a hook |
@@ -272,6 +275,19 @@ The site's checks keep running on what it built: page set, links, stray files, s
 - opmodel.dev: `opm-docs pull` in the host step, the Catalogs tab with its switcher, aliases and index rules; catalog pages leave Reference.
 - Done when: the site shows opm 4.4 and edge in the Catalogs tab from pulled bundles, and a docs revision of 4.4.x reaches the site without a catalog release.
 
+### Phase 1b: version history in the Catalogs tab
+
+When a second minor (4.5) exists, `opm-docs pull` compares the `data/` of every pulled minor and writes one history file for the tab; the member templates read it.
+
+| Badge | Derived from |
+|---|---|
+| Added in 4.5 | the member's FQN first appears in 4.5 |
+| Changed in 4.6 | its structured spec differs from the previous minor: a field added or removed, a default changed, a field made required |
+| Removed in 4.7 | present in 4.6, absent in 4.7; that minor links to the last one that had it |
+| Newer version | the same name and kind at a later apiVersion (`backup@v1alpha1`, `backup@v1beta1`): the pages link each other |
+
+4.4 is the oldest minor with a bundle, so a member present in 4.4 reads "in 4.4 or earlier", never "added in 4.4". Estimate: 2 to 3 days. The structured spec it needs is extracted from phase 1 on.
+
 ### Phase 2: every generated reference
 
 - docs-kit: `cue-definitions`, `crd`, `cobra` (with `cobradump`) and `go-api` extractors.
@@ -298,11 +314,10 @@ The site's checks keep running on what it built: page set, links, stray files, s
 - **A bad tool release breaks every bundle it builds.** Bundles record the tool version, and the workflow pins a docs-kit release, so a repository upgrades on purpose and can roll back.
 - **Generated pages leave git,** so a reader can no longer browse them on GitHub. The site and `opm-docs serve` are the places to read them.
 - **GHCR's handling of OCI 1.1 artifacts is assumed, not tested.** GHCR stores Helm charts, Flux artifacts and our CUE modules, but this design also relies on `artifactType` and annotations surviving a push and a tag listing. Phase 1 starts with a spike that pushes, lists and pulls a bundle before anything else is built on it.
-- **Phase 3 changes how site versions resolve.** Today a site version follows git tags and release branches. It will follow bundle tags, and that rule has to keep today's behaviour: v1.0 shows the cli `1.0` line and the docs of what that cli pins.
+- **Phase 3 changes how site versions resolve.** Today a site version follows git tags and reads docs from release-branch heads. It will follow bundle tags only (decision 9): v1.0 shows the cli bundle `1.0` and the bundles of what that cli tag pins (decision 10). A docs fix reaches a site version through a docs revision, no longer through a branch push.
 
 ## Open questions
 
-1. **Release branches in phase 3.** Today the site reads cli, library and operator docs from their `release/vX.Y` branch head. Does a push to a release branch publish a line edge tag (`1.0-edge`), and does the site version show that or the newest release?
-2. **What a site version pins.** In phase 2, does site v1.0 take core's docs from the core version the cli pins (as today) or from core's newest `2.x`?
-3. **Cross-version features.** Which, if any, of "added in", "changed since" or a diff view does the Catalogs tab ship with in phase 1, given `data/` makes them possible?
-4. **Third-party catalogs.** A catalog outside the organisation could publish a bundle with the same tool. Does the Catalogs tab ever list one, and on what terms?
+1. **Version history scope.** Phase 1b's badges are designed above. Is a side-by-side diff view of one member between two minors also wanted, or only the badges?
+
+Answered on 2026-10-02 and moved to Decisions: release branches (decision 9), what a site version pins (decision 10), third-party catalogs (decision 11).
