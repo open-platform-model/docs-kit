@@ -342,11 +342,11 @@ Edge cases:
 - **No `edge` tag** while the tab asks for edge (a project that has not pushed `main` since adopting docs-kit): the segment is skipped with a warning naming the project; the lock has no edge entry. Not an error.
 - **No minor at or above `from`:** if the tab still gets an `edge` build, the pull succeeds with a warning; if it gets nothing at all, the pull fails naming the project, since the site cannot render an empty tab.
 - **Placement cross-check:** every pulled or local manifest's `placement` must be `kind: "tab"` with `root` equal to the tab's `root` in the pull config, else that bundle fails the pull naming both roots.
-- **`--frozen <lock>`:** the lock's `config` digest must equal the current `bundles.cue`'s, because the trust policy (each tab's owning `repo`, the signer) comes from the config; a mismatch fails naming both digests. Tags are not resolved; each entry's `repository` and `digest` are fetched as written, and a local entry in a frozen lock is refused (re-run with `--local`).
+- **`--frozen <lock>`:** the lock's `config` digest must equal the current `bundles.cue`'s, because the trust policy (each tab's owning `repo`, the signer) comes from the config; a mismatch fails naming both digests. Tags are not resolved; each entry's `repository` and `digest` are fetched as written, and a local entry in a frozen lock is refused (re-run with `--local`). So is an entry whose `repository` is not `<registry>/<project>` of the config, or whose segment the config does not show (below `from`, or `edge` with `edge: false`): a lock can only narrow what the config trusts (added in review, 2026-10-02).
 - **`--offline` and the trusted root:** offline, `pull` uses the cached trusted root as it is and never refreshes it. When the cached TUF metadata has expired it warns and still verifies, because each signature is checked against the key validity window at its own timestamp, which an expired cache does not change. With no cached root at all, `--offline` fails.
 - **Compressed size:** a layer descriptor larger than 32 MiB is refused before any byte is fetched; the 64 MiB uncompressed cap applies during unpacking. `push` refuses a bundle over the same limits (32 MiB packed, 10,000 entries, 64 MiB of files) before it writes anything, so no publish produces a bundle every pull refuses (added in review, 2026-10-02).
 
-Unpack layout, owned entirely by `pull` (it removes any project or segment directory it did not write this run):
+Unpack layout, owned entirely by `pull` (it removes any project or segment directory it did not write this run). Each bundle unpacks and lints in `<out>/<project>/.incoming-<segment>/` and replaces its segment only after both pass, so a refused bundle leaves the previous segment in place (added in review, 2026-10-02):
 
 ```text
 site/.bundles/
@@ -481,7 +481,7 @@ Links the renderer writes, and the forms the dialect lint (C11) allows:
 | a tab page | an enhancement | `/enhancements/<NNNN>/` or `/enhancements/<NNNN>/<document>/` |
 | a docs page (any repository's `docs/site/`) | a catalog | `/catalogs/<name>/<MAJOR>/` plus an optional page path; never a minor or `edge` |
 
-An authored page in a bundle (a `markdown` source) links into its own catalog through the major alias, `/catalogs/<name>/<MAJOR>/<path>/`, the form that also reads correctly on GitHub and in docs mode. When `<MAJOR>` is the build's major (or the build is edge), the `markdown` source rewrites that link to the build's own segment, `/catalogs/<name>/<segment>/<path>/`, before bundle-mode lint checks that it names a page of the bundle.
+An authored page in a bundle (a `markdown` source) links into its own catalog through the major alias, `/catalogs/<name>/<MAJOR>/<path>/`, the form that also reads correctly on GitHub and in docs mode. When `<MAJOR>` is the build's major (or the build is edge), the `markdown` source rewrites that link to the build's own segment, `/catalogs/<name>/<segment>/<path>/`, before bundle-mode lint checks that it names a page of the bundle. A link inside a fenced code block is an example and is left as written (added in review, 2026-10-02).
 
 Aliases the site serves: `/catalogs/<name>/` and `/catalogs/<name>/<MAJOR>/` go to the newest minor (of that major), and `/catalogs/<name>/<MAJOR>/<path>/` to the same path in that minor, so docs pages can deep-link through the alias. For `catalog-opm` the contract page is the landing, so `/catalogs/opm/4/` replaces `/docs/reference/catalog-contract/`.
 

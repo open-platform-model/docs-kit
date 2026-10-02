@@ -229,18 +229,28 @@ func (p *puller) unpack(project, segment string, layer []byte, what string) (dir
 	if err := os.MkdirAll(filepath.Dir(dir), 0o750); err != nil {
 		return "", "", err
 	}
-	if err := os.RemoveAll(dir); err != nil {
+	// Unpack and lint beside the segment, and swap it in only when both
+	// pass: a refused bundle leaves the previous segment in place.
+	incoming := filepath.Join(filepath.Dir(dir), ".incoming-"+segment)
+	if err := os.RemoveAll(incoming); err != nil {
 		return "", "", err
 	}
-	if _, err := bundle.Unpack(bytes.NewReader(layer), dir, bundle.DefaultLimits); err != nil {
+	defer os.RemoveAll(incoming)
+	if _, err := bundle.Unpack(bytes.NewReader(layer), incoming, bundle.DefaultLimits); err != nil {
 		return "", "", fmt.Errorf("%s: %w", what, err)
 	}
-	vs, err := build.Lint(dir)
+	vs, err := build.Lint(incoming)
 	if err != nil {
 		return "", "", fmt.Errorf("%s: %w", what, err)
 	}
 	if len(vs) > 0 {
 		return "", "", &LintError{What: what, Violations: vs}
+	}
+	if err := os.RemoveAll(dir); err != nil {
+		return "", "", err
+	}
+	if err := os.Rename(incoming, dir); err != nil {
+		return "", "", err
 	}
 	p.written[project+"/"+segment] = true
 	return dir, rel, nil
@@ -314,10 +324,18 @@ func (p *puller) selectSegments(project string, tab config.Tab, all []string) ([
 
 // frozen pulls exactly the digests the lock names for a project.
 func (p *puller) frozen(ctx context.Context, project string, l *Lock) error {
+	tab := p.cfg.Tabs[project]
+	want := p.cfg.Registry + "/" + project
 	for i := range l.Bundles {
 		e := &l.Bundles[i]
 		if e.Project != project {
 			continue
+		}
+		if e.Repository != want {
+			return usagef("--frozen %s: %s@%s names the repository %s; the config pulls %s from %s", p.o.Frozen, project, e.Segment, e.Repository, project, want)
+		}
+		if e.Segment == tags.Edge && !tab.Edge || e.Segment != tags.Edge && tags.CompareMinor(e.Segment, tab.From) < 0 {
+			return usagef("--frozen %s: %s@%s is not a segment the config shows (from %s, edge %t)", p.o.Frozen, project, e.Segment, tab.From, tab.Edge)
 		}
 		repo, err := p.o.Client.Repository(e.Repository)
 		if err != nil {

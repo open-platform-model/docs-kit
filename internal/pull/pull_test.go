@@ -386,3 +386,60 @@ func TestOversizedLayerNotFetched(t *testing.T) {
 		t.Fatalf("an oversized layer was fetched %d time(s)", n)
 	}
 }
+
+// TestFrozenLockOutsideTheConfig: a frozen lock may only name what the
+// config would pull: the configured repository and a segment it shows.
+func TestFrozenLockOutsideTheConfig(t *testing.T) {
+	e := newEnv(t)
+	e.publish("4.4.5", owner, nil)
+	o := e.options(e.config(""))
+	if _, err := Run(context.Background(), o); err != nil {
+		t.Fatal(err)
+	}
+	good, _ := os.ReadFile(o.Lock)
+	for _, c := range []struct{ name, from, to, want string }{
+		{"another repository", `"repository": "` + e.registry + `/catalog-opm"`, `"repository": "ghcr.io/evil/catalog-opm"`, "names the repository ghcr.io/evil/catalog-opm"},
+		{"a segment below from", `"segment": "4.4"`, `"segment": "4.3"`, "catalog-opm@4.3 is not a segment the config shows"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			bad := strings.Replace(string(good), c.from, c.to, 1)
+			if bad == string(good) {
+				t.Fatal("replacement did not apply")
+			}
+			p := filepath.Join(t.TempDir(), "lock.json")
+			_ = os.WriteFile(p, []byte(bad), 0o600)
+			oo := o
+			oo.Frozen = p
+			if _, err := Run(context.Background(), oo); !IsUsage(err) || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+// TestRefusedBundleKeepsThePreviousSegment: a bundle that fails its lint
+// is never swapped in.
+func TestRefusedBundleKeepsThePreviousSegment(t *testing.T) {
+	e := newEnv(t)
+	o := e.options(e.config(""))
+	o.Locals = []Local{{project, "4.4", tree(t, "4.4.5", nil)}}
+	if _, err := Run(context.Background(), o); err != nil {
+		t.Fatal(err)
+	}
+	page := filepath.Join(o.Out, project, "4.4", "content", "traits", "backup.md")
+	before, _ := os.ReadFile(page)
+	bad := tree(t, "4.4.6", nil)
+	_ = os.WriteFile(filepath.Join(bad, "content", "traits", "backup.md"), []byte("---\ntitle: \"x\"\ndescription: \"x\"\ntype: reference\n---\n\n[x](relative.md)\n"), 0o600)
+	o.Locals = []Local{{project, "4.4", bad}}
+	var le *LintError
+	if _, err := Run(context.Background(), o); !errors.As(err, &le) {
+		t.Fatalf("err = %v", err)
+	}
+	after, err := os.ReadFile(page)
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatalf("the previous segment changed: %v", err)
+	}
+	if left, _ := filepath.Glob(filepath.Join(o.Out, project, ".incoming-*")); len(left) != 0 {
+		t.Fatalf("left %v", left)
+	}
+}

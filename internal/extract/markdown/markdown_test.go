@@ -20,7 +20,8 @@ See [traits](/catalogs/opm/4/traits/) and [backup](/catalogs/opm/4/traits/backup
 and [the docs](/docs/concepts/catalogs/).
 
 [ref]: /catalogs/opm/4/resources/
-`
+
+` + "```markdown\nAn example link [traits](/catalogs/opm/4/traits/) stays as written.\n```\n"
 
 func repo(t *testing.T) (*gittest.Repo, Dates) {
 	r := gittest.New(t, "")
@@ -48,6 +49,7 @@ func TestCopyRelease(t *testing.T) {
 		"[traits](/catalogs/opm/4.4/traits/)", "[backup](/catalogs/opm/4.4/traits/backup/#spec)",
 		"[another major](/catalogs/opm/5/traits/)", "[another catalog](/catalogs/acme/1/)",
 		"[the docs](/docs/concepts/catalogs/)", "[ref]: /catalogs/opm/4.4/resources/",
+		"An example link [traits](/catalogs/opm/4/traits/) stays as written.",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("landing lacks %q:\n%s", want, body)

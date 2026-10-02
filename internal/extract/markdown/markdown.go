@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 )
 
 // Page is one authored page.
@@ -94,14 +95,51 @@ var reAlias = regexp.MustCompile(`(\]\(|\]:[ \t]*<?)(/catalogs/[a-z0-9]+(?:-[a-z
 // major alias, when that major is the build's (or the build is edge), to
 // the build's own segment. Links to another catalog, or to another major,
 // are left alone.
+//
+// Text inside a fenced code block is an example, never a link, and is
+// left as written.
 func Pin(body, catalog, major, segment string) string {
-	return reAlias.ReplaceAllStringFunc(body, func(m string) string {
-		sub := reAlias.FindStringSubmatch(m)
-		if sub[2] != catalog || (major != "" && sub[3] != major) {
-			return m
+	lines := strings.Split(body, "\n")
+	fence := ""
+	for i, l := range lines {
+		if f := fenceOf(l); f != "" {
+			switch {
+			case fence == "":
+				fence = f
+			case strings.HasPrefix(f, fence):
+				fence = ""
+			}
+			continue
 		}
-		return sub[1] + sub[2] + segment + "/"
-	})
+		if fence != "" {
+			continue
+		}
+		lines[i] = reAlias.ReplaceAllStringFunc(l, func(m string) string {
+			sub := reAlias.FindStringSubmatch(m)
+			if sub[2] != catalog || (major != "" && sub[3] != major) {
+				return m
+			}
+			return sub[1] + sub[2] + segment + "/"
+		})
+	}
+	return strings.Join(lines, "\n")
+}
+
+// fenceOf returns a line's code fence marker (three or more backticks or
+// tildes after at most three spaces), or "".
+func fenceOf(l string) string {
+	t := strings.TrimLeft(l, " ")
+	if len(l)-len(t) > 3 || len(t) < 3 || (t[0] != '`' && t[0] != '~') {
+		return ""
+	}
+	n := 0
+	for n < len(t) && t[n] == t[0] {
+		n++
+	}
+	if n < 3 {
+		return ""
+	}
+	return t[:n]
 }
 
 // IsLanding reports the root _index.md, which the renderer completes with
