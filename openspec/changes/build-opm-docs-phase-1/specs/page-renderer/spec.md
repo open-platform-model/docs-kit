@@ -27,7 +27,7 @@ Every link the renderer writes into its own bundle SHALL be `<root><segment>/<pa
 - **THEN** it links `/catalogs/opm/edge/resources/volumes/`
 
 ### Requirement: Member pages keep refgen's content and order
-A member page SHALL carry front matter `title`, `description` (the member's `metadata.description`) and `type: reference`, then the sections At a glance, Spec, Notes, Served by and Enforcement in that order, with the rows, alert strings and sentences `design.md` "Page renderer" fixes. An edge page's Catalog row SHALL name `main` and the 12-hex commit and say the build is unreleased. No page SHALL carry a generator marker comment.
+A member page SHALL carry front matter `title`, `description` (the member's `metadata.description`) and `type: reference`, then the sections At a glance, Spec, Notes, Served by and Enforcement in that order, with the rows, alert strings and sentences `docs/contracts.md` "Page renderer" fixes. An edge page's Catalog row SHALL name `main` and the 12-hex commit and say the build is unreleased. No page SHALL carry a generator marker comment.
 
 #### Scenario: Provided-by-platform alert
 - **WHEN** a member's `mark` is `provided-by-platform` and it is a load-bearing trait

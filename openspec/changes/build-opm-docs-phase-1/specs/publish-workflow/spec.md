@@ -5,7 +5,7 @@ The reusable GitHub workflow that a repository calls to check, build, push, sign
 ## ADDED Requirements
 
 ### Requirement: One reusable workflow with three modes
-docs-kit SHALL provide `.github/workflows/publish.yml`, callable with `workflow_call`, taking the inputs `project` (required), `mode` (`check`, `edge` or `release`, required), `tag` and `cue-registry`, and returning the outputs `digest` and `tag`, as `design.md` C5 fixes. It SHALL declare no secrets and use `github.token`. Every mode except `check` SHALL fail before building unless `github.ref` is `refs/heads/main`. A `mode` outside these three SHALL fail naming it. Source: DESIGN decisions 5 and 9.
+docs-kit SHALL provide `.github/workflows/publish.yml`, callable with `workflow_call`, taking the inputs `project` (required), `mode` (`check`, `edge` or `release`, required), `tag` and `cue-registry`, and returning the outputs `digest` and `tag`, as `docs/contracts.md` C5 fixes. It SHALL declare no secrets and use `github.token`. Every mode except `check` SHALL fail before building unless `github.ref` is `refs/heads/main`. A `mode` outside these three SHALL fail naming it. Source: DESIGN decisions 5 and 9.
 
 #### Scenario: Pull-request check
 - **WHEN** a caller runs the workflow with `mode: check` on a pull request
@@ -23,7 +23,7 @@ docs-kit SHALL provide `.github/workflows/publish.yml`, callable with `workflow_
 - **THEN** the job installs `opm-docs` 0.2.0 and the bundle's `dev.opmodel.docs.tool` annotation reads `0.2.0`
 
 ### Requirement: Publishing modes sign before tags move
-In `edge` and `release` modes the workflow SHALL build, `push`, sign the pushed digest with a pinned cosign v3 keyless (`--new-bundle-format=true`, the digest, never a tag), and only then run `promote`. The caller job SHALL grant `packages: write` and `id-token: write`. An `edge` job SHALL run in the concurrency group `docs-edge-<project>` with `cancel-in-progress: true`, and a `release` job in `docs-release-<project>-<version>` with `cancel-in-progress: false`, so that no edge run can cancel a pending or running release publish (GitHub keeps one pending run per group and cancels older pending ones).
+In `edge` and `release` modes the workflow SHALL build, `push`, sign the pushed digest with a pinned cosign v3 keyless (`--new-bundle-format=true`, the digest, never a tag), and only then run `promote`. The caller job SHALL grant `packages: write` and `id-token: write`. An `edge` job SHALL run in the concurrency group `docs-edge-${{ inputs.project }}` with `cancel-in-progress: true`, and a `release` job in `docs-release-${{ inputs.project }}-${{ inputs.tag }}` with `cancel-in-progress: false` (keyed on inputs, which are known when the group is evaluated), so that no edge run can cancel a pending or running release publish (GitHub keeps one pending run per group and cancels older pending ones).
 
 #### Scenario: Edge publish
 - **WHEN** a caller runs `mode: edge` on a push to `main`

@@ -17,7 +17,7 @@ Gate: `build-opm-docs-phase-1` is archived on docs-kit `main` and `v0.1.0` is re
 ## 3. The workflow mode and docs
 
 - [ ] 3.1 `publish.yml`: the `revision` mode and `fix` input (design.md D3). Verify: `actionlint` clean.
-- [ ] 3.2 Durable decisions: `README.md` (how to run a revision, with the catalog_opm dispatch as the example) and `docs/contracts.md` ("Docs revisions"). Verify: links resolve.
+- [ ] 3.2 Durable decisions: `README.md` (how to run a revision, with the catalog_opm dispatch as the example) and `docs/contracts.md` ("Docs revisions": D1's steps and D2's table, which the specs cite). Verify: links resolve.
 - [ ] 3.3 `task check` green, then commit `feat(workflow): add the revision mode`.
 
 ## 4. Archive (rides this PR)
@@ -27,6 +27,4 @@ Gate: `build-opm-docs-phase-1` is archived on docs-kit `main` and `v0.1.0` is re
 
 ## After merge
 
-- [ ] 5.1 **OWNER** merges the `0.2.0` release PR.
-- [ ] 5.2 catalog_opm `ci` PR: `docs.yml` (`publish.yml@v0.2.0`) and `.opm-docs-version` move to `v0.2.0` together; the dispatch gains `mode: revision` and a `fix` input.
-- [ ] 5.3 **Done check** (phase 1's second half): land a doc-comment fix on catalog_opm `main`, dispatch `mode=revision tag=opm-v4.4.<n> fix=<sha>`; `4.4.<n>.1` is published and `4.4.<n>` (and `4.4`, `4` when it is the newest) moved; the next opmodel.dev build shows the fix under `/catalogs/opm/4.4/` with no catalog release, its build stamp naming revision 1.
+The `0.2.0` release, catalog_opm's bump and the revision proof are cross-repo steps, listed in `build-opm-docs-phase-1/orchestration.md`, "Follow-up: docs-kit `add-docs-revisions`".

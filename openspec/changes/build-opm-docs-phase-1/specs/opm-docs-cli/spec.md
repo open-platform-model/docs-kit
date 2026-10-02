@@ -5,7 +5,7 @@ The `opm-docs` command set, its configuration file `docs-kit.cue`, and its exit 
 ## ADDED Requirements
 
 ### Requirement: The command set
-`opm-docs` SHALL provide the commands `build`, `lint`, `check`, `push`, `promote`, `pull` and `version`, with the flags `design.md` lists under "Commands". It SHALL exit 0 on success, 1 on a usage error (unknown command or flag, missing argument, unreadable or invalid config) and 2 on an execution error (lint violations, a refused build, a registry or signature failure). Every error message SHALL name what failed and the fix.
+`opm-docs` SHALL provide the commands `build`, `lint`, `check`, `push`, `promote`, `pull` and `version`, with the flags `docs/contracts.md` lists under "Commands". It SHALL exit 0 on success, 1 on a usage error (unknown command or flag, missing argument, unreadable or invalid config) and 2 on an execution error (lint violations, a refused build, a registry or signature failure). Every error message SHALL name what failed and the fix.
 
 #### Scenario: Version
 - **WHEN** `opm-docs version` runs

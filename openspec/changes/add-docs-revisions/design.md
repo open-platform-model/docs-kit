@@ -57,7 +57,7 @@ A change to `metadata.description` is a value change and is refused: the member'
 |---|---|---|
 | `revision` | `workflow_dispatch` | checkout `main` with full history; `revise --tag <tag> --fix <sha>`; `push`; `cosign sign`; `promote` |
 
-Permissions as `release` (`contents: read`, `packages: write`, `id-token: write`); the `refs/heads/main` guard and the GHCR read login apply. The job runs in the release's concurrency group, `docs-release-<project>-<version>` with `cancel-in-progress: false` (phase-1 C5), so revisions of one release are serialized, never race for a revision number, and never cancel the release publish.
+Permissions as `release` (`contents: read`, `packages: write`, `id-token: write`); the `refs/heads/main` guard and the GHCR read login apply. The job runs in the release's concurrency group, `docs-release-${{ inputs.project }}-${{ inputs.tag }}` with `cancel-in-progress: false` (`docs/contracts.md` C5), so revisions of one release are serialized, never race for a revision number, and never cancel the release publish.
 
 ## Risks / Trade-offs
 
@@ -69,4 +69,4 @@ Permissions as `release` (`contents: read`, `packages: write`, `id-token: write`
 | Decision | Lands in |
 |---|---|
 | A docs revision is the only way to change a published release's pages, and how to run one | `README.md` |
-| D2's table | `docs/contracts.md`, a new "Docs revisions" section |
+| D1's steps and D2's table (the specs cite them) | `docs/contracts.md`, a new "Docs revisions" section |

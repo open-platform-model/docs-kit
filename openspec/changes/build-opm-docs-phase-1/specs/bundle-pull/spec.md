@@ -34,7 +34,7 @@ For each tab, `pull` SHALL list the repository's tags, ignore `sha256-*` signatu
 - **THEN** `pull` exits 2 naming `edge` and the digest
 
 ### Requirement: The unpack layout and lock are fixed
-`pull` SHALL unpack each bundle into `<out>/<project>/<segment>/` (segment `<MAJOR>.<MINOR>` or `edge`), remove every project or segment directory under `<out>` it did not write in this run, and write the lock (`docs.opmodel.dev/lock/v1`) with the fields `design.md` C7 fixes, every entry including the tab's placement `root`, sorted, with no timestamps. The same resolution SHALL write byte-identical lock files.
+`pull` SHALL unpack each bundle into `<out>/<project>/<segment>/` (segment `<MAJOR>.<MINOR>` or `edge`), remove every project or segment directory under `<out>` it did not write in this run, and write the lock (`docs.opmodel.dev/lock/v1`) with the fields and key order `docs/contracts.md` C7 fixes (validated against `schema/lock.cue`), every entry including the tab's placement `root`, a local entry carrying `local: true` and no `tag`, `repository`, `digest` or `signer`; serialized as JSON with two-space indent and a trailing newline, entries sorted by project then segment (minors ascending, `edge` last), with no timestamps. The same resolution SHALL write byte-identical lock files.
 
 #### Scenario: Stable lock
 - **WHEN** `pull` runs twice and no tag moved in between
@@ -54,3 +54,18 @@ With `--frozen <lock>`, `pull` SHALL fetch exactly the digests the lock names, s
 #### Scenario: Offline rebuild from a lock
 - **WHEN** a previous pull cached every blob and `pull --frozen site/.bundles/lock.json --offline` runs with no network
 - **THEN** it unpacks the same trees and writes the same lock
+
+### Requirement: Pull handles missing and mismatched versions
+`pull` SHALL skip a tab's `edge` segment with a warning when no `edge` tag exists; SHALL fail naming the project when a tab gets no minor at or above `from` and no `edge` build; SHALL refuse a bundle whose `manifest.json` placement is not `kind: "tab"` with the tab's configured `root`; SHALL refuse `--frozen` with a lock whose `config` digest differs from the current config's; under `--offline` SHALL verify with the cached trusted root without refreshing it, warning when its TUF metadata has expired and failing when none is cached; and SHALL refuse a layer whose descriptor size exceeds 32 MiB before fetching it.
+
+#### Scenario: A project before its first edge push
+- **WHEN** a tab with `edge: true` has `4.4` but no `edge` tag
+- **THEN** `pull` unpacks `4.4`, warns that `edge` is missing, and writes a lock with no edge entry
+
+#### Scenario: Placement mismatch
+- **WHEN** a bundle under `docs/catalog-opm` declares `placement.root` `/catalogs/other/`
+- **THEN** `pull` exits 2 naming the project, the digest and both roots
+
+#### Scenario: Frozen lock from another config
+- **WHEN** `pull --frozen lock.json` runs after `bundles.cue` changed a tab's `repo`
+- **THEN** `pull` exits 1 naming both config digests

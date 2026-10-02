@@ -12,7 +12,7 @@ The `cue-catalog` extractor SHALL load the module at `module` with the CUE Go AP
 - **THEN** `data/catalog.json` lists four members and two transformers in key order
 
 ### Requirement: The doc model is written to data/catalog.json
-The extractor SHALL write `data/catalog.json` with schema id `docs.opmodel.dev/data/cue-catalog/v1` and the fields `design.md` C10 lists for the catalog, each member and each transformer. The renderer SHALL read only this file and `manifest.json`.
+The extractor SHALL write `data/catalog.json` with schema id `docs.opmodel.dev/data/cue-catalog/v1` and the fields `docs/contracts.md` C10 lists for the catalog, each member and each transformer. The renderer SHALL read only this file and `manifest.json`.
 
 #### Scenario: A member's facts are present
 - **WHEN** the extractor runs on catalog_opm at `opm-v4.4.5`
@@ -30,7 +30,7 @@ For each member the extractor SHALL record `spec.cue`, the formatted authored sp
 - **THEN** that field's entry carries `ref` with the definition name and no child fields are listed under it
 
 ### Requirement: Doc comments are cleaned before they reach the model
-The extractor SHALL drop maintainer comments (a comment group starting with `WHY` or a `////` banner, and a `WHY` line inside a doc comment), strip enhancement citations and `SPEC.md` and experiment references by the rules `design.md` "Context" lists, re-wrap a changed comment paragraph in a spec block, and require each member's doc comment to open with its `metadata.description` followed by a period. The remaining paragraphs SHALL be the member's `notes`.
+The extractor SHALL drop maintainer comments (a comment group starting with `WHY` or a `////` banner, and a `WHY` line inside a doc comment), strip enhancement citations and `SPEC.md` and experiment references by the rules `docs/contracts.md` "Doc-comment rules" lists, re-wrap a changed comment paragraph in a spec block, and require each member's doc comment to open with its `metadata.description` followed by a period. The remaining paragraphs SHALL be the member's `notes`.
 
 #### Scenario: Citation removed from prose
 - **WHEN** a doc paragraph reads `Exactly one provider serves it (0010:D32).`
@@ -46,3 +46,10 @@ The extractor SHALL compute `servedBy` from the transformers of the same catalog
 #### Scenario: Unserved catalog-fulfilled resource
 - **WHEN** no transformer in the catalog requires or optionally reads a resource whose `fulfilment` is `catalog`
 - **THEN** its `mark` is `not-implemented` and its `servedBy` is empty
+
+### Requirement: The structured spec is ordered and formatted stably
+`spec.fields` SHALL list siblings in the order CUE's `Fields` iterator yields them for the evaluated value, each field followed by its descendants, and SHALL print `type` and `default` with `cue/format` (simplified) on one line with single spaces, so the same source and tool version always produce the same list.
+
+#### Scenario: Two runs agree
+- **WHEN** the extractor runs twice on the same catalog with the same binary
+- **THEN** both `data/catalog.json` files are byte-identical

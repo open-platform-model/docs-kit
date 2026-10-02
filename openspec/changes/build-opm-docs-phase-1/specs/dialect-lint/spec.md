@@ -27,7 +27,7 @@ In docs mode (the default), a `/catalogs/` link SHALL be the bare tab root (`/ca
 - **THEN** the lint reports nothing for that line
 
 ### Requirement: The conformance fixture set binds both linters until phase 3
-Until phase 3 retires the site's shell lint, docs-kit SHALL ship the conformance fixture set copied from opmodel.dev `site/tests/lint/`, with each fixture's expected `<file>:<line>` output and the source commit, and `task test` SHALL fail when `opm-docs lint` disagrees with any expected output. A dialect rule change SHALL add or change a conformance fixture in the same change.
+Until phase 3 retires the site's shell lint, docs-kit SHALL ship a conformance fixture set whose initial content is a copy of exactly the fixture directories under opmodel.dev `site/tests/lint/` (not `site/tests/dialect/`), with each fixture's expected `<file>:<line>` output and the source commit, and `task test` SHALL fail when `opm-docs lint` disagrees with any expected output. docs-kit SHALL be the source of every fixture added after the copy, the `/catalogs/` link fixtures first. A dialect rule change SHALL land in docs-kit first, with its fixture, and opmodel.dev SHALL copy that fixture and update its shell lint in the PR that bumps its pinned `opm-docs` to the release carrying the change.
 
 #### Scenario: A rule added on one side only
 - **WHEN** a change makes the Go lint refuse a form the expected output of a conformance fixture accepts

@@ -44,6 +44,8 @@ The shared rules phase 1 ports, stated once so later extractors reuse them (pack
 
 Everything in this section is read by another repository. A change to any of it follows constitution Principle II.
 
+**Durable home.** Section 5 of `tasks.md` moves C1 to C12, "Commands", "Page renderer" and the shared doc-comment rules of "Context" into `docs/contracts.md`, under the same headings and numbers, before the archive. The specs cite `docs/contracts.md`, never this file, so the main specs stay meaningful after this change is archived.
+
 ### C1. Where bundles live
 
 ```text
@@ -189,7 +191,7 @@ uses: open-platform-model/docs-kit/.github/workflows/publish.yml@v0.1.0
 
 **Callers reference `publish.yml` by release tag** (owner decision, 2026-10-02): `@vX.Y.Z`, never a branch and never a commit SHA. The signing certificate names the workflow at the ref the caller wrote, and `pull` trusts only the SAN `https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml@refs/tags/v*` (C9).
 
-This is a deliberate exception to the org's convention of pinning every action and reusable workflow by full commit SHA. It is safe only because docs-kit's tags are immutable: the `tags-immutable` and `tags-create-app-only` org rulesets cover docs-kit and its releases are immutable, so `v0.1.0` can never be moved to different code. Those settings are a hard gate before docs-kit's first release (`tasks.md` 7.0, `orchestration.md` owner setup); without them a moved tag would let other code sign as a trusted publisher. Rejected alternative: SHA pinning with an allowlist of docs-kit release SHAs in `signer.refs`, which would need a site commit for every docs-kit release.
+This is a deliberate exception to the org's convention of pinning every action and reusable workflow by full commit SHA. It is safe only because docs-kit's tags are immutable: the `tags-immutable` and `tags-create-app-only` org rulesets cover docs-kit and its releases are immutable, so `v0.1.0` can never be moved to different code. Those settings are a hard gate before docs-kit's first release (`orchestration.md`, "Owner setup" and step 2); without them a moved tag would let other code sign as a trusted publisher. Rejected alternative: SHA pinning with an allowlist of docs-kit release SHAs in `signer.refs`, which would need a site commit for every docs-kit release.
 
 **The tool version follows the ref.** `publish.yml` installs `opm-docs` from the docs-kit release named by a literal in the file, `OPM_DOCS_VERSION: "0.1.0" # x-release-please-version`, which release-please rewrites in every release PR. So `publish.yml@v0.3.0` always runs `opm-docs` 0.3.0, and a caller upgrades both with one ref bump. It downloads `opm-docs_<version>_linux_amd64.tar.gz` and `checksums.txt` from that release and checks the SHA-256 before installing, exactly as C12 requires of every consumer.
 
@@ -246,10 +248,10 @@ Signing: `sigstore/cosign-installer` pinned by SHA with a pinned cosign v3 relea
 | Mode | Group | `cancel-in-progress` | Why |
 |---|---|---|---|
 | `check` | none | n/a | writes nothing |
-| `edge` | `docs-edge-<project>` | `true` | only the newest `main` matters; a cancelled run leaves at most an unpromoted digest, which the next run supersedes |
-| `release` | `docs-release-<project>-<version>` | `false` | a re-run of one release waits for the running one; no other run can cancel it |
+| `edge` | `docs-edge-${{ inputs.project }}` | `true` | only the newest `main` matters; a cancelled run leaves at most an unpromoted digest, which the next run supersedes |
+| `release` | `docs-release-${{ inputs.project }}-${{ inputs.tag }}` | `false` | a re-run of one release waits for the running one; no other run can cancel it |
 
-`add-docs-revisions` puts the `revision` mode in the same `docs-release-<project>-<version>` group, so revisions of one release are serialized (their revision numbers depend on it) and a revision never cancels its release. Releases of different versions may run at once. `promote` stays correct under that: before moving a tag it resolves the tag's current build and skips the move when that build is already newer than D (C4 rule 5), so a slower, older publish never pulls `4` or `4.4` back.
+Groups are keyed on the workflow's inputs because the concurrency expression is evaluated before any step runs: the release tag is known then, the version derived from it is not. `add-docs-revisions` puts the `revision` mode in the same `docs-release-${{ inputs.project }}-${{ inputs.tag }}` group, so revisions of one release are serialized (their revision numbers depend on it) and a revision never cancels its release. Releases of different versions may run at once. `promote` stays correct under that: before moving a tag it resolves the tag's current build and skips the move when that build is already newer than D (C4 rule 5), so a slower, older publish never pulls `4` or `4.4` back.
 
 **Config and sources for a release cut before the repository adopted docs-kit** (decided in planning, sources clarified by supervisor decision 2026-10-02): `build --source src` reads `src/docs-kit.cue` when the release tree has one, and the checked-out `main`'s `docs-kit.cue` otherwise. Only the config comes from `main`: every source in it (the `cue-catalog` `module` and the `markdown` `dir`) resolves against the release tree at `src/`, so the bundle documents the release, never `main`. When the config came from `main` and a `markdown` dir does not exist in the release tree, that source yields no pages and is not an error; the bundle then has only the generated landing (C8). In every other build a missing `markdown` dir is an error, so a typo in `docs-kit.cue` fails the PR check. This is how catalog_opm publishes `4.4.5.0` for a release cut before its first `docs-kit.cue`, which DESIGN decision 8 needs.
 
@@ -348,6 +350,15 @@ opm-docs pull --config site/bundles.cue --out site/.bundles --lock site/.bundles
 - `--local <project>@<segment>=<dir>`, repeatable (supervisor decision, 2026-10-02): take that segment of that project from a local bundle tree (an `opm-docs build` output or a test fixture) instead of the registry, e.g. `--local catalog-opm@4.4=fixtures/catalog-opm/4.4 --local catalog-opm@4.5=... --local catalog-opm@edge=...`. The segment must equal the one the tree's `manifest.json` implies (`MAJOR.MINOR` of its version, or `edge`), and the project must be a tab in the config. A local entry is unsigned: `pull` skips signature verification and never fetches the Sigstore trusted root for it, but still validates the manifest, applies the unpack guards and lints it in bundle mode. When `--local` names a project, registry resolution is skipped for that whole project, so a pull whose every tab is local needs no network at all. Each local entry is marked `"local": true` in the lock. For an author's preview and the site's tests; a publishing CI build never passes it.
 - Cache: blobs under `$XDG_CACHE_HOME/opm-docs/blobs/sha256/<hex>` (else `~/.cache/...`), reused by digest. The Sigstore trusted root is cached beside it.
 
+Edge cases (decided in planning):
+
+- **No `edge` tag** while the tab asks for edge (a project that has not pushed `main` since adopting docs-kit): the segment is skipped with a warning naming the project; the lock has no edge entry. Not an error.
+- **No minor at or above `from`:** if the tab still gets an `edge` build, the pull succeeds with a warning; if it gets nothing at all, the pull fails naming the project, since the site cannot render an empty tab.
+- **Placement cross-check:** every pulled or local manifest's `placement` must be `kind: "tab"` with `root` equal to the tab's `root` in the pull config, else that bundle fails the pull naming both roots.
+- **`--frozen <lock>`:** the lock's `config` digest must equal the current `bundles.cue`'s, because the trust policy (each tab's owning `repo`, the signer) comes from the config; a mismatch fails naming both digests. Tags are not resolved; each entry's `repository` and `digest` are fetched as written, and a local entry in a frozen lock is refused (re-run with `--local`).
+- **`--offline` and the trusted root:** offline, `pull` uses the cached trusted root as it is and never refreshes it. When the cached TUF metadata has expired it warns and still verifies, because each signature is checked against the key validity window at its own timestamp, which an expired cache does not change. With no cached root at all, `--offline` fails.
+- **Compressed size:** a layer descriptor larger than 32 MiB is refused before any byte is fetched; the 64 MiB uncompressed cap applies during unpacking.
+
 Unpack layout, owned entirely by `pull` (it removes any project or segment directory it did not write this run):
 
 ```text
@@ -363,13 +374,63 @@ site/.bundles/
 
 The segment directory is the URL segment: `<MAJOR>.<MINOR>` of the build's version, or `edge`. Unpacking refuses an absolute path, `..`, a symlink, a hard link, a device or FIFO, a duplicate path, a top-level entry other than `manifest.json`, `content/` and `data/`, more than 10,000 entries, or more than 64 MiB uncompressed; and checks every file is listed in `manifest.json` and every listed file exists.
 
-Lock, `schema/lock.cue` (`docs.opmodel.dev/lock/v1`), written with sorted keys and no timestamps, so the same resolution writes the same bytes:
+The lock, `site/.bundles/lock.json`, validated against `schema/lock.cue`:
+
+```cue
+package schema
+
+#Lock: close({
+	schema:  "docs.opmodel.dev/lock/v1"
+	tool:    #SemVer                      // the opm-docs that wrote the lock
+	config:  =~"^sha256:[0-9a-f]{64}$"    // SHA-256 of the bundles.cue bytes
+	bundles: [...#Locked]
+})
+
+#Locked: #Pulled | #Local
+
+#Pulled: close({
+	project:    #Project
+	root:       =~"^/catalogs/[a-z0-9]+(-[a-z0-9]+)*/$"
+	segment:    #Segment
+	tag:        #Segment                  // the tag resolved: the segment itself
+	repository: string & !=""             // "ghcr.io/open-platform-model/docs/catalog-opm"
+	digest:     =~"^sha256:[0-9a-f]{64}$"
+	version:    #Version
+	revision:   int & >=0
+	commit:     #SHA
+	dialect:    int & >=1
+	builtBy:    #SemVer                   // the bundle's dev.opmodel.docs.tool
+	signer: close({
+		workflow:   string & !=""         // the certificate SAN
+		repository: string & !=""         // Source Repository URI
+		ref:        "refs/heads/main"     // Source Repository Ref
+	})
+	dir: string & !=""                    // "<project>/<segment>", relative to the lock's directory
+})
+
+#Local: close({
+	project:  #Project
+	root:     =~"^/catalogs/[a-z0-9]+(-[a-z0-9]+)*/$"
+	segment:  #Segment
+	local:    true
+	version:  #Version
+	revision: int & >=0
+	commit:   #SHA
+	dialect:  int & >=1
+	builtBy:  #SemVer
+	dir:      string & !=""
+})
+
+#Segment: =~"^((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)|edge)$"
+```
+
+Serialization (so two pulls of one resolution compare byte for byte): JSON, two-space indent, a trailing newline, no timestamps; entries sorted by `project`, then `segment` (minors by numeric MAJOR then MINOR, ascending, `edge` last); keys in exactly the order the schema lists them (top level `schema`, `tool`, `config`, `bundles`; a pulled entry `project`, `root`, `segment`, `tag`, `repository`, `digest`, `version`, `revision`, `commit`, `dialect`, `builtBy`, `signer` with `workflow`, `repository`, `ref`, then `dir`; a local entry `project`, `root`, `segment`, `local`, `version`, `revision`, `commit`, `dialect`, `builtBy`, `dir`). A local entry omits `tag`, `repository`, `digest` and `signer` (supervisor decision, 2026-10-02). Example:
 
 ```json
 {
   "schema": "docs.opmodel.dev/lock/v1",
   "tool": "0.1.0",
-  "config": "sha256:<hex of the bundles.cue bytes>",
+  "config": "sha256:<64 hex>",
   "bundles": [
     {
       "project": "catalog-opm",
@@ -377,9 +438,9 @@ Lock, `schema/lock.cue` (`docs.opmodel.dev/lock/v1`), written with sorted keys a
       "segment": "4.4",
       "tag": "4.4",
       "repository": "ghcr.io/open-platform-model/docs/catalog-opm",
-      "digest": "sha256:<hex>",
+      "digest": "sha256:<64 hex>",
       "version": "4.4.5",
-      "revision": 1,
+      "revision": 0,
       "commit": "<40 hex>",
       "dialect": 1,
       "builtBy": "0.1.0",
@@ -389,12 +450,24 @@ Lock, `schema/lock.cue` (`docs.opmodel.dev/lock/v1`), written with sorted keys a
         "ref": "refs/heads/main"
       },
       "dir": "catalog-opm/4.4"
+    },
+    {
+      "project": "catalog-opm",
+      "root": "/catalogs/opm/",
+      "segment": "edge",
+      "local": true,
+      "version": "edge",
+      "revision": 0,
+      "commit": "<40 hex>",
+      "dialect": 1,
+      "builtBy": "0.1.0",
+      "dir": "catalog-opm/edge"
     }
   ]
 }
 ```
 
-Entries sort by project, then by version newest first, `edge` last. Every entry carries `root`, the tab's placement root (supervisor decision, 2026-10-02), so a consumer maps a `dir` to its URLs without reading `bundles.cue`. A `local` entry has `"local": true`, `root`, `segment`, `version`, `revision`, `commit` and `dir` from its manifest, and no `digest`, `repository`, `tag` or `signer`.
+Every entry carries `root`, the tab's placement root (supervisor decision, 2026-10-02), so a consumer maps a `dir` to its URLs without reading `bundles.cue`.
 
 ### C8. URLs and links
 
@@ -436,7 +509,7 @@ Every publishing mode signs the pushed digest with cosign keyless from the reusa
 | Source Repository URI | `https://github.com/<tabs[project].repo>` |
 | Source Repository Ref | `refs/heads/main` |
 
-The Source Repository URI check is the tenant check: without it any repository calling `publish.yml` could sign a bundle for another project. `promote` applies the same policy with the repository taken from `GITHUB_REPOSITORY`. Humans can check the same thing:
+Section 1's spike proves this split before anything relies on it: a reusable `spike-sign.yml` signs on behalf of a calling `spike.yml`, and verification passes only with the reusable workflow as SAN and docs-kit as Source Repository URI. The Source Repository URI check is the tenant check: without it any repository calling `publish.yml` could sign a bundle for another project. `promote` applies the same policy with the repository taken from `GITHUB_REPOSITORY`. Humans can check the same thing:
 
 ```text
 cosign verify ghcr.io/open-platform-model/docs/catalog-opm@sha256:<hex> \
@@ -508,7 +581,7 @@ Written by `cue-catalog` (schema id `docs.opmodel.dev/data/cue-catalog/v1`). Pha
 }
 ```
 
-`mark` is `"not-implemented"`, `"provided-by-platform"` or `null`. `demand` is `"required"` or `"optional"`. `spec.fields` is the structured spec, read from the evaluated value: every field under the spec key, depth first, regular, optional and required alike (`presence` is `"regular"`, `"optional"` or `"required"` from the selector's constraint type), with `path` dot-separated, `[]` for a list element and `[string]` for a pattern constraint; `type` the formatted constraint; `default` the formatted default or `null`; `ref` the definition name when the field's value is a definition outside this member's package, where the walk stops instead of expanding it. The walk stops at the module boundary and at a visited definition, and caps depth at 12. `spec.cue` keeps the authored text, so a field the walk cannot express still shows on the page.
+`mark` is `"not-implemented"`, `"provided-by-platform"` or `null`. `demand` is `"required"` or `"optional"`. `spec.fields` is the structured spec, read from the evaluated value: every field under the spec key, depth first, regular, optional and required alike (`presence` is `"regular"`, `"optional"` or `"required"` from the selector's constraint type), with `path` dot-separated, `[]` for a list element and `[string]` for a pattern constraint; `type` the formatted constraint; `default` the formatted default or `null`; `ref` the definition name when the field's value is a definition outside this member's package, where the walk stops instead of expanding it. The walk stops at the module boundary and at a visited definition, and caps depth at 12. `spec.cue` keeps the authored text, so a field the walk cannot express still shows on the page. Order: siblings appear in the order CUE's `Fields` iterator yields them for the evaluated value (declaration order), each field followed by its descendants, so the list is stable for one source and tool version. `type` is the field's constraint expression printed with `cue/format` (`format.Simplify()`), collapsed to one line with single spaces; `default` likewise. Both are stable for one tool version, and phase 1b compares them only between bundles built by the same docs-kit minor.
 
 ### C11. The page dialect, version 1
 
@@ -524,7 +597,11 @@ Written by `cue-catalog` (schema id `docs.opmodel.dev/data/cue-catalog/v1`). Pha
 - Bundle mode (`lint --bundle <dir>`, run by `build` and `pull`) adds: a link into the bundle's own root uses the bundle's own segment and names a page in the bundle; and `manifest.json` lists exactly the pages present.
 - Docs mode (the default) adds: a `/catalogs/` link is the bare tab root (`/catalogs/opm/`) or uses a major segment (`/catalogs/opm/4/...`); a minor or `edge` segment is a violation.
 
-**Agreement with the site's shell lint until phase 3** (supervisor decision, 2026-10-02). Until phase 3 retires `opmodel.dev/site/scripts/lint-sources.sh`, the site lints `docs/site/` trees with the shell script and every bundle with `opm-docs lint`, so the two must agree. They are kept in agreement by one conformance fixture set: docs-kit's `internal/dialect/testdata/conformance/` is a copy of opmodel.dev `site/tests/lint/` (with its source commit recorded), each fixture paired with the expected `<file>:<line>` output, and both linters must pass every fixture. A rule change lands in both repositories with the fixture that proves it, in docs-kit first (the Go lint is the reference) and in the same week in opmodel.dev; neither side changes a rule without the other.
+**Agreement with the site's shell lint until phase 3** (supervisor decision, 2026-10-02). Until phase 3 retires `opmodel.dev/site/scripts/lint-sources.sh`, the site lints `docs/site/` trees with the shell script and every bundle with `opm-docs lint`, so the two must agree. They are kept in agreement by one conformance fixture set, `internal/dialect/testdata/conformance/`, each fixture paired with its expected `<file>:<line>` output, which both linters must pass:
+
+- **Initial set:** a copy of exactly the fixture directories under opmodel.dev `site/tests/lint/`, with the opmodel.dev commit recorded in its README. `site/tests/dialect/` is not part of it (those fixtures test the site's build checks, not the lint).
+- **Source of new fixtures:** docs-kit. The `/catalogs/` link fixtures, and any fixture for a later rule, are written in docs-kit first, since the Go lint is the reference.
+- **Re-sync rule:** a rule change lands in docs-kit first, with its fixture, in a docs-kit release; opmodel.dev copies the changed fixtures into `site/tests/lint/` and updates the shell lint in the same PR that bumps its pinned `opm-docs` to that release. Neither side changes a rule without the other's fixture.
 
 Every violation prints as `<file>:<line>: <message>`, the shell lint's format.
 
@@ -532,7 +609,7 @@ Every violation prints as `<file>:<line>: <message>`, the shell lint's format.
 
 Callers and the site never `go run` or `go install` `opm-docs` (supervisor decision, 2026-10-02): every consumer runs a released binary, so the bytes that built a bundle are the bytes a release names.
 
-- **Assets.** Every docs-kit release `vX.Y.Z` carries `opm-docs_X.Y.Z_<os>_<arch>.tar.gz` for `linux_amd64`, `linux_arm64`, `darwin_arm64` and `darwin_amd64` (each holding the `opm-docs` binary and `LICENSE`), and `checksums.txt` (SHA-256, `sha256sum` format, one line per archive). Built by goreleaser in a draft-first release workflow, the pattern cli already uses (decided in planning: the owner's draft-first runbook, the immutable-release setting and reviewers' knowledge carry over unchanged; a hand-rolled Task build would re-implement archives and checksums for no gain). URL: `https://github.com/open-platform-model/docs-kit/releases/download/vX.Y.Z/<asset>`.
+- **Assets.** Every docs-kit release `vX.Y.Z` carries `opm-docs_X.Y.Z_<os>_<arch>.tar.gz` for `linux_amd64`, `linux_arm64`, `darwin_arm64` and `darwin_amd64` (each holding the `opm-docs` binary only; the org's repositories carry no LICENSE file, and the licensing question is with the owner), and `checksums.txt` (SHA-256, `sha256sum` format, one line per archive). Built by goreleaser in a draft-first release workflow, the pattern cli already uses (decided in planning: the owner's draft-first runbook, the immutable-release setting and reviewers' knowledge carry over unchanged; a hand-rolled Task build would re-implement archives and checksums for no gain). URL: `https://github.com/open-platform-model/docs-kit/releases/download/vX.Y.Z/<asset>`.
 - **Pinned in a build image** (supervisor decision, 2026-10-02). A consumer may instead pin the `linux_amd64` archive by its SHA-256 in its own build image (opmodel.dev does this in `site/Dockerfile`, as it pins Hugo and Pagefind) and run `opm-docs` inside that image, with network on for the `pull` step only. The SHA-256 it pins is the archive's line in that release's `checksums.txt`. docs-kit therefore keeps shipping the `linux_amd64` archive and `checksums.txt` in every release, under the names above.
 - **Pin file.** A consumer that runs the tool on the host, outside `publish.yml` (catalog_opm for its local `docs:bundle` tasks; opmodel.dev only if it does not use the image pattern) pins it in a repo-root file `.opm-docs-version`: one line, the release tag (`v0.1.0`), matching `^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$`. `publish.yml` pins itself through its `OPM_DOCS_VERSION` literal (C5). In a repository that has both, the `.opm-docs-version` tag and the `publish.yml@` ref name the same release and move in one PR.
 - **Verification.** Download the archive and `checksums.txt` for the host's os and arch, check with `grep ' <archive>$' checksums.txt | sha256sum -c -` (refusing an archive with no line), then extract only `opm-docs`. A failed check stops the task; nothing falls back to building from source. The install target is a gitignored repo-local directory (`.bin/` or `site/.bin/`), never a global path.
@@ -625,10 +702,10 @@ No page carries a generator marker comment: a bundle's pages are wholly generate
 ## Risks / Trade-offs
 
 - [GHCR drops `artifactType` or the empty config, or mangles annotations] → Section 1's spike gates everything else; outcome B (C2) keeps every sibling contract.
-- [sigstore-go cannot find or verify a cosign v3 bundle stored under the `sha256-` fallback tag] → the spike verifies the round trip with the real tools before `internal/verify` is written. If it fails, `pull` shells out to a pinned `cosign verify` with the C9 flags (a second binary on the site host, recorded as a regression of DESIGN decision 3).
+- [sigstore-go cannot find or verify a cosign v3 bundle stored under the `sha256-` fallback tag, or cannot apply the C9 policy to a certificate issued to a reusable workflow] → the spike signs from a reusable workflow (`spike-sign.yml`) called by another workflow, exactly the identity split C9 rests on, and verifies it with sigstore-go before `internal/verify` is written. Only if sigstore-go cannot verify that does `pull` shell out to a pinned `cosign verify` with the C9 flags (a second binary on the site host, recorded as a regression of DESIGN decision 3).
 - [The Sigstore trusted root needs network] → `pull` runs on the host step that already has network; the root is cached and `--offline` refuses with a message rather than skipping verification.
 - [A deterministic layer is not byte-stable across Go versions (gzip)] → the digest only has to be stable for one tool build; a test pins the digest of a fixture tree for the tool's own Go version.
-- [Callers reference `publish.yml` by tag, an exception to the org's SHA-pinning convention (owner decision, 2026-10-02); a moved docs-kit tag would let other code sign as the trusted publisher] → docs-kit's `tags-immutable` and `tags-create-app-only` rulesets and immutable releases are a hard gate before `v0.1.0` (tasks.md 7.0).
+- [Callers reference `publish.yml` by tag, an exception to the org's SHA-pinning convention (owner decision, 2026-10-02); a moved docs-kit tag would let other code sign as the trusted publisher] → docs-kit's `tags-immutable` and `tags-create-app-only` rulesets and immutable releases are a hard gate before `v0.1.0` (`orchestration.md`, "Owner setup").
 - [Edge builds pushed by digest accumulate untagged versions on GHCR] → harmless to readers; pruning is a later concern, never automatic deletion of a full tag.
 
 ## Research & Decisions
@@ -674,7 +751,7 @@ No page carries a generator marker comment: a bundle's pages are wholly generate
 
 | Decision | Lands in |
 |---|---|
-| C1 to C12, the contracts | `docs/contracts.md` (new), linked from `AGENTS.md` and `README.md` |
+| C1 to C12, "Commands", "Page renderer" and the doc-comment rules of "Context", under the same headings (the main specs cite these) | `docs/contracts.md` (new), linked from `AGENTS.md` and `README.md` |
 | Callers reference `publish.yml` by release tag, an owner-approved exception to SHA pinning that rests on docs-kit's immutable tags (owner decision, 2026-10-02; C5) | `docs/contracts.md` C5, `README.md` "Using the workflow" and `AGENTS.md` (never move or delete a docs-kit tag) |
 | Commands, flags, exit codes | `README.md` "Commands" |
 | Consumers install a released, checksum-verified `opm-docs` pinned in `.opm-docs-version`, never `go run` (C12) | `docs/contracts.md` C12 and `README.md` "Installing" |
