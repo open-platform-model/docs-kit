@@ -160,6 +160,9 @@ func TestPrivateAuthority(t *testing.T) {
 		{"workflow at main of docs-kit", func(i *sigtest.Identity) {
 			i.Workflow = "https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml@refs/heads/main"
 		}, "matches none of"},
+		{"a tag that is not a release", func(i *sigtest.Identity) {
+			i.Workflow = "https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml@refs/tags/vendor-test"
+		}, "matches none of"},
 		{"wrong source repository", func(i *sigtest.Identity) { i.Repository = "https://github.com/open-platform-model/cli" }, "only repository allowed"},
 		{"wrong source ref", func(i *sigtest.Identity) { i.Ref = "refs/heads/release-4.4" }, "refs/heads/release-4.4"},
 	} {

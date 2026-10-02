@@ -1,7 +1,7 @@
 # The reusable docs bundle workflow. A repository calls it pinned to a
 # docs-kit release tag (publish.yml@vX.Y.Z), never a branch or a SHA: the
 # signing certificate names this file at that ref, and opm-docs pull trusts
-# only refs/tags/v* (docs/contracts.md C5, C9). docs-kit's tags are immutable
+# only refs/tags/v[0-9]* (docs/contracts.md C5, C9). docs-kit's tags are immutable
 # (org rulesets), which is what makes a tag pin safe.
 #
 # Modes:

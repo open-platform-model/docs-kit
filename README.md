@@ -31,7 +31,7 @@ Consumers never `go run` or `go install` `opm-docs`. Every release `vX.Y.Z` carr
 
 ## Using the workflow
 
-Reference `publish.yml` by docs-kit release tag, never a branch or a SHA: the signing certificate names the workflow at that ref, and the site trusts only `refs/tags/v*` (docs/contracts.md C5, C9). This is a deliberate exception to the org's SHA-pinning convention, safe because docs-kit's tags are immutable; say so in a comment beside the `uses:` line. `publish.yml@vX.Y.Z` runs `opm-docs` X.Y.Z, so one ref bump upgrades both.
+Reference `publish.yml` by docs-kit release tag, never a branch or a SHA: the signing certificate names the workflow at that ref, and the site trusts only `refs/tags/v[0-9]*` (docs/contracts.md C5, C9). This is a deliberate exception to the org's SHA-pinning convention, safe because docs-kit's tags are immutable; say so in a comment beside the `uses:` line. `publish.yml@vX.Y.Z` runs `opm-docs` X.Y.Z, so one ref bump upgrades both.
 
 | Mode | Run it on | Caller job permissions |
 |---|---|---|

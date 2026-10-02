@@ -5,7 +5,7 @@ package schema
 	signer: {
 		issuer:                                       *"https://token.actions.githubusercontent.com" | string
 		workflow:                                     *"https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml" | string
-		refs: *["refs/tags/v*"] | [string, ...string] // glob over the workflow ref in the certificate
+		refs: *["refs/tags/v[0-9]*"] | [string, ...string] // glob over the workflow ref in the certificate
 	}
 	tabs: [#Project]: {
 		repo: =~"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" // the only repository allowed to sign this project

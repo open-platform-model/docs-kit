@@ -86,7 +86,7 @@ func TestLoadPull(t *testing.T) {
 	tab := p.Tabs["catalog-opm"]
 	if p.Registry != "ghcr.io/open-platform-model/docs" || !tab.Edge || tab.From != "4.4" ||
 		p.Signer.Issuer != "https://token.actions.githubusercontent.com" ||
-		len(p.Signer.Refs) != 1 || p.Signer.Refs[0] != "refs/tags/v*" || !strings.HasPrefix(p.Digest, "sha256:") {
+		len(p.Signer.Refs) != 1 || p.Signer.Refs[0] != "refs/tags/v[0-9]*" || !strings.HasPrefix(p.Digest, "sha256:") {
 		t.Fatalf("decoded %+v", p)
 	}
 	_, err = LoadPull(write(t, "bundles.cue", `tabs: "catalog-opm": {root: "/catalogs/opm/", from: "4.4"}`))

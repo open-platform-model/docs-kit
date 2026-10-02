@@ -58,7 +58,7 @@ func Policy(repo string) verify.Policy {
 	return verify.Policy{
 		Issuer:     "https://token.actions.githubusercontent.com",
 		Workflow:   "https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml",
-		Refs:       []string{"refs/tags/v*"},
+		Refs:       []string{"refs/tags/v[0-9]*"},
 		Repository: "https://github.com/" + repo,
 		Ref:        "refs/heads/main",
 	}

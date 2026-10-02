@@ -34,7 +34,7 @@ const maxBundle = 1 << 20
 type Policy struct {
 	Issuer     string   // "https://token.actions.githubusercontent.com"
 	Workflow   string   // the reusable workflow URL, without "@<ref>"
-	Refs       []string // globs the workflow ref must match, "refs/tags/v*"
+	Refs       []string // globs the workflow ref must match, "refs/tags/v[0-9]*"
 	Repository string   // the Source Repository URI, "https://github.com/<owner>/<repo>"
 	Ref        string   // the Source Repository Ref, "refs/heads/main"
 }

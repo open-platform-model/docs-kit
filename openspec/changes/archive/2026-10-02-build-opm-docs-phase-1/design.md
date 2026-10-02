@@ -205,7 +205,7 @@ File `.github/workflows/publish.yml` in this repository. A caller pins a docs-ki
 uses: open-platform-model/docs-kit/.github/workflows/publish.yml@v0.1.0
 ```
 
-**Callers reference `publish.yml` by release tag** (owner decision, 2026-10-02): `@vX.Y.Z`, never a branch and never a commit SHA. The signing certificate names the workflow at the ref the caller wrote, and `pull` trusts only the SAN `https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml@refs/tags/v*` (C9).
+**Callers reference `publish.yml` by release tag** (owner decision, 2026-10-02): `@vX.Y.Z`, never a branch and never a commit SHA. The signing certificate names the workflow at the ref the caller wrote, and `pull` trusts only the SAN `https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml@refs/tags/v[0-9]*` (C9).
 
 This is a deliberate exception to the org's convention of pinning every action and reusable workflow by full commit SHA. It is safe only because docs-kit's tags are immutable: the `tags-immutable` and `tags-create-app-only` org rulesets cover docs-kit and its releases are immutable, so `v0.1.0` can never be moved to different code. Those settings are a hard gate before docs-kit's first release (`orchestration.md`, "Owner setup" and step 2); without them a moved tag would let other code sign as a trusted publisher. Rejected alternative: SHA pinning with an allowlist of docs-kit release SHAs in `signer.refs`, which would need a site commit for every docs-kit release.
 
@@ -335,7 +335,7 @@ package schema
 	signer: {
 		issuer:                                       *"https://token.actions.githubusercontent.com" | string
 		workflow:                                     *"https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml" | string
-		refs: *["refs/tags/v*"] | [string, ...string] // glob over the workflow ref in the certificate
+		refs: *["refs/tags/v[0-9]*"] | [string, ...string] // glob over the workflow ref in the certificate
 	}
 	tabs: [#Project]: {
 		repo: =~"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" // the only repository allowed to sign this project
@@ -523,7 +523,7 @@ Every publishing mode signs the pushed digest with cosign keyless from the reusa
 | Certificate field | Must equal |
 |---|---|
 | issuer | `https://token.actions.githubusercontent.com` |
-| SAN (Build Signer URI) | `https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml@<ref>` with `<ref>` matching a `signer.refs` glob, default `refs/tags/v*` |
+| SAN (Build Signer URI) | `https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml@<ref>` with `<ref>` matching a `signer.refs` glob, default `refs/tags/v[0-9]*` |
 | Source Repository URI | `https://github.com/<tabs[project].repo>` |
 | Source Repository Ref | `refs/heads/main` |
 
@@ -532,7 +532,7 @@ Section 1's spike proves this split before anything relies on it: a reusable `sp
 ```text
 cosign verify ghcr.io/open-platform-model/docs/catalog-opm@sha256:<hex> \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  --certificate-identity-regexp '^https://github\.com/open-platform-model/docs-kit/\.github/workflows/publish\.yml@refs/tags/v' \
+  --certificate-identity-regexp '^https://github\.com/open-platform-model/docs-kit/\.github/workflows/publish\.yml@refs/tags/v[0-9]' \
   --certificate-github-workflow-repository open-platform-model/catalog_opm \
   --certificate-github-workflow-ref refs/heads/main
 ```

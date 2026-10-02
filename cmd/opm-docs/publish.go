@@ -21,7 +21,7 @@ import (
 const (
 	githubIssuer    = "https://token.actions.githubusercontent.com"
 	publishWorkflow = "https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml"
-	publishRefs     = "refs/tags/v*"
+	publishRefs     = "refs/tags/v[0-9]*"
 	mainRef         = "refs/heads/main"
 )
 
