@@ -187,9 +187,9 @@ File `.github/workflows/publish.yml` in this repository. A caller pins a docs-ki
 uses: open-platform-model/docs-kit/.github/workflows/publish.yml@v0.1.0
 ```
 
-Pinning a tag, not a SHA, is the plan (decided in planning): the signing certificate names the workflow at the ref the caller wrote, and `pull` accepts only `refs/tags/v*` (C9). docs-kit's tags are immutable once the owner adds docs-kit to the tag rulesets (`orchestration.md`, owner setup).
+**Callers reference `publish.yml` by release tag** (owner decision, 2026-10-02): `@vX.Y.Z`, never a branch and never a commit SHA. The signing certificate names the workflow at the ref the caller wrote, and `pull` trusts only the SAN `https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml@refs/tags/v*` (C9).
 
-> **Known conflict, unresolved; left to review.** The org convention pins every action and reusable workflow by full commit SHA with the version in a comment (`@de0fac2e... # v6.0.2`), and SHA-pinning tools (Dependabot, actionlint rules, reviewers) expect it. This contract asks callers to pin `publish.yml` by tag instead. The alternative keeps the convention: callers pin `publish.yml@<full SHA> # v0.1.0`, the certificate SAN then ends in `@<SHA>`, and `pull`'s `signer.refs` becomes an allowlist of docs-kit release commit SHAs (each release adds its SHA to `site/bundles.cue`), instead of the `refs/tags/v*` glob. The cost is one site commit per docs-kit release; the gain is the org-wide pinning rule and no dependence on tag immutability. Nothing else in this design changes with the choice: C9's other checks, the tool-version literal and the modes are the same.
+This is a deliberate exception to the org's convention of pinning every action and reusable workflow by full commit SHA. It is safe only because docs-kit's tags are immutable: the `tags-immutable` and `tags-create-app-only` org rulesets cover docs-kit and its releases are immutable, so `v0.1.0` can never be moved to different code. Those settings are a hard gate before docs-kit's first release (`tasks.md` 7.0, `orchestration.md` owner setup); without them a moved tag would let other code sign as a trusted publisher. Rejected alternative: SHA pinning with an allowlist of docs-kit release SHAs in `signer.refs`, which would need a site commit for every docs-kit release.
 
 **The tool version follows the ref.** `publish.yml` installs `opm-docs` from the docs-kit release named by a literal in the file, `OPM_DOCS_VERSION: "0.1.0" # x-release-please-version`, which release-please rewrites in every release PR. So `publish.yml@v0.3.0` always runs `opm-docs` 0.3.0, and a caller upgrades both with one ref bump. It downloads `opm-docs_<version>_linux_amd64.tar.gz` and `checksums.txt` from that release and checks the SHA-256 before installing, exactly as C12 requires of every consumer.
 
@@ -628,7 +628,7 @@ No page carries a generator marker comment: a bundle's pages are wholly generate
 - [sigstore-go cannot find or verify a cosign v3 bundle stored under the `sha256-` fallback tag] → the spike verifies the round trip with the real tools before `internal/verify` is written. If it fails, `pull` shells out to a pinned `cosign verify` with the C9 flags (a second binary on the site host, recorded as a regression of DESIGN decision 3).
 - [The Sigstore trusted root needs network] → `pull` runs on the host step that already has network; the root is cached and `--offline` refuses with a message rather than skipping verification.
 - [A deterministic layer is not byte-stable across Go versions (gzip)] → the digest only has to be stable for one tool build; a test pins the digest of a fixture tree for the tool's own Go version.
-- [Callers pin `publish.yml` by tag, against the org's SHA-pinning convention] → recorded as a known conflict in C5 with its alternative (a SHA allowlist in `signer.refs`); the choice is left to review.
+- [Callers reference `publish.yml` by tag, an exception to the org's SHA-pinning convention (owner decision, 2026-10-02); a moved docs-kit tag would let other code sign as the trusted publisher] → docs-kit's `tags-immutable` and `tags-create-app-only` rulesets and immutable releases are a hard gate before `v0.1.0` (tasks.md 7.0).
 - [Edge builds pushed by digest accumulate untagged versions on GHCR] → harmless to readers; pruning is a later concern, never automatic deletion of a full tag.
 
 ## Research & Decisions
@@ -675,7 +675,7 @@ No page carries a generator marker comment: a bundle's pages are wholly generate
 | Decision | Lands in |
 |---|---|
 | C1 to C12, the contracts | `docs/contracts.md` (new), linked from `AGENTS.md` and `README.md` |
-| How callers pin `publish.yml` (a tag, or a SHA allowlist if review chooses it; C5) | `docs/contracts.md` C5 and `README.md` "Using the workflow" |
+| Callers reference `publish.yml` by release tag, an owner-approved exception to SHA pinning that rests on docs-kit's immutable tags (owner decision, 2026-10-02; C5) | `docs/contracts.md` C5, `README.md` "Using the workflow" and `AGENTS.md` (never move or delete a docs-kit tag) |
 | Commands, flags, exit codes | `README.md` "Commands" |
 | Consumers install a released, checksum-verified `opm-docs` pinned in `.opm-docs-version`, never `go run` (C12) | `docs/contracts.md` C12 and `README.md` "Installing" |
 | How to release docs-kit, and that `publish.yml`'s version literal is release-please's | `AGENTS.md` |

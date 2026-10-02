@@ -38,7 +38,7 @@ Phase 1, as planned here, is done when the site shows opm 4.4 and edge in the Ca
 ```
 
 1. **docs-kit `build-opm-docs-phase-1`.** One PR. Section 1 is a gate: the owner runs `spike.yml` from the PR branch (tasks.md 1.3) and nothing past section 1 starts until its findings are recorded. Merge when every section is done and archived.
-2. **docs-kit release `v0.1.0`.** release-please opens the release PR after step 1's merge; the owner merges it; the draft-first release publishes the binaries. Nothing downstream may reference docs-kit before this tag exists.
+2. **docs-kit release `v0.1.0`.** release-please opens the release PR after step 1's merge; the owner merges it only once the hard gate holds (tag rulesets and immutable releases on docs-kit, tasks.md 7.0); the draft-first release publishes the binaries. Nothing downstream may reference docs-kit before this tag exists.
 3. **catalog_opm `publish-docs-bundle`, section 1 (adopt).** Its `check` jobs on the PR are the first end-to-end run of `publish.yml`. On merge, the `Docs` workflow publishes `edge`; the first push creates the GHCR package `docs/catalog-opm`, private.
 4. **Owner, in catalog_opm.** Make `docs/catalog-opm` public. Dispatch the backfill for the current release, so the tab has its first minor (DESIGN decision 8; `release` mode reads `main`'s `docs-kit.cue` because the tag has none, but extracts the `opm/` module and the `docs/catalogs/opm` dir from the tag; the tag has no such dir, so `4.4.5.0` gets the generated landing only, C5): `gh workflow run docs.yml -R open-platform-model/catalog_opm -f mode=release -f tag=opm-v4.4.5` (or the newest `opm-v4.4.*` tag by then). Check: anonymous `opm-docs pull` with a scratch `bundles.cue` (C7) resolves `4.4` and `edge` and verifies both.
 5. **opmodel.dev `add-catalogs-tab`.** Built and tested against fixture bundles, merged once step 4 holds, so its first `main` build pulls real ones. No double publish (supervisor decision, 2026-10-02): the build that gains the tab stops mounting catalog_opm's `docs/site/reference/catalog-members/**` and `docs/site/reference/catalog-contract.md`, and its link hook maps links to the old targets (`/docs/reference/catalog-members/<kind>/<page>/`, `/docs/reference/catalog-contract/`) to the tab's alias forms. So the old pages vanish from the site at this merge, whatever catalog_opm still commits.
@@ -50,7 +50,7 @@ If catalog_opm releases a new opm version after step 3, its `publish-docs` job p
 ## What every sibling change must reference
 
 - The contracts: `https://github.com/open-platform-model/docs-kit/blob/main/docs/contracts.md` once step 1 has merged (until then, this change's `design.md` on the PR branch), cited by contract number (`docs-kit C5`).
-- The pinned release: `open-platform-model/docs-kit/.github/workflows/publish.yml@v0.1.0` and `opm-docs` 0.1.0. A tag, per C5 and C9; C5 records the conflict with the org's SHA-pinning convention, still open in review. If review picks SHA pinning, callers write `publish.yml@<full SHA> # v0.1.0` and opmodel.dev lists that SHA in `signer.refs`; nothing else in these lists changes.
+- The pinned release: `open-platform-model/docs-kit/.github/workflows/publish.yml@v0.1.0` and `opm-docs` 0.1.0. Referenced by release tag, never by SHA (owner decision, 2026-10-02; C5, C9): a deliberate exception to the org's SHA-pinning convention, so a caller's workflow comment should say so.
 - DESIGN decisions by number (`docs-kit DESIGN decision 9`); docs-kit has no enhancement entry, so no `enhancement.yaml` and no delivery log.
 
 ## catalog_opm: `publish-docs-bundle`
@@ -118,7 +118,7 @@ Durable decisions to land in opmodel.dev `AGENTS.md`/`README.md`: the Catalogs s
 Before docs-kit's implementation PR:
 
 - Install the release App (`opm-release-please`) on docs-kit and make `vars.RELEASE_APP_CLIENT_ID` and `secrets.RELEASE_APP_PRIVATE_KEY` available to it, as for the other released repos.
-- Add docs-kit to the org rulesets `tags-immutable` and `tags-create-app-only` (C5 relies on immutable docs-kit tags), protect `main` (PRs only, required CI checks), enable immutable releases, and set squash merges to the PR title with a blank body, as in the other repos.
+- **Hard gate before `v0.1.0`:** add docs-kit to the org rulesets `tags-immutable` and `tags-create-app-only` and enable immutable releases on docs-kit (tasks.md 7.0). Callers reference `publish.yml` by tag (owner decision, 2026-10-02), which is safe only while docs-kit tags cannot move. Also protect `main` (PRs only, required CI checks) and set squash merges to the PR title with a blank body, as in the other repos.
 - Run `spike.yml` from the PR branch (tasks.md 1.3); delete or keep private the `docs/spike` package afterwards (1.7).
 
 After catalog_opm section 1 merges:
@@ -137,7 +137,7 @@ Workspace follow-ups (the supervisor handles the first in a workspace PR; the re
 
 - Sitemap lists only the newest minor of each major; `edge` gets its own Pagefind index but no alias stubs; phase-1b history is a file written by `opm-docs pull` (supervisor decisions, 2026-10-02; design.md "Site decisions").
 - opmodel.dev pins the tool by SHA-256 in its build image and pulls inside it; `pull --local` takes several segments per project and needs no network when every tab is local; lock entries carry `root`; no redirects from the old reference URLs; the site lint and `opm-docs lint` agree through one conformance fixture set until phase 3 (supervisor decisions, 2026-10-02).
-- Callers pin `publish.yml` by tag; the conflict with SHA pinning is open in review (design.md C5). The supervisor is taking it to the owner.
+- Callers reference `publish.yml` by release tag, decided by the owner on 2026-10-02 (design.md C5); SHA pinning with a SHA allowlist was rejected.
 
 ## Follow-up: docs-kit `add-docs-revisions`
 

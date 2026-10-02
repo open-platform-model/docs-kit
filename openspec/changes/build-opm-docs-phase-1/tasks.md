@@ -65,4 +65,5 @@ Not an implementation section: it only moves the change into the archive, as in 
 
 ## After merge
 
+- [ ] 7.0 **OWNER, hard gate before `v0.1.0`**: docs-kit is covered by the org rulesets `tags-immutable` and `tags-create-app-only`, and immutable releases are enabled on docs-kit. Check (read-only): `gh api "repos/open-platform-model/docs-kit/rulesets?includes_parents=true"` lists both rulesets and `gh api repos/open-platform-model/docs-kit/immutable-releases` reports enabled. Callers reference `publish.yml` by tag (design.md C5, owner decision 2026-10-02), so the release PR is not merged until this holds.
 - [ ] 7.1 **OWNER** merges the release PR release-please opens (`0.1.0`) and confirms the published release has four archives and `checksums.txt`. The catalog_opm `publish-docs-bundle` PR's `check` job, calling `publish.yml@v0.1.0`, is the first end-to-end run of the workflow. After the release, the follow-up change `add-docs-revisions` may start.

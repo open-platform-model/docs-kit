@@ -58,5 +58,5 @@ None. The repository has no specs yet.
 - Registry: a new public package `ghcr.io/open-platform-model/docs/catalog-opm` (the owner makes it public), and a throwaway `docs/spike` for section 1.
 - Workspace: the root `AGENTS.md` registry rule ("a version-named OCI tag is never overwritten") conflicts with the bundles' moving tags (`4.4.5`, `4.4`, `4`, `edge`); only full tags (`4.4.5.0`) are immutable. An owner item in `orchestration.md`, handled by a workspace PR, not here.
 - Risk: GHCR's handling of OCI 1.1 artifacts and of cosign v3 signatures is unverified; section 1 is a gate, and its fallback (design C2, outcome B) changes no sibling contract.
-- Risk: callers pin `publish.yml` by tag, against the org's SHA-pinning convention; a known conflict left to review (design C5).
+- Risk: callers reference `publish.yml` by tag, an owner-approved exception to the org's SHA-pinning convention (owner decision, 2026-10-02; design C5). It is safe only with immutable docs-kit tags, so the tag rulesets and immutable releases on docs-kit gate the first release.
 - Risk: the site build now depends on GHCR and on the Sigstore trusted root; `pull --frozen --offline` with the cache is the mitigation.
