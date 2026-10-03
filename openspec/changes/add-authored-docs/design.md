@@ -20,11 +20,13 @@ Contracts read: C3 (`#Page`: `source`, `lastmod`, `generated`), C5 (release mode
 	source?:   string & !=""
 	lastmod?:  time.Time
 	generated: bool
-	edit?:     string & !=""      // the source file's path on main, when main has it; authored pages only
+	edit?:     string & !=""      // docs placement only: the source file's path on main, when main has it; authored pages only
 }
 ```
 
-The **main tree** is the current directory when `--source` names a different directory (release mode's `src/`, a revision's temporary worktree), else the source tree. `build` sets `edit` to `source` when that path is a regular file in the main tree's `HEAD` (`git cat-file -e HEAD:<path>`), and omits it otherwise. A rename on `main` is not followed: the site shows no Edit link for that page rather than guess (decided in planning). Generated pages (`generated: true`) never get `edit`; a completed page (authored front matter plus generated body) is authored and does.
+The **main tree** is the current directory when `--source` names a different directory (release mode's `src/`, a revision's temporary worktree), else the source tree. `build` sets `edit` to `source` when that path is a regular file in the main tree's `HEAD` (`git cat-file -e HEAD:<path>`), and omits it otherwise. A rename on `main` is not followed: the site shows no Edit link for that page rather than guess (decided in planning). `edit` is written only in a bundle with `placement.kind: "docs"`: tab and section pages get no Edit link (D1's table), and keeping the field out of them means a catalog tab bundle stays readable by a site whose `opm-docs` predates `edit` (decided in review). Generated pages (`generated: true`) never get `edit`; a completed page (authored front matter plus generated body) is authored and does.
+
+**The site bumps first** (C12, from `generalize-build-assembly` D10): `#Manifest` is closed, so an `opm-docs` that predates `edit` refuses a manifest carrying it. A producer may move its `.opm-docs-version` to this release only after opmodel.dev's pinned `opm-docs` is at least this release.
 
 What the site does with it (recorded in C8 so both sides agree):
 

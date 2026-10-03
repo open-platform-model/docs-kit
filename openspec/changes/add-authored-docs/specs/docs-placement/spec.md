@@ -12,7 +12,11 @@ A `markdown` source in a docs bundle SHALL copy its `dir` (all of it, or the pag
 - **THEN** `build` exits 2 naming `content/reference/definitions/components.md`, the `cue-definitions` source and the `markdown` source
 
 ### Requirement: An authored page records its file on main
-For every page with `generated: false`, `build` SHALL write `pages[].edit`, the repository-relative path of its source file, when that file exists in the main tree: the current directory when `--source` names another tree (a release or revision build in `publish.yml`), else the source tree. When the file does not exist in the main tree, `edit` SHALL be absent. A generated page SHALL have no `edit`. Source: DESIGN decision 19.
+In a bundle with `placement.kind: "docs"`, for every page with `generated: false`, `build` SHALL write `pages[].edit`, the repository-relative path of its source file, when that file exists in the main tree: the current directory when `--source` names another tree (a release or revision build in `publish.yml`), else the source tree. When the file does not exist in the main tree, `edit` SHALL be absent. A generated page, and every page of a tab or section bundle, SHALL have no `edit`. Source: DESIGN decision 19.
+
+#### Scenario: A tab bundle's authored landing
+- **WHEN** catalog_opm's tab bundle copies `docs/catalogs/opm/_index.md`
+- **THEN** that page has no `edit`, so a site pinned to an older opm-docs still accepts the catalog bundle
 
 #### Scenario: A page moved on main after the release
 - **WHEN** `docs/site/start/install.md` exists at tag `v1.0.0` and `main` renamed it

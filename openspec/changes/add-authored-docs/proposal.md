@@ -6,7 +6,7 @@ Gate: `generalize-build-assembly` is merged. It must ship before core, cli, libr
 
 ## What Changes
 
-- **`pages[].edit`** in `manifest.json`: the repository-relative path of an authored page's file on `main` when that file exists there, written by `build` from the `main` tree it runs in (the checkout `publish.yml` makes beside the release tree); absent for generated pages and for a file `main` no longer has. The site links `https://github.com/<source.repo>/edit/main/<edit>`.
+- **`pages[].edit`** in `manifest.json`: the repository-relative path of an authored page's file on `main` when that file exists there, written by `build` from the `main` tree it runs in (the checkout `publish.yml` makes beside the release tree), for docs-placed bundles only; absent for generated pages, for tab and section pages, and for a file `main` no longer has. A manifest with `edit` is refused by an older `opm-docs pull` (the schema is closed), so the site's pinned `opm-docs` moves to this release before any producer does (C12). The site links `https://github.com/<source.repo>/edit/main/<edit>`.
 - **Authored docs in docs bundles, specified**: a `markdown` source over `docs/site` in a docs bundle, the root `_index.md` and section `_index.md` pages it may carry, figure shortcodes, git dates, and how a repository with a phase-2 reference adds its authored pages to the same bundle (one bundle per repository; the committed generated pages are gone by then, or the build refuses the collision).
 - **The bundle shapes of phase 3, recorded in C1 and C15**: `catalog-opm-docs` beside the `catalog-opm` tab (both built from one release tag), `opm` released by release-please (DESIGN decision 17), and the "Edit this page" rule for tab, docs and section pages.
 

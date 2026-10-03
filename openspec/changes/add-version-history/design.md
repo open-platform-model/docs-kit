@@ -110,7 +110,7 @@ What the site derives (recorded in C13 so both sides agree): "Added in X" when `
 }
 ```
 
-Entries sorted by project; the key is omitted when no history file was written. The schema id stays `lock/v1`: a reader that does not know `history` ignores it, and every lock without it still validates. `--frozen` does not compare the old digest (history is a function of the trees and the tool, and the tool may have moved); it writes the new one.
+Entries sorted by project; the key is omitted when no history file was written. The schema id stays `lock/v1`, and every lock without the key still validates. `#Lock` is closed, so an `opm-docs` that predates `history` refuses a lock carrying it (`--frozen`); only the site reads its lock, with the one `opm-docs` it pins, so the site's tool bump and its first lock with `history` arrive together. `--frozen` does not compare the old digest (history is a function of the trees and the tool, and the tool may have moved); it writes the new one.
 
 ### D6. Commands
 

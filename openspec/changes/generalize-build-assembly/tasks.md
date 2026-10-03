@@ -26,11 +26,11 @@ Gate: none (docs-kit `main`). One PR, titled `feat: build docs-placed bundles fr
 
 ## 4. The workflow
 
-- [ ] 4.1 `.github/workflows/publish.yml`: the `build` and `publish` jobs (D8), the artifact hand-off, the `setup-go` input; concurrency on `publish`. Verify: `actionlint` clean; the `check` mode needs only `contents: read` and `packages: read` (read the job's `permissions`).
+- [ ] 4.1 `.github/workflows/publish.yml`: the `build` and `publish` jobs (D8), the artifact hand-off, the `setup-go` input; the concurrency groups at the workflow level (D8). Verify: `actionlint` clean; the `check` mode needs only `contents: read` and `packages: read` (read the job's `permissions`).
 - [ ] 4.2 `task check` green, then commit `feat(workflow): build in a job without the signing token`.
 
 ## 5. Contracts, docs and archive
 
-- [ ] 5.1 `docs/contracts.md`: C1 (D9 table and naming rule), C3 (`owns`, `pins`), C5 (job split, `setup-go`), C6 (registry, `include`, `exclude`, `citations`, `pins`), C8 (docs URL form), new C14 (D6) and C15 (D2, D3, D7). `README.md`: source kinds, adding an extractor. `AGENTS.md`: layout tree. Verify: the schema text in C3 and C6 equals `schema/*.cue`; links resolve.
+- [ ] 5.1 `docs/contracts.md`: C1 (D9 table and naming rule), C3 (`owns`, `pins`), C5 (job split, workflow-level concurrency, `setup-go`), C6 (registry, `include`, `exclude`, `citations`, `pins`), C8 (docs URL form), new C14 (D6) and C15 (D2, D3, D7), C12 (D10, the site bumps first). `README.md`: source kinds, adding an extractor. `AGENTS.md`: layout tree. Verify: the schema text in C3 and C6 equals `schema/*.cue`; links resolve.
 - [ ] 5.2 `openspec archive generalize-build-assembly --yes`. Verify: `task openspec:check` green; every durable decision landed.
 - [ ] 5.3 `task check` green, then commit `docs(build): document docs placement, commands and pins`.

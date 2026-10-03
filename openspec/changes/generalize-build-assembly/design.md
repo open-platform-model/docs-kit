@@ -191,7 +191,7 @@ A backfilled release (config from outside the tree) whose tree cannot run the co
 | `build` | checkout(s); install `opm-docs`; GHCR read login; `setup-go` when asked; `check`, `build` or `revise`; upload `out/<project>/` as a workflow artifact (not in `check` mode) | `contents: read`, `packages: read` | yes |
 | `publish` | `needs: build`, not in `check` mode; install `opm-docs`; download the artifact; `push`; `cosign sign`; `promote` | none declared (inherits the caller's `packages: write`, `id-token: write`) | none: no checkout of the caller |
 
-The concurrency groups of C5 move to `publish`; `build` has none. A new input:
+The concurrency groups of C5 move from the job to the **workflow level** of `publish.yml` (`concurrency:` at the top of the called workflow, keyed on the same inputs), so they cover both jobs of a run. They must: in `revision` mode `revise` picks the next revision number in `build`, so two revisions of one release must not run their `build` jobs at once; a group on `publish` alone would let them pick the same number (decided in review). A new input:
 
 ```yaml
 setup-go:
@@ -218,6 +218,10 @@ C1's table becomes the registry of every planned project, so the parallel change
 | `enhancements` | enhancements | none (edge only) | section `/enhancements/` | 3 |
 
 Naming rule (decided in planning): a repository's docs-placed bundle is named after the repository (`_` becomes `-`); when that name is already a tab project of the same repository, it takes the suffix `-docs`. Hence `catalog-opm-docs`.
+
+### D10. The site bumps first (C12)
+
+`#Manifest` is closed, so an `opm-docs` that predates a manifest field refuses a bundle carrying it (`internal/bundle/manifest.go`, `Parse`). This change adds `placement.owns` and `pins`, and later changes add more (`pages[].edit`, `placement.kind: "section"`). C12 gains the rule: **opmodel.dev's pinned `opm-docs` is never older than any producer's `.opm-docs-version`.** A docs-kit release reaches the site first (its `site/Dockerfile` bump), and only then may a producer move its `.opm-docs-version` and `publish.yml@` ref to it. `docs/orchestration.md` orders every bump that way.
 
 ### Commands, exit codes, messages
 
@@ -258,5 +262,6 @@ No new command or flag. `build` and `check` exit `1` for a config error (an unkn
 - C1 project table and naming rule: `docs/contracts.md` C1.
 - `placement.owns`, `pins` in the manifest: C3; config additions (`include`, `exclude`, `citations`, `pins`, the registry): C6; C8 gains the docs-bundle URL form `/docs/<page>/`.
 - Repository commands: `docs/contracts.md` C14 (new). Docs placement build and lint rules, pins: C15 (new).
-- The job split and `setup-go`: C5.
+- The job split, workflow-level concurrency and `setup-go`: C5.
+- The site-bumps-first rule (D10): C12.
 - `README.md`: the source-kind table and how to add an extractor (the registry); `AGENTS.md` layout tree gains `internal/command`.

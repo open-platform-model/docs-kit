@@ -132,9 +132,13 @@ Anchors are the command path in kebab case (`#opm-module-apply`), links `/docs/<
 
 ### D5. Release of `cobradump`
 
-`release-please-config.json` gains a second package; the root package keeps its settings (C12 unchanged):
+`release-please-config.json` gains a second package, and the root package gains one key so a `cobradump/` commit does not also release `opm-docs` (release-please otherwise counts a commit under `cobradump/` toward the root path `.` as well; decided in review); its other settings stay (C12):
 
 ```json
+".": {
+  "exclude-paths": ["cobradump"],
+  ...
+},
 "cobradump": {
   "release-type": "go",
   "component": "cobradump",

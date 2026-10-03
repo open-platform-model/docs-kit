@@ -1,7 +1,11 @@
 ## ADDED Requirements
 
 ### Requirement: Build and publish run in separate jobs
-`publish.yml` SHALL build (`check`, `build` or `revise`) in a job that declares `contents: read` and `packages: read` and no `id-token`, and SHALL push, sign and promote in a second job that needs the first, checks out nothing of the caller and takes the bundle tree from a workflow artifact. Its inputs, outputs and the caller's required permissions SHALL be unchanged, and the concurrency groups SHALL apply to the publishing job.
+`publish.yml` SHALL build (`check`, `build` or `revise`) in a job that declares `contents: read` and `packages: read` and no `id-token`, and SHALL push, sign and promote in a second job that needs the first, checks out nothing of the caller and takes the bundle tree from a workflow artifact. Its inputs, outputs and the caller's required permissions SHALL be unchanged, and the concurrency groups SHALL be declared at the workflow level, covering both jobs of a run, so two revisions of one release never build at once.
+
+#### Scenario: Two revisions dispatched together
+- **WHEN** two `revision` runs of `opm-v4.5.1` are dispatched a second apart
+- **THEN** the second run's `build` job starts only after the first run has finished, and the two get different revision numbers
 
 #### Scenario: Repository code never meets the signing token
 - **WHEN** a cli release publish runs its dump command

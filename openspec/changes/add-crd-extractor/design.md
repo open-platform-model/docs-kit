@@ -18,10 +18,17 @@ Builds on `generalize-build-assembly` (registry, docs placement, completable pag
 #CRD: {
 	kind:     "crd"
 	dir:      =~"^\\./"            // controller-gen output: "./config/crd/bases"
-	samples?: =~"^\\./"            // one sample per kind: "./config/samples"
+	samples?: =~"^\\./"            // kubebuilder samples: "./config/samples"
+	// A sample document containing any of these strings is never shown (a dev
+	// or e2e fixture, not something a reader can apply).
+	hideSamplesMatching: *[] | [...string & !=""]
+	// Labels removed from a shown sample when they carry exactly this value
+	// (kubebuilder's scaffold labels say how the repository applies it).
+	stripLabels: *{} | {[string]: string}
 	page:     =~"^([a-z0-9]+(-[a-z0-9]+)*/)*[a-z0-9]+(-[a-z0-9]+)*\\.md$" // under content/, an owned path
 	title:       string & !=""     // front matter when no authored page completes it
 	description: string & !=""
+	weight?:     int & >=1          // the page's weight when no authored page completes it
 	order?: [string, ...string]    // kinds first, in this order; the rest by name
 	reconciledBy?: [string]: string & !="" // kind: the controller that reconciles it
 	citations: *"strip" | "link"
@@ -46,6 +53,9 @@ bundles: "opm-operator": {
 			kind:        "crd"
 			dir:         "./config/crd/bases"
 			samples:     "./config/samples"
+			hideSamplesMatching: ["testing.opmodel.dev"]
+			stripLabels: {"app.kubernetes.io/name": "opm-operator", "app.kubernetes.io/managed-by": "kustomize"}
+			weight:      7
 			page:        "reference/operator-resources.md"
 			title:       "Operator resources"
 			description: "One generated entry per operator resource kind: ModuleInstance, ModulePackage, Platform and TransformerRegistration."
@@ -84,15 +94,17 @@ YAML is decoded into the `apiextensions.k8s.io/v1` CRD types when the dependency
 }
 ```
 
+**Samples**, as crdref picks them: for each CRD, only the file kubebuilder names `<group>_<version>_<kind>.yaml` (the first served version, the kind lower-cased) in `samples`, and in it the first YAML document whose `apiVersion` is `<group>/<version>` and whose `kind` is the kind; other files (`..._moduleinstance_jellyfin.yaml`, `source_v1_ocirepository.yaml`) are never read. When that document contains a `hideSamplesMatching` string, the kind has no sample. Otherwise it is re-encoded without comments, with each `stripLabels` label removed when its value matches (and `labels` removed when it becomes empty). A missing file means no sample, not an error.
+
 Field paths are dot-separated from `spec`/`status`, `[]` for array items, `{}` for `additionalProperties`, depth-first in schema property order (controller-gen sorts properties). `rules` come from `required`, `enum`, `minimum`/`maximum`, `pattern`, `x-kubernetes-validations` (CEL, with its `message`) and `x-kubernetes-immutable`-style markers crdref recognizes; `by` is `api-server`, the only enforcer the CRD proves. `sample` and `reconciledBy` are `null` when absent. The implementer adds fields crdref's entries need (additive, recorded in C18).
 
 ### D4. The page
 
-One completable page at `page` (C15): per kind, in D3 order, crdref's entry (`## <Kind>`, summary, `### At a glance` table, the columns table, `### Spec` and `### Status` tables, `### Example` with a `yaml` fence, `### Notes`, `### Served by` "The operator's `<controller>` controller watches every <Kind>." only when `reconciledBy` names one, `### Enforcement` table). Its generated body's first heading is `## <first kind>`. Without an authored page it has front matter `title`, `description`, `type: reference`. `manifest.json` `pages[].source` is the authored page when completed, else the first CRD file.
+One completable page at `page` (C15): per kind, in D3 order, crdref's entry (`## <Kind>`, summary, `### At a glance` table, the columns table, `### Spec` and `### Status` tables, `### Example` with a `yaml` fence, `### Notes`, `### Served by` "The operator's `<controller>` controller watches every <Kind>." only when `reconciledBy` names one, `### Enforcement` table). Its generated body's first heading is `## <first kind>`. Without an authored page it has front matter `title`, `description`, `type: reference` and `weight` when configured (the operator sets 7, the page's weight today). `manifest.json` `pages[].source` is the authored page when completed, else the first CRD file.
 
 ### D5. Commands
 
-No new command or flag. Messages name the file: "config/samples/x.yaml: a second Platform sample (the first is config/samples/y.yaml); keep one per kind" (exit 2).
+No new command or flag. Messages name the file: "config/samples/opmodel.dev_v1alpha1_platform.yaml: does not parse as YAML: <error>" (exit 2).
 
 ## Research & Decisions
 

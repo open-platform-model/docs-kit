@@ -14,7 +14,7 @@ Gate: `generalize-build-assembly` and `pull-docs-placement` are merged (the regi
 
 Release class: MINOR. Additive: a new placement kind, source kind, config key and link form.
 
-Scope: five sections; section 1 is a spike because the enhancement documents have never passed the page dialect (an estimate finds 81 untagged fences and about 190 lines with angle brackets in 224 files).
+Scope: five sections; section 1 is a spike because the enhancement documents have never passed the page dialect (an estimate finds 81 untagged fences in 224 files).
 
 ## Capabilities
 
@@ -30,5 +30,5 @@ Scope: five sections; section 1 is a spike because the enhancement documents hav
 ## Impact
 
 - Code: `schema/config.cue`, `schema/manifest.cue`, `schema/pull.cue`, `schema/lock.cue`, `internal/extract/enhancements`, `internal/render`, `internal/build` (edge-only placement), `internal/pull` (sections), `internal/dialect` (link form, fixture), `docs/contracts.md`.
-- Consumers: **enhancements** (sibling change `publish-enhancements-bundle`): `docs-kit.cue`, `docs.yml` (check on PRs, edge on `main`), `.opm-docs-version`, and the source fixes the spike lists. **opmodel.dev** (`serve-enhancements-from-bundle`): `bundles.cue` `sections`, the section built from the bundle, its adapter, cleaning partial and link hook removed, `[section "enhancements"]` removed from `versions.conf`, the shell lint fixture copied.
+- Consumers: **enhancements** (enhancements#86, a PR; the repository has no OpenSpec workspace): `docs-kit.cue`, `docs.yml` (check on PRs, edge on `main`), `.opm-docs-version`, and the source fixes the spike lists. **opmodel.dev** (`serve-docs-from-bundles`, its enhancements section): `bundles.cue` `sections`, the section built from the bundle, its adapter reduced to what Hugo still needs (each page's `url` outside every version), its cleaning partial and link hook removed, `[section "enhancements"]` removed from `versions.conf`, the shell lint fixture copied.
 - Risk: the enhancements repository's own link check and the bundle's link resolution must agree; the spike compares them.

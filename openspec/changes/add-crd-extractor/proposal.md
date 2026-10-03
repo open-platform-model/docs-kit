@@ -6,7 +6,7 @@ Gate: `generalize-build-assembly` is merged (registry, docs placement, completab
 
 ## What Changes
 
-- **`crd` source kind**: reads every CRD in a directory of controller-gen YAML and, optionally, one sample per kind; writes `data/crd.json` (`docs.opmodel.dev/data/crd/v1`) with names, scope, versions, printer columns, subresources, the spec and status field tables, the validation rules and the sample.
+- **`crd` source kind**: reads every CRD in a directory of controller-gen YAML and, optionally, each kind's kubebuilder sample (hiding fixture samples and stripping scaffold labels); writes `data/crd.json` (`docs.opmodel.dev/data/crd/v1`) with names, scope, versions, printer columns, subresources, the spec and status field tables, the validation rules and the sample.
 - **One completable page** at a configured path: the operator keeps its authored front matter and intro (its `docs/site` page of the same path), and the generated entries follow it.
 - **"Served by" from configuration**: `reconciledBy` maps a kind to its controller's name. crdref found it by scanning `internal/controller`'s Go syntax; that scan is operator-specific, and Principle VI prefers one explicit input over inference (decided in planning).
 - **Citations as links** through the shared `citations: "link"` policy, which reproduces crdref's `/enhancements/<NNNN>/decisions/` links.
