@@ -2,7 +2,7 @@
 
 This file sequences the work that finishes `DESIGN.md` across docs-kit, the five product repositories, opm, enhancements and opmodel.dev. It is enough to plan each sibling change without reading docs-kit's code: the docs-kit changes are under `openspec/changes/` (their `design.md` files show every contract concretely), and each sibling's list below is what that sibling must do. When this plan is done, delete this file; until then, a change that alters the sequence updates it.
 
-Written 2026-10-03 against docs-kit `v0.2.1`. Owner decisions of that day are DESIGN decisions 17 to 19; choices this plan made are marked "decided in planning" in the change that owns them and listed at the end.
+Written 2026-10-03 against docs-kit `v0.2.1`. Owner decisions of that day are DESIGN decisions 17 to 21 (20 and 21 confirm two choices this plan proposed); choices this plan made are marked "decided in planning" in the change that owns them and listed at the end.
 
 ## Contract numbers
 
@@ -99,7 +99,7 @@ Durable decision for opmodel.dev `AGENTS.md`: the site reads history, never comp
 
 ## Phase 2: every generated reference, and the product repos' authored pages
 
-### Decided in planning: one cutover per product repository
+### One cutover per product repository (DESIGN decision 20, owner-confirmed 2026-10-03)
 
 core, cli, library and opm-operator ship their whole `docs/site/` in the same bundle as their generated reference, from adoption on. A site version chooses those four bundles through the cli's pins, so shipping only the reference now and the authored pages in phase 3 would need a second release cascade and a second site switch. While the site still builds a repository from git, its committed generated pages stay in git and are left out of the bundle with the `markdown` source's `exclude` (C6); after the switch they are deleted with the `exclude`. Phase 3 then covers catalog_opm's `docs/site/`, opm and enhancements.
 
@@ -228,7 +228,7 @@ Proposal must state: a second bundle, `catalog-opm-docs` (C1 naming rule: the re
 
 ### 3. opm: release-please, then its bundle (no OpenSpec workspace; two PRs)
 
-1. `chore: release with release-please` PR: `release-please-config.json` (one package `.`, `release-type: simple`, `include-v-in-tag: true`, tags `vX.Y.Z`, `draft: false`), `.release-please-manifest.json`, `.github/workflows/release.yml` with the release App token as the other repositories have it, `CHANGELOG.md`. The first version is opm's choice; recommended `1.0.0-beta.1` (a `Release-As` footer), so the minor tag `1.0` follows the v1.0 site version. **Owner**: install the release App on opm, provide `vars.RELEASE_APP_CLIENT_ID` and `secrets.RELEASE_APP_PRIVATE_KEY`, and cover opm with the `tags-immutable` and `tags-create-app-only` rulesets.
+1. `chore: release with release-please` PR: `release-please-config.json` (one package `.`, `release-type: simple`, `include-v-in-tag: true`, tags `vX.Y.Z`, `draft: false`), `.release-please-manifest.json`, `.github/workflows/release.yml` with the release App token as the other repositories have it, `CHANGELOG.md`. The first version is `1.0.0-beta.1` (DESIGN decision 21; a `Release-As: 1.0.0-beta.1` footer), so the minor tag `1.0` follows the v1.0 site version. **Owner**: install the release App on opm, provide `vars.RELEASE_APP_CLIENT_ID` and `secrets.RELEASE_APP_PRIVATE_KEY`, and cover opm with the `tags-immutable` and `tags-create-app-only` rulesets.
 2. `ci(docs): publish the opm docs bundle with docs-kit` PR: `docs-kit.cue` (`add-authored-docs` D2), `docs.yml`, `publish-docs` in `release.yml`, `.opm-docs-version`, Taskfile tasks as in phase 2's common list, `AGENTS.md` paragraph.
 3. **Owner**: merge the first release PR; verify `docs/opm` is public and its tags verify.
 
@@ -257,12 +257,13 @@ A small spec-driven change: REMOVE the `dialect-lint` requirement "The conforman
 - Merge each docs-kit release PR at the gates above, and the `cobradump` release PR.
 - Confirm the tag rulesets cover `cobradump/v*` tags as they cover `v*`.
 - New GHCR packages, each checked public on first publish: `docs/core`, `docs/library`, `docs/opm-operator`, `docs/cli`, `docs/catalog-opm-docs`, `docs/opm`, `docs/enhancements`.
-- opm: release App, secrets, rulesets, first version (recommended `1.0.0-beta.1`).
+- opm: release App, secrets, rulesets; first version `1.0.0-beta.1` (DESIGN decision 21).
 - The release cascade order of phase 2 (core, library, opm-operator, then cli) and the G2-pins check before the cli release PR merges.
 
 ## Decisions made in planning (for the owner to confirm)
 
-- The four product repositories ship `docs/site/` with their reference at adoption (`exclude` bridges the transition); phase 3 covers catalog_opm's docs, opm and enhancements.
+Confirmed by the owner on 2026-10-03 and recorded in DESIGN.md: one cutover per product repository (decision 20) and opm's first release `1.0.0-beta.1` (decision 21). The rest stand until the owner says otherwise:
+
 - Version history: field changes appear in the "Changes in X" list, not inline in the spec block; edge is compared with the newest minor; type, default and ref compare only within one docs-kit minor; the lock records the history digest (`add-version-history`).
 - Pins live in `manifest.json`, printed by a repository command; pinned bundles resolve through the release tag so docs revisions follow (`generalize-build-assembly`, `pull-docs-placement`).
 - `publish.yml` builds in a job without the signing token and publishes in another that runs no repository code (`generalize-build-assembly`).

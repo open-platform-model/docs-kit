@@ -16,7 +16,7 @@ docs-kit moves both jobs to the producer. Each repository builds, lints and publ
 
 ## Decisions
 
-Made by the owner on 2026-10-02. Decisions 13 to 16 were approved by the owner later the same day, while phase 1 was planned (`openspec/changes/archive/2026-10-02-build-opm-docs-phase-1/`); where they differ from the text below, the text has been amended to match. Decisions 17 to 19 were made by the owner on 2026-10-03, while phases 1b, 2 and 3 were planned ([docs/orchestration.md](docs/orchestration.md)).
+Made by the owner on 2026-10-02. Decisions 13 to 16 were approved by the owner later the same day, while phase 1 was planned (`openspec/changes/archive/2026-10-02-build-opm-docs-phase-1/`); where they differ from the text below, the text has been amended to match. Decisions 17 to 21 were made by the owner on 2026-10-03, while phases 1b, 2 and 3 were planned (20 and 21 confirm choices the plan proposed) ([docs/orchestration.md](docs/orchestration.md)).
 
 | # | Decision |
 |---|---|
@@ -39,6 +39,8 @@ Made by the owner on 2026-10-02. Decisions 13 to 16 were approved by the owner l
 | 17 | The opm repository publishes releases with release-please, and its docs bundle ships on each release, as every other repository's does. |
 | 18 | The enhancements repository is bundled too: one edge-only, unversioned bundle placed at `/enhancements/`. With it, the site build reads no git repository except its own. |
 | 19 | "Edit this page" on a docs page links the page's source file on `main`, whichever version the page shows. |
+| 20 | core, cli, library and opm-operator ship their authored `docs/site/` in the same bundle as their generated reference, from the day they adopt docs-kit: one cutover per repository. Their committed generated pages are excluded from the bundle until the site reads it, then deleted. Phase 3 is left with catalog_opm's docs, opm and enhancements. |
+| 21 | opm's first release is `1.0.0-beta.1`, so its minor tag `1.0` follows the v1.0 site version. |
 
 Carried over from the site's existing rules: reference facts are generated in the repository that owns their source; a generated entry states only what its source proves; pages follow the page dialect in the workspace `STYLE.md` ("Site Pages").
 

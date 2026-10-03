@@ -65,7 +65,7 @@ bundles: opm: {
 }
 ```
 
-`catalog-opm` and `catalog-opm-docs` publish from the same release tag (`opm-v4.6.0`): catalog_opm's `publish-docs` job calls `publish.yml` once per project. The opmodel.dev site version names them separately: the tab by its own config (`tabs`), the docs by `versions."v1.0".tags."catalog-opm-docs"` (a major, `"4"`, as the site's `catalog-line = opm-v4` does today). opm's version is the site version's `tags.opm`; its first release version is the opm sibling's choice (recommended `1.0.0-beta.1`, so `tags: {opm: "1.0"}` follows the v1.0 site version).
+`catalog-opm` and `catalog-opm-docs` publish from the same release tag (`opm-v4.6.0`): catalog_opm's `publish-docs` job calls `publish.yml` once per project. The opmodel.dev site version names them separately: the tab by its own config (`tabs`), the docs by `versions."v1.0".tags."catalog-opm-docs"` (a major, `"4"`, as the site's `catalog-line = opm-v4` does today). opm's version is the site version's `tags.opm`; its first release is `1.0.0-beta.1` (DESIGN decision 21), so `tags: {opm: "1.0"}` follows the v1.0 site version.
 
 A `markdown` source in a docs bundle copies pages as written: no alias pinning (C8's rule pins only a tab bundle's own catalog links), and docs-mode link rules apply in bundle-mode lint (C15). Figure shortcodes pass as in dialect 1. `lastmod` is the file's last commit at the commit built (C3), as today's `gen-lastmod.sh` computes it from the archived tree.
 
