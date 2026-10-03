@@ -10,9 +10,9 @@ Gate: `build-opm-docs-phase-1` is archived on docs-kit `main` and `v0.1.0` is re
 
 ## 2. The revise command
 
-- [ ] 2.1 `build --revision` and `--patches` (hidden flags) writing `revision` and `source.patches`. Verify: the manifest validates and a 0.1.0-era `pull` test fixture reads it.
-- [ ] 2.2 `cmd/opm-docs/revise.go` per design.md D1. Verify: in-process registry tests for the docs-revision scenarios: fix not on main, no revision 0, first revision, second revision carrying the first fix, a fix already applied.
-- [ ] 2.3 `task check` green, then commit `feat(revise): build docs revisions of a published release`.
+- [x] 2.1 `build --revision` and `--patches` (hidden flags) writing `revision` and `source.patches`. Verify: the manifest validates and a 0.1.0-era `pull` test fixture reads it.
+- [x] 2.2 `cmd/opm-docs/revise.go` per design.md D1. Verify: in-process registry tests for the docs-revision scenarios: fix not on main, no revision 0, first revision, second revision carrying the first fix, a fix already applied.
+- [x] 2.3 `task check` green, then commit `feat(revise): build docs revisions of a published release`.
 
 ## 3. The workflow mode and docs
 

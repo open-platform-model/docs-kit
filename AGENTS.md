@@ -55,12 +55,13 @@ internal/extract/cuecatalog/  the cue-catalog extractor: data/catalog.json
 internal/extract/markdown/    the markdown source
 internal/render/              embedded templates: landing, kind index, member page
 internal/dialect/             the page-dialect lint, with the conformance fixtures
-internal/gitsrc/              commits, times, dirtiness and file dates from git
+internal/gitsrc/              commits, times, dirtiness and file dates from git; fix checks, worktrees, cherry-picks, the documentation-only check
 internal/build/               build and check
 internal/oci/                 oras-go: push, tag, list, resolve, fetch by digest
 internal/verify/              sigstore-go: find and verify signatures under the signing policy
 internal/publish/             push and promote
 internal/pull/                tab resolution, cache, unpack layout, lock
+internal/revise/              docs revisions: read the newest revision's fixes, apply them and the new fix, build
 internal/gittest/, internal/ocitest/, internal/verify/sigtest/   test helpers
 docs/contracts.md             the contracts other repositories read
 .github/workflows/            publish.yml (the reusable workflow), ci.yml, release.yml

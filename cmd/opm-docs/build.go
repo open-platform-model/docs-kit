@@ -36,6 +36,11 @@ func newBuildCmd() *cobra.Command {
 	f.StringVar(&o.Source, "source", ".", "the source tree: every source and all git history resolve against it")
 	f.BoolVar(&edge, "edge", false, "build the edge bundle of the commit checked out (the default)")
 	f.StringVar(&o.Release, "release", "", "build the release of this git tag, such as opm-v4.4.5")
+	// A docs revision's build, run by revise on the patched release tree.
+	f.IntVar(&o.Revision, "revision", 0, "build this docs revision of --release (revise sets it)")
+	f.StringSliceVar(&o.Patches, "patches", nil, "the fix commits applied to the release tree, oldest first (revise sets it)")
+	_ = f.MarkHidden("revision")
+	_ = f.MarkHidden("patches")
 	return cmd
 }
 

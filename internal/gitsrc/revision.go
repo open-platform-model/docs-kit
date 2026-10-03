@@ -35,10 +35,15 @@ func (r Repo) CheckFix(ctx context.Context, fix, main string) error {
 	if _, err := r.git(ctx, "rev-parse", "--verify", "--quiet", main+"^{commit}"); err != nil {
 		return fmt.Errorf("%s does not resolve in %s; check out the repository with full history", main, r.Dir)
 	}
-	if err := r.cmd(ctx, "merge-base", "--is-ancestor", fix, main).Run(); err != nil {
+	if !r.IsAncestor(ctx, fix, main) {
 		return fmt.Errorf("the fix %s is not on %s; the fix must land on main first", fix, main)
 	}
 	return nil
+}
+
+// IsAncestor reports whether commit a is an ancestor of (or is) b.
+func (r Repo) IsAncestor(ctx context.Context, a, b string) bool {
+	return r.cmd(ctx, "merge-base", "--is-ancestor", a, b).Run() == nil
 }
 
 // Worktree is a temporary, detached git worktree.

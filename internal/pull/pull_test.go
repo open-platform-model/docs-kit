@@ -180,6 +180,29 @@ func TestResolveTabs(t *testing.T) {
 	}
 }
 
+// A docs revision, with the fixes it applied in source.patches, is pulled
+// like any other build: the newest revision of the newest patch wins.
+func TestPullsARevision(t *testing.T) {
+	e := newEnv(t)
+	e.publish("4.4.5", owner, nil)
+	fixes := []string{strings.Repeat("a", 40), strings.Repeat("b", 40)}
+	e.publish("4.4.5", owner, func(m *bundle.Manifest) { m.Revision, m.Source.Patches = 2, fixes })
+	l, err := Run(context.Background(), e.options(e.config("")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e0 := l.Bundles[0]; e0.Tag != "4.4" || e0.Version != "4.4.5" || e0.Revision != 2 {
+		t.Fatalf("entry %+v", e0)
+	}
+	m, err := bundle.Read(filepath.Join(e.work, "bundles", project, "4.4"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Revision != 2 || strings.Join(m.Source.Patches, ",") != strings.Join(fixes, ",") {
+		t.Fatalf("unpacked manifest %+v", m.Source)
+	}
+}
+
 func TestOfflineFrozen(t *testing.T) {
 	e := newEnv(t)
 	e.publish("4.4.5", owner, nil)
