@@ -145,7 +145,7 @@ data/                the doc model as JSON, one file per kind (members, commands
 
 #Page: {
 	path:     string                  // relative to content/
-	source?:  string                  // repo file the page came from, for "Edit this page"
+	source?:  string                  // repo file the page came from, for "View source"
 	lastmod?: string                  // the source file's last commit date, RFC 3339
 	generated: bool                   // generated reference, or authored
 }
