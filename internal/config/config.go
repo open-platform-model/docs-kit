@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	slashpath "path"
 	"slices"
 	"sort"
 	"strings"
@@ -19,19 +20,24 @@ import (
 	"github.com/open-platform-model/docs-kit/schema"
 )
 
-// Placement is where the site mounts a bundle's content.
+// Placement is where the site mounts a bundle's content. Owns, for a docs
+// bundle, lists the content paths it owns exclusively.
 type Placement struct {
-	Kind string `json:"kind"`
-	Root string `json:"root"`
+	Kind string   `json:"kind"`
+	Root string   `json:"root"`
+	Owns []string `json:"owns,omitempty"`
 }
 
 // Source is one input of a bundle. Kind names the extractor or the
 // markdown source; Value is the source's whole entry, validated, which an
-// extractor decodes for its own options. Dir is the markdown source's.
+// extractor decodes for its own options. Dir, Include and Exclude are the
+// markdown source's.
 type Source struct {
-	Kind  string    `json:"kind"`
-	Dir   string    `json:"dir,omitempty"`
-	Value cue.Value `json:"-"`
+	Kind    string    `json:"kind"`
+	Dir     string    `json:"dir,omitempty"`
+	Include []string  `json:"include,omitempty"`
+	Exclude []string  `json:"exclude,omitempty"`
+	Value   cue.Value `json:"-"`
 }
 
 // VersionRule says where a release version comes from.
@@ -84,13 +90,56 @@ func Load(path string) (*Config, error) {
 	if len(c.Bundles) == 0 {
 		return nil, fmt.Errorf("%s: no bundles: add bundles: {\"<project>\": {...}}", path)
 	}
-	for p, b := range c.Bundles {
+	for _, p := range c.Projects() {
+		b := c.Bundles[p]
 		list := v.LookupPath(cue.MakePath(cue.Str("bundles"), cue.Str(p), cue.Str("sources")))
 		for i := range b.Sources {
 			b.Sources[i].Value = list.LookupPath(cue.MakePath(cue.Index(i)))
 		}
+		if err := checkBundle(p, b); err != nil {
+			return nil, fmt.Errorf("%s: %w", path, err)
+		}
 	}
 	return c, nil
+}
+
+// checkBundle applies the rules the schema cannot state: owned paths that
+// do not nest, a docs bundle without a catalog, and well-formed patterns.
+func checkBundle(project string, b Bundle) error {
+	owns := b.Placement.Owns
+	for i, a := range owns {
+		for _, o := range owns[i+1:] {
+			if Nests(a, o) || Nests(o, a) {
+				return fmt.Errorf("bundles.%q.placement.owns: %s and %s nest; list the outer path alone", project, a, o)
+			}
+		}
+	}
+	for i, src := range b.Sources {
+		if b.Placement.Kind == "docs" && src.Kind == "cue-catalog" {
+			return fmt.Errorf("bundles.%q.sources[%d]: a docs bundle carries no cue-catalog source; a catalog is a tab bundle of its own", project, i)
+		}
+		for _, l := range []struct {
+			name string
+			pats []string
+		}{{"include", src.Include}, {"exclude", src.Exclude}} {
+			for _, pat := range l.pats {
+				if _, err := slashpath.Match(strings.TrimSuffix(pat, "/"), ""); err != nil {
+					return fmt.Errorf("bundles.%q.sources[%d].%s: %q is not a glob: %w", project, i, l.name, pat, err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// Nests reports whether the owned path inner lies under, or is, outer: a
+// directory ("reference/") holds every path under it; a page
+// ("reference/operator-resources.md") holds only itself.
+func Nests(outer, inner string) bool {
+	if strings.HasSuffix(outer, "/") {
+		return strings.HasPrefix(inner, outer)
+	}
+	return outer == inner
 }
 
 // checkKinds refuses a source kind the schema does not admit before the

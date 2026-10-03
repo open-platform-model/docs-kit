@@ -11,11 +11,11 @@ Gate: none (docs-kit `main`). One PR, titled `feat: build docs-placed bundles fr
 
 ## 2. Docs placement, completable pages, include and exclude
 
-- [ ] 2.1 `schema/config.cue` and `schema/manifest.cue`: `owns` and `#Owned` (D2), `include` and `exclude` (D4); `#Source` stays the union of registered kinds. Verify: `go test ./schema/...` with a docs placement, nested `owns` refused by build, a bad glob form.
-- [ ] 2.2 `internal/build`: docs placement rules (D2), completable pages generalized from the catalog landing (D3). Verify: a test renderer writing a completable page with and without an authored page; the heading collision; a generated page outside `owns`.
-- [ ] 2.3 `internal/dialect` and `build.Lint`: docs bundle mode (D2). Verify: fixture bundle under `internal/dialect/testdata/docs-bundle/` with a link into `owns` that misses, one into another bundle's path, and a minor catalog link.
-- [ ] 2.4 `internal/extract/markdown`: `include` and `exclude` with directory patterns (D4), and alias pinning only for tab bundles. Verify: tests for a match, an exclude winning over an include, a directory pattern, no match (error), no match in a backfill (ignored).
-- [ ] 2.5 `task check` green, then commit `feat(build): build and lint docs-placed bundles`.
+- [x] 2.1 `schema/config.cue` and `schema/manifest.cue`: `owns` and `#Owned` (D2), `include` and `exclude` (D4); `#Source` stays the union of registered kinds. Verify: `go test ./schema/...` with a docs placement, nested `owns` refused by build, a bad glob form.
+- [x] 2.2 `internal/build`: docs placement rules (D2), completable pages generalized from the catalog landing (D3). Verify: a test renderer writing a completable page with and without an authored page; the heading collision; a generated page outside `owns`.
+- [x] 2.3 `internal/dialect` and `build.Lint`: docs bundle mode (D2). Verify: fixture bundle under `internal/dialect/testdata/docs-bundle/` with a link into `owns` that misses, one into another bundle's path, and a minor catalog link.
+- [x] 2.4 `internal/extract/markdown`: `include` and `exclude` with directory patterns (D4), and alias pinning only for tab bundles. Verify: tests for a match, an exclude winning over an include, a directory pattern, no match (error), no match in a backfill (ignored).
+- [x] 2.5 `task check` green, then commit `feat(build): build and lint docs-placed bundles`.
 
 ## 3. Citations, repository commands and pins
 

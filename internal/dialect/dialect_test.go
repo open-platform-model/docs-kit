@@ -65,6 +65,23 @@ func TestBundleMode(t *testing.T) {
 	compare(t, "bundle", got, readLines(t, filepath.Join("testdata", "bundle", "expect")))
 }
 
+// TestDocsBundleMode lints a docs-placed bundle: docs-mode catalog links,
+// and /docs/ links into what it owns name one of its pages.
+func TestDocsBundleMode(t *testing.T) {
+	content := filepath.Join("testdata", "docs-bundle", "content")
+	pages := []string{"reference/cli/_index.md", "reference/cli/opm-module.md", "reference/extra.md"}
+	vs, err := Lint(content, Options{Mode: Bundle, Bundle: BundleInfo{Kind: "docs", Root: "/docs/", Segment: "1.0",
+		Owns: []string{"reference/cli/", "reference/extra.md", "reference/gone.md"}, Pages: pages}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make([]string, 0, len(vs))
+	for _, v := range vs {
+		got = append(got, strings.TrimPrefix(v.String(), filepath.Join("testdata", "docs-bundle")+"/"))
+	}
+	compare(t, "docs-bundle", got, readLines(t, filepath.Join("testdata", "docs-bundle", "expect")))
+}
+
 // TestDocsModeRejectsBundleLinks checks that docs mode, unlike bundle
 // mode, refuses a minor segment for the same tree.
 func TestDocsModeRejectsBundleLinks(t *testing.T) {

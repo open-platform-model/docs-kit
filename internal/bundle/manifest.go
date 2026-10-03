@@ -48,10 +48,12 @@ type Source struct {
 	Patches []string `json:"patches,omitempty"`
 }
 
-// Placement is where the site mounts content/.
+// Placement is where the site mounts content/. Owns, for a docs bundle,
+// lists the content paths it owns exclusively.
 type Placement struct {
-	Kind string `json:"kind"`
-	Root string `json:"root"`
+	Kind string   `json:"kind"`
+	Root string   `json:"root"`
+	Owns []string `json:"owns,omitempty"`
 }
 
 // Page is one file under content/.

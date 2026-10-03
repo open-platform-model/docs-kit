@@ -245,9 +245,9 @@ func buildProject(ctx context.Context, o Options, cfg *config.Config, project st
 		Created:   id.created.Format(time.RFC3339),
 		Tool:      o.Tool,
 		Dialect:   dialect.Version,
-		Placement: bundle.Placement{Kind: b.Placement.Kind, Root: b.Placement.Root},
+		Placement: bundle.Placement{Kind: b.Placement.Kind, Root: b.Placement.Root, Owns: b.Placement.Owns},
 	}
-	s := &assembly{ctx: ctx, o: o, id: id, m: m, dir: dir, written: map[string]string{}, repo: gitsrc.Repo{Dir: o.Source}, patched: o.PatchDates}
+	s := &assembly{ctx: ctx, o: o, id: id, m: m, dir: dir, cfgPath: cfg.Path, written: map[string]string{}, repo: gitsrc.Repo{Dir: o.Source}, patched: o.PatchDates}
 	if err := s.sources(b, cfg.Path, outside); err != nil {
 		return Result{}, err
 	}
@@ -264,6 +264,7 @@ type assembly struct {
 	id      *ident
 	m       *bundle.Manifest
 	dir     string
+	cfgPath string
 	repo    gitsrc.Repo
 	written map[string]string // content path -> the source that wrote it
 	patched map[string]string // a docs revision: patched file -> its newest patch's date
@@ -382,7 +383,7 @@ func (s *assembly) render(gen []*extracted) (map[string]bool, error) {
 	t := s.target()
 	completable := map[string]bool{}
 	for _, e := range gen {
-		r, err := render.For(e.data.Schema)
+		r, err := rendererFor(e.data.Schema)
 		if err != nil {
 			return nil, err
 		}
@@ -414,6 +415,9 @@ func (s *assembly) writeGenerated(e *extracted, completing map[string]markdown.P
 			}
 			continue
 		}
+		if err := s.owned(p.Path); err != nil {
+			return err
+		}
 		pg := bundle.Page{Path: p.Path, Generated: true}
 		if f, ok := e.data.Sources[p.Path]; ok {
 			pg.Source = f
@@ -426,20 +430,44 @@ func (s *assembly) writeGenerated(e *extracted, completing map[string]markdown.P
 	return nil
 }
 
-func (s *assembly) markdown(src config.Source, cfgPath string, outside bool) ([]markdown.Page, error) {
-	major := ""
-	if !s.id.build.Edge {
-		major = s.id.build.Version.MajorTag()
+// owned refuses a generated page of a docs bundle outside every path the
+// bundle owns.
+func (s *assembly) owned(page string) error {
+	pl := s.m.Placement
+	if pl.Kind != render.KindDocs {
+		return nil
 	}
-	pages, err := markdown.Copy(s.ctx, markdown.Options{
+	for _, o := range pl.Owns {
+		if config.Nests(o, page) {
+			return nil
+		}
+	}
+	owns := "nothing"
+	if len(pl.Owns) > 0 {
+		owns = "only " + strings.Join(pl.Owns, ", ")
+	}
+	return fmt.Errorf("%s: content/%s is generated, but %s owns %s; add it to placement.owns", s.cfgPath, page, s.m.Project, owns)
+}
+
+func (s *assembly) markdown(src config.Source, cfgPath string, outside bool) ([]markdown.Page, error) {
+	opts := markdown.Options{
 		Root:     s.o.Source,
 		Dir:      src.Dir,
-		Catalog:  s.m.Placement.Root,
-		Segment:  s.id.build.Segment(),
-		Major:    major,
+		Include:  src.Include,
+		Exclude:  src.Exclude,
 		Optional: outside,
 		Dates:    func(_ context.Context, p string) string { return s.lastmod(p) },
-	})
+	}
+	// Links into the bundle's own catalog are pinned only in a tab bundle;
+	// a docs bundle's pages are copied as written.
+	if s.m.Placement.Kind != render.KindDocs {
+		opts.Catalog = s.m.Placement.Root
+		opts.Segment = s.id.build.Segment()
+		if !s.id.build.Edge {
+			opts.Major = s.id.build.Version.MajorTag()
+		}
+	}
+	pages, err := markdown.Copy(s.ctx, opts)
 	var missing *markdown.MissingDirError
 	if errors.As(err, &missing) {
 		return nil, fmt.Errorf("%s (named in %s): create it, or remove the markdown source", missing.Error(), cfgPath)
@@ -509,7 +537,7 @@ func Lint(dir string) ([]string, error) {
 	}
 	vs, err := dialect.Lint(filepath.Join(dir, bundle.ContentDir), dialect.Options{
 		Mode:   dialect.Bundle,
-		Bundle: dialect.BundleInfo{Root: m.Placement.Root, Segment: m.Segment(), Pages: pages},
+		Bundle: dialect.BundleInfo{Kind: m.Placement.Kind, Root: m.Placement.Root, Segment: m.Segment(), Owns: m.Placement.Owns, Pages: pages},
 	})
 	if err != nil {
 		return nil, err

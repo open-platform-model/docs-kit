@@ -23,4 +23,10 @@ package schema
 #Markdown: {
 	kind: "markdown"
 	dir:  =~"^[^/.][^.]*$" // repo-relative directory, copied to content/ as it is
+	// Patterns relative to dir, matched against each file's slash path: a
+	// path.Match glob ("**" is not special), or a directory ending "/",
+	// which matches every file under it. A file is copied when it matches
+	// some include (or include is absent) and no exclude.
+	include?: [string, ...string]
+	exclude?: [string, ...string]
 }

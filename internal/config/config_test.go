@@ -99,3 +99,50 @@ func TestLoadPull(t *testing.T) {
 		t.Fatalf("missing repo: err = %v", err)
 	}
 }
+
+const docsConfig = `bundles: {
+	"cli": {
+		placement: {kind: "docs", root: "/docs/", owns: [OWNS]}
+		version: {from: "tag", prefix: "v"}
+		sources: [
+			{kind: "markdown", dir: "docs/site", exclude: [EXCLUDE]},
+		]
+	}
+}
+`
+
+func docs(owns, exclude string) string {
+	return strings.NewReplacer("OWNS", owns, "EXCLUDE", exclude).Replace(docsConfig)
+}
+
+func TestLoadDocsPlacement(t *testing.T) {
+	c, err := Load(write(t, "docs-kit.cue", docs(`"reference/cli/", "reference/operator-resources.md"`, `"reference/cli/"`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := c.Bundles["cli"]
+	if len(b.Placement.Owns) != 2 || b.Placement.Owns[1] != "reference/operator-resources.md" || len(b.Sources[0].Exclude) != 1 {
+		t.Fatalf("decoded %+v", b)
+	}
+	for _, x := range []struct{ name, body string }{
+		{"nested owns", docs(`"reference/", "reference/cli/"`, `"x/"`)},
+		{"an owned page under an owned directory", docs(`"reference/", "reference/cli.md"`, `"x/"`)},
+		{"owned path form", docs(`"Reference/"`, `"x/"`)},
+		{"owned page without .md", docs(`"reference/cli"`, `"x/"`)},
+		{"bad glob", docs(`"reference/"`, `"reference/[cli"`)},
+		{"tab root on a docs bundle", strings.Replace(docs(`"reference/"`, `"x/"`), `root: "/docs/"`, `root: "/catalogs/cli/"`, 1)},
+		{"a catalog in a docs bundle", strings.Replace(docs(`"reference/"`, `"x/"`), `{kind: "markdown"`, `{kind: "cue-catalog", module: "./opm"},
+			{kind: "markdown"`, 1)},
+		{"owns on a tab bundle", strings.Replace(validConfig, `root: "/catalogs/opm/"}`, `root: "/catalogs/opm/", owns: ["x/"]}`, 1)},
+	} {
+		t.Run(x.name, func(t *testing.T) {
+			if _, err := Load(write(t, "docs-kit.cue", x.body)); err == nil {
+				t.Fatal("loaded")
+			}
+		})
+	}
+	_, err = Load(write(t, "docs-kit.cue", docs(`"reference/", "reference/cli/"`, `"x/"`)))
+	if err == nil || !strings.Contains(err.Error(), "reference/ and reference/cli/ nest") || !strings.Contains(err.Error(), "docs-kit.cue") {
+		t.Fatalf("nested owns: %v", err)
+	}
+}

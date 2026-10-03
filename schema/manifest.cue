@@ -39,11 +39,19 @@ import (
 
 #Placement: {
 	// "tab": its own section with its own versions, /catalogs/<name>/<MAJOR.MINOR>/.
-	// "docs": merged into a site version's /docs/ tree (phase 2; refused by phase-1 pull).
+	// "docs": merged into a site version's /docs/ tree (refused by a pull that predates it).
 	kind: "tab" | "docs"
 	if kind == "tab" {root: =~"^/catalogs/[a-z0-9]+(-[a-z0-9]+)*/$"}
-	if kind == "docs" {root: "/docs/"}
+	if kind == "docs" {
+		root: "/docs/"
+		// Paths under content/ this bundle owns exclusively: a directory
+		// ending "/" or a page ending ".md". Every generated page of the
+		// bundle lies under one; two of them never nest.
+		owns: *[] | [...#Owned]
+	}
 }
+
+#Owned: =~"^([a-z0-9]+(-[a-z0-9]+)*/)+$|^([a-z0-9]+(-[a-z0-9]+)*/)*[a-z0-9]+(-[a-z0-9]+)*\\.md$"
 
 #Page: {
 	path:      =~"^([a-z0-9]+(-[a-z0-9]+)*/)*(_index|[a-z0-9]+(-[a-z0-9]+)*)\\.md$" // under content/

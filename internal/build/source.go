@@ -7,6 +7,7 @@ import (
 	"cuelang.org/go/cue"
 
 	"github.com/open-platform-model/docs-kit/internal/extract/cuecatalog"
+	"github.com/open-platform-model/docs-kit/internal/render"
 )
 
 // An Extractor turns one configured source into one data file, which the
@@ -50,6 +51,9 @@ const markdownKind = "markdown"
 var extractors = []Extractor{
 	cueCatalogExtractor{},
 }
+
+// rendererFor returns the renderer of a data schema; tests replace it.
+var rendererFor = render.For
 
 // extractorFor returns the extractor of a source kind.
 func extractorFor(kind string) (Extractor, bool) {
