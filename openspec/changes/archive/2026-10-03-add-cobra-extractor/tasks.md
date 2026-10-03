@@ -24,5 +24,5 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`. One PR, titled `
 ## 4. Contract and archive
 
 - [x] 4.1 `docs/contracts.md` C19 (D1 to D4, the parity record) and C12 (the component); `AGENTS.md` layout and releasing; `README.md` (how a CLI adopts the hook). Verify: links resolve.
-- [ ] 4.2 `openspec archive add-cobra-extractor --yes`. Verify: `task openspec:check` green.
-- [ ] 4.3 `task check` green, then commit `docs(extract): document the cobra contract`.
+- [x] 4.2 `openspec archive add-cobra-extractor --yes`. Verify: `task openspec:check` green.
+- [x] 4.3 `task check` green, then commit `docs(extract): document the cobra contract`.
