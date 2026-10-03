@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/open-platform-model/docs-kit/compare/v0.2.2...v0.3.0) (2026-10-03)
+
+
+### Features
+
+* build docs-placed bundles from registered sources ([#18](https://github.com/open-platform-model/docs-kit/issues/18)) ([0a32900](https://github.com/open-platform-model/docs-kit/commit/0a32900371e7b8192d80d96a346c077f0f49752b))
+* write the Catalogs tab's version history ([#17](https://github.com/open-platform-model/docs-kit/issues/17)) ([5e413db](https://github.com/open-platform-model/docs-kit/commit/5e413dbe46cc3ad8cebadf3285c24687420f10ce))
+
 ## [0.2.2](https://github.com/open-platform-model/docs-kit/compare/v0.2.1...v0.2.2) (2026-10-03)
 
 
