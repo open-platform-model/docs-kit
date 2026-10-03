@@ -14,6 +14,7 @@ Status: phase 1 is built, and phase 2's shared ground. `opm-docs` builds the opm
 |---|---|---|
 | `cue-catalog` | `data/catalog.json` and the catalog's pages; a tab bundle only | `module` |
 | `markdown` | the authored pages of `dir` | `dir`, `include`, `exclude` (globs, or a directory ending `/`) |
+| `crd` | `data/crd.json` (C18) and one completable reference page, an entry per controller-gen CRD | `dir`, `samples`, `hideSamplesMatching`, `stripLabels`, `page`, `title`, `description`, `weight`, `order`, `reconciledBy`, `citations` |
 
 A bundle placed in `/docs/` (`placement: {kind: "docs", root: "/docs/", owns: [...]}`) lists the content paths it owns; every generated page lies under one (C15). A bundle's `pins: {command, projects}` runs a repository command (C14) and records the exact versions it documents against in `manifest.json`.
 

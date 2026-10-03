@@ -10,9 +10,9 @@ How every extractor turns source comments into reader-facing text (`internal/doc
 
 - **Maintainer comments.** Inside a definition, a comment group whose first line (after `//` and trimming) starts with `WHY` or with `//` (a `////` banner) is dropped. A `WHY` line inside a doc comment is dropped on its own (core's rule, adopted now).
 - **Citations.** Removed from prose and from comments in spec blocks. The pattern accepts `0010:D28`, `0010 D28`, `OQ` numbers, `:R2` and `/R1/R2` requirement suffixes, `/D9` continuations, lists joined by `,`, `;` or `and`, an optional `(see|per|enhancement)` lead and the parenthesised form; then refgen's six clean-up rewrites (empty parens, comma before paren, space after paren, space before punctuation, double spaces, trim). Also removed: `See SPEC.md § N.` sentences, inline `SPEC.md § N`, `NNNN experiment N` and `enhancements/NNNN/experiments/...` (core's rules, adopted now). A changed comment paragraph in a spec block is re-wrapped to `80 - indent - 3` columns, minimum 40; an unchanged one keeps its breaks; a trailing comment that becomes empty is removed.
-- **Citation policy.** Every extractor source takes `citations` (C6): `"strip"`, the default, applies the rule above; `"link"` turns each enhancement decision citation outside a code span (`0010:D28`, `0010:D28:R2`, `0010:D28/D29`, each entry of a list) into a Markdown link, `[0010:D28](/enhancements/0010/decisions/)`, its text as written, and still removes every other form (`OQ` numbers, `0010 D28`, a citation that runs on into an `OQ`, `SPEC.md § N`, experiments). A citation inside a code span or a spec block's comment is removed under both policies: a link cannot live there. A lead-in word or parenthesis around a linked citation stays as written. `cue-catalog` takes only `"strip"`: its doc model holds plain prose that its renderer escapes, so a link needs a doc model that carries one. A `markdown` source takes no `citations`; authored text is copied as written.
+- **Citation policy.** Every extractor source takes `citations` (C6): `"strip"`, the default, applies the rule above; `"link"` turns each enhancement decision citation outside a code span (`0010:D28`, `0010:D28:R2`, `0010:D28/D29`, each entry of a list) into a Markdown link, `[0010:D28](/enhancements/0010/decisions/)`, its text as written, and still removes every other form (`OQ` numbers, `0010 D28`, a citation that runs on into an `OQ`, `SPEC.md § N`, experiments). A citation inside a code span or a spec block's comment is removed under both policies: a link cannot live there. A lead-in word or parenthesis around a linked citation stays as written. `cue-catalog` takes only `"strip"`: its doc model holds plain prose that its renderer escapes, so a link needs a doc model that carries one. The `crd` doc model carries one (C18). A `markdown` source takes no `citations`; authored text is copied as written.
 - **Summary.** A member's doc comment opens with `metadata.description` plus `.` (whitespace collapsed), or the build refuses the member naming both texts. The summary is the page's front-matter `description` and is not repeated in the body. The remaining paragraphs are the notes.
-- **Escaping.** Outside backtick code spans: `\ < > * _ [ ] |` are backslash-escaped and `{{` becomes `{\{`. A table cell escapes every `|`, inside code spans too. A code span lengthens its fence past any backtick it holds. A YAML front-matter string escapes `\` and `"`. A rendered page that still holds `{{<` or `{{%` fails the build.
+- **Escaping.** Outside backtick code spans: `\ < > * _ [ ] |` are backslash-escaped and `{{` becomes `{\{`. The `crd` renderer also escapes `~` and `#` (C18). A table cell escapes every `|`, inside code spans too. A code span lengthens its fence past any backtick it holds. A YAML front-matter string escapes `\` and `"`. A rendered page that still holds `{{<` or `{{%` fails the build.
 - **Doc-note links.** `docs/<name>.md` in prose becomes a link to that file on the source repository at the bundle's commit, only when the file exists and the text is outside a code span.
 - **Marks.** A resource or trait that no transformer in its own catalog requires or optionally reads is marked **Provided by your platform** when its `fulfilment` default is `provider`, and **Not implemented** otherwise; a blueprint is never marked. Exact strings in "Page renderer".
 - **Enforcement tags.** Only where derivable: the spec schema and each required match label are enforced by `cue`; a provider-fulfilled contract's single provider and a load-bearing trait's refused render are enforced by the `kernel`. Nothing else is tagged.
@@ -329,7 +329,7 @@ package schema
 // "link" links each enhancement decision citation to its decisions page.
 #Citations: *"strip" | "link"
 
-#Source: #CueCatalog | #Markdown
+#Source: #CueCatalog | #Markdown | #CRD
 
 #CueCatalog: {
 	kind:   "cue-catalog"
@@ -349,6 +349,27 @@ package schema
 	include?: [string, ...string]
 	exclude?: [string, ...string]
 }
+
+// The crd source (docs-kit C18): controller-gen CRDs and their kubebuilder
+// samples, rendered as one completable reference page.
+#CRD: {
+	kind:     "crd"
+	dir:      =~"^\\./[^/]"  // controller-gen output: "./config/crd/bases"
+	samples?: =~"^\\./[^/]"  // kubebuilder samples: "./config/samples"
+	// A sample document containing any of these strings is never shown (a
+	// dev or e2e fixture, not something a reader can apply).
+	hideSamplesMatching: *[] | [...string & !=""]
+	// Labels removed from a shown sample when they carry exactly this value
+	// (kubebuilder's scaffold labels say how the repository applies it).
+	stripLabels: [string & !=""]: string
+	page:        =~"^([a-z0-9]+(-[a-z0-9]+)*/)*[a-z0-9]+(-[a-z0-9]+)*\\.md$" // under content/, an owned path
+	title:       string & !="" // front matter when no authored page completes it
+	description: string & !=""
+	weight?:     int & >=1 // the page's weight when no authored page completes it
+	order?: [string & !="", ...string & !=""] // these kinds first, in this order; the rest by name
+	reconciledBy?: [string & !=""]: string & !="" // kind: the controller that reconciles it
+	citations: #Citations
+}
 ```
 
 `bundles` is keyed by project because one repository can publish several, as core and cli will in phase 2 and catalog_opm would with a second catalog. A `layout` choice for catalogs is left out until a second layout has a consumer. A path in content/ written by two sources fails the build, except an authored page at the path of a completable generated page (the catalog landing is one): it does not replace the generated page, the generated body is appended to it (C15).
@@ -359,6 +380,7 @@ package schema
 |---|---|---|
 | `cue-catalog` | `data/catalog.json` (C10); a tab bundle only | `module`; `citations` only `"strip"` |
 | `markdown` | authored pages, copied | `dir`, `include`, `exclude` |
+| `crd` | `data/crd.json` (C18) and one completable page | `dir`, `samples`, `hideSamplesMatching`, `stripLabels`, `page`, `title`, `description`, `weight`, `order`, `reconciledBy`, `citations` |
 
 **Adding an extractor** (one OpenSpec change per kind): an `Extractor` in `internal/build` (`Kind`, `Extract(ctx, Input) (Data, error)`), registered in its `extractors` table; a `Renderer` in `internal/render` (`Schema`, `Render(data, Target) ([]Page, error)`), registered by its data schema; its kind added to `#Source` with `citations?: #Citations` and its own options; its data file documented as a contract of its own. A renderer page may set `Completable` with its `Heading` and `Tail` (C15).
 
@@ -859,6 +881,77 @@ A bundle with `placement: {kind: "docs", root: "/docs/", owns: [...]}` merges in
 **Completable pages.** A renderer may mark a page completable, with the heading its generated body opens with. When a `markdown` source of the same bundle supplies a page at that path, the bundle's page is the authored front matter and body, unchanged, then one blank line, then the generated body without front matter, recorded as `generated: false` with the authored file as `source`. An authored body that already holds the heading exits `2` naming the file. Without an authored page, the generated page stands alone with its own front matter, `generated: true`. The catalog landing is the first completable page (heading `## Catalog members`; output unchanged).
 
 **Pins** (DESIGN decision 10). When a bundle's config has `pins: {command, projects}`, `build` runs the command (C14) and requires a `docs.opmodel.dev/pins/v1` document whose `pins` keys are exactly `projects` and whose values are SemVer versions without `v` (C3's `#SemVer`); it writes them to `manifest.json` `pins`. A missing or extra project, or a malformed version, exits `2` naming it and the command. A backfilled release (config from outside the tree) whose tree cannot run the command fails: pins are a contract, never guessed.
+
+## C18. The `crd` source and `data/crd.json`
+
+**Config.** `#CRD` in C6. `dir` holds controller-gen output; every `*.yaml` file in it is read, and every document in a file must be an `apiextensions.k8s.io/v1` `CustomResourceDefinition` with exactly one version that has a schema. `samples`, when set, holds kubebuilder samples. `order` puts kinds first in that order, the rest by name; `reconciledBy` maps a kind to the name of the controller that reconciles it (stated by the author, never inferred from code). `citations` is the source's citation policy ("Doc-comment rules"). opm-operator's file, as its change `publish-crd-bundle` writes it:
+
+```cue
+bundles: "opm-operator": {
+	placement: {kind: "docs", root: "/docs/", owns: ["reference/operator-resources.md"]}
+	version: {from: "tag", prefix: "v"}
+	sources: [
+		{kind: "markdown", dir: "docs/site", exclude: ["reference/operator-resources.md"]},
+		{
+			kind:        "crd"
+			dir:         "./config/crd/bases"
+			samples:     "./config/samples"
+			page:        "reference/operator-resources.md"
+			title:       "Operator resources"
+			description: "One generated entry per operator resource kind: ModuleInstance, ModulePackage, Platform and TransformerRegistration."
+			weight:      7
+			order: ["ModuleInstance", "ModulePackage", "Platform", "TransformerRegistration"]
+			hideSamplesMatching: ["testing.opmodel.dev"]
+			stripLabels: {"app.kubernetes.io/name": "opm-operator", "app.kubernetes.io/managed-by": "kustomize"}
+			reconciledBy: {ModuleInstance: "moduleinstance", ModulePackage: "modulepackage", Platform: "platform", TransformerRegistration: "transformerregistration"}
+			citations: "link"
+		},
+	]
+}
+```
+
+**Samples.** For each kind, only the file kubebuilder names `<group>_<version>_<kind>.yaml` (the kind lower-cased) under `samples` is read, and in it the first document whose `apiVersion` is `<group>/<version>` and whose `kind` is the kind. Other files (`..._moduleinstance_jellyfin.yaml`) are never read. A missing file or document means no sample. A document whose text (comments included) contains a `hideSamplesMatching` string is not shown. A shown document is re-encoded without comments, keys sorted, each `stripLabels` label removed when its value matches exactly, and `metadata.labels` removed when that empties it.
+
+**`data/crd.json`** (`docs.opmodel.dev/data/crd/v1`):
+
+```json
+{
+  "schema": "docs.opmodel.dev/data/crd/v1",
+  "page": {"path": "reference/operator-resources.md", "title": "Operator resources", "description": "...", "weight": 7},
+  "kinds": [
+    {
+      "kind": "ModuleInstance", "group": "opmodel.dev", "plural": "moduleinstances",
+      "scope": "Namespaced", "shortNames": ["mi"], "categories": [], "subresources": ["status"],
+      "versions": [{"name": "v1alpha1", "served": true, "storage": true}],
+      "file": "config/crd/bases/opmodel.dev_moduleinstances.yaml",
+      "summary": "ModuleInstance asks the operator to render one CUE module ...",
+      "notes": ["<paragraph>"],
+      "columns": [{"name": "Ready", "type": "string", "jsonPath": ".status.conditions[?(@.type=='Ready')].status", "priority": 0}],
+      "spec": [{"path": "spec.module.path", "type": "string", "required": true, "description": "...", "default": null, "enum": []}],
+      "status": [{"path": "status.conditions", "type": "[]Condition", "required": false, "description": "...", "default": null, "enum": []}],
+      "rules": [
+        {"field": "spec.module.path", "rule": "Required", "values": [], "message": "", "by": "api-server"},
+        {"field": "", "rule": "CEL rule", "values": ["<expression>"], "message": "<message>", "by": "api-server"}
+      ],
+      "sample": {"file": "config/samples/opmodel.dev_v1alpha1_modulepackage.yaml", "yaml": "<text>"},
+      "reconciledBy": "moduleinstance"
+    }
+  ]
+}
+```
+
+- `page.weight`, `sample` and `reconciledBy` are `null` when absent; every list is present, empty when there is nothing.
+- **Prose** (`summary`, `notes`, `description`, `message`) is the source text with whitespace folded and the citation policy applied: code spans stay in backticks, a linked decision citation is the Markdown link `[0015:D3](/enhancements/0015/decisions/)`, and nothing else is Markdown or escaped. `summary` is the schema description's first sentence (the first `. ` not ending `e.g.` or `i.e.`); the rest of that paragraph and every later one are `notes`.
+- **Fields** are listed depth-first, properties by name, written from `spec` or `status` with `[]` for an array item and `.<key>` for a map value. `type` is the schema type, or `[]<item type>`, `map[string]<value type>`, `integer or string`, `free-form object`, `string (date-time)`, `[]Condition` (the standard `metav1.Condition` list, whose own fields and rules are not listed), `any`. `default` is the default's JSON text.
+- **Rules** follow the same walk: the object's own CEL rules and required fields, then for each value (`spec` and `status` included) `Required`, then `Must not be empty` / `At least N characters`, `At most N characters`, `Matches the pattern` (value: the pattern), `One of` (values: the enum), `At least`/`Greater than` and `At most`/`Less than` a bound, `At least`/`At most N items`, `At least`/`At most N entries`, `No duplicate items` (`uniqueItems` or a `set` list), `At most one item per` (values: the `map` list's keys), and `CEL rule` (value: the expression; `message` its message). `field` is `""` for the object itself. `by` is always `api-server`.
+
+**Refusals** (exit `2`, naming the file): `dir` leaves the source tree or holds no `.yaml` file or no CRD; a document that is not a CRD ("config/crd/bases/x.yaml: holds a v1 ConfigMap; a crd dir holds only apiextensions.k8s.io/v1 CustomResourceDefinitions"); YAML that does not parse ("config/samples/opmodel.dev_v1alpha1_platform.yaml: does not parse as YAML: ..."); two files defining one kind; a CRD with several versions; `allOf`, `anyOf`, `oneOf`, `not` or `nullable` anywhere in a schema (the reference cannot show them, so it refuses rather than drop a rule; controller-gen's `anyOf` for an int-or-string field is among them); `order` or `reconciledBy` naming a kind no CRD defines, or `order` naming one twice.
+
+**The page.** One page at `page`, completable (C15) with heading `## <first kind>`. Per kind, in model order: `## <Kind>`, the summary, `### At a glance` (`| Property | Value |`: Group, Version, Kind, Scope, Resource, then Short names, Categories, Subresources when present), the `kubectl get` columns table when the CRD declares columns, `### Spec` and `### Status` (`| Field | Type | Required | Description |`, with a `Default` column before Description when any row has a default), `### Example` (a `yaml` fence) when a sample is shown, `### Notes`, `### Served by` ("The operator's `<controller>` controller watches every <Kind>.") when `reconciledBy` names one, and `### Enforcement` (`| Field | Rule | Enforced by |`, the rule's words, its values as code joined by `, `, then `; refused with: <message>`; "the object" for `""`; enforced by "API server"). A part with nothing to show is left out. Prose is escaped by "Doc-comment rules" plus `~` and `#`; a linked decision citation is kept as a link; an unpaired backtick makes the whole text prose with the backtick escaped. Standing alone, the page's front matter is `title`, `description`, `type: reference` and `weight` when set; `manifest.json` `pages[].source` is the first CRD's file. Completed, it is the authored page's (C15).
+
+**Parity.** The page's generated body equals opm-operator `hack/crdref`'s block, byte for byte, for opm-operator `main` at `bf8d3c5` and for `v1.0.0-beta.4` (crdref run over that tag's tree), checked 2026-10-03 by `TestOperatorCRDParity` (`OPM_OPERATOR_CHECKOUT=<checkout> go test ./internal/render -run TestOperatorCRDParity`). Two deliberate differences, neither visible for the operator: a CEL rule on `spec` or `status` itself is listed (crdref skipped it), and `{{` is escaped as everywhere else.
+
+**Consumers.** opm-operator (`publish-crd-bundle`): its `docs-kit.cue` as above; after the site reads the bundle it deletes crdref, the marker block and the `exclude`. opmodel.dev pulls `opm-operator` per site version (C16).
 
 ## Site decisions
 

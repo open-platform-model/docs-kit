@@ -53,6 +53,7 @@ internal/doctext/             maintainer comments, citations and the citation po
 internal/mdtext/              Markdown escaping, code spans, cells, YAML strings
 internal/cuetok/              the CUE token scanner (comments skipped) shared by gitsrc and history
 internal/extract/cuecatalog/  the cue-catalog extractor: data/catalog.json
+internal/extract/crd/         the crd extractor: data/crd.json
 internal/extract/markdown/    the markdown source
 internal/render/              the renderer registry by data schema; embedded templates: landing, kind index, member page
 internal/dialect/             the page-dialect lint, with the conformance fixtures

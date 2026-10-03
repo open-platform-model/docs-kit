@@ -17,6 +17,6 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`. One PR, titled `
 
 ## 3. Contract and archive
 
-- [ ] 3.1 `docs/contracts.md` C18 (D1, D3, D4, parity record); C6's source table. Verify: schema text equals `schema/config.cue`.
+- [x] 3.1 `docs/contracts.md` C18 (D1, D3, D4, parity record); C6's source table. Verify: schema text equals `schema/config.cue`.
 - [ ] 3.2 `openspec archive add-crd-extractor --yes`. Verify: `task openspec:check` green.
 - [ ] 3.3 `task check` green, then commit `docs(extract): document the crd contract`.
