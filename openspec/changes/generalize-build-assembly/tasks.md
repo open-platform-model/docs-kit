@@ -26,8 +26,8 @@ Gate: none (docs-kit `main`). One PR, titled `feat: build docs-placed bundles fr
 
 ## 4. The workflow
 
-- [ ] 4.1 `.github/workflows/publish.yml`: the `build` and `publish` jobs (D8), the artifact hand-off, the `setup-go` input; the concurrency groups at the workflow level (D8). Verify: `actionlint` clean; the `check` mode needs only `contents: read` and `packages: read` (read the job's `permissions`).
-- [ ] 4.2 `task check` green, then commit `feat(workflow): build in a job without the signing token`.
+- [x] 4.1 `.github/workflows/publish.yml`: the `build` and `publish` jobs (D8), the artifact hand-off, the `setup-go` input; the concurrency groups at the workflow level (D8). Verify: `actionlint` clean; the `check` mode needs only `contents: read` and `packages: read` (read the job's `permissions`).
+- [x] 4.2 `task check` green, then commit `feat(workflow): build in a job without the signing token`.
 
 ## 5. Contracts, docs and archive
 
