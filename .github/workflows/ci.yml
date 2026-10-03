@@ -26,6 +26,10 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+          # task check also tests, vets and lints the nested cobradump module.
+          cache-dependency-path: |
+            go.sum
+            cobradump/go.sum
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: '24'

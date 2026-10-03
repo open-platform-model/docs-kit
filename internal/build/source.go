@@ -60,6 +60,7 @@ type Data struct {
 var extractors = []Extractor{
 	cueCatalogExtractor{},
 	cueDefinitionsExtractor{},
+	cobraExtractor{},
 }
 
 // Paths an extractor or renderer may write, checked before anything is

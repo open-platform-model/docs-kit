@@ -29,7 +29,7 @@ package schema
 // "link" links each enhancement decision citation to its decisions page.
 #Citations: *"strip" | "link"
 
-#Source: #CueCatalog | #Markdown | #CueDefinitions
+#Source: #CueCatalog | #Markdown | #Cobra | #CueDefinitions
 
 #CueCatalog: {
 	kind:   "cue-catalog"
@@ -77,4 +77,16 @@ package schema
 	title:       string & !=""
 	description: string & !=""
 	definitions: [=~"^#", ...=~"^#"]
+}
+
+// A cobra command tree, printed by the repository's own program through the
+// cobradump module (docs-kit C19), rendered as a command reference.
+#Cobra: {
+	kind:        "cobra"
+	command:     #Command                         // prints the dump: ["go", "run", "./hack/docskit-dump"]
+	section:     =~"^([a-z0-9]+(-[a-z0-9]+)*/)+$" // the directory the pages go in: "reference/cli/"
+	title:       string & !=""                    // the section index's title
+	description: string & !=""                    // the section index's description
+	weight?:     int & >=1                        // the section index's weight
+	citations?:  #Citations
 }

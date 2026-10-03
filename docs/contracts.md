@@ -343,7 +343,7 @@ package schema
 // "link" links each enhancement decision citation to its decisions page.
 #Citations: *"strip" | "link"
 
-#Source: #CueCatalog | #Markdown | #CueDefinitions
+#Source: #CueCatalog | #Markdown | #Cobra | #CueDefinitions
 
 #CueCatalog: {
 	kind:   "cue-catalog"
@@ -392,6 +392,18 @@ package schema
 	description: string & !=""
 	definitions: [=~"^#", ...=~"^#"]
 }
+
+// A cobra command tree, printed by the repository's own program through the
+// cobradump module (docs-kit C19), rendered as a command reference.
+#Cobra: {
+	kind:        "cobra"
+	command:     #Command                         // prints the dump: ["go", "run", "./hack/docskit-dump"]
+	section:     =~"^([a-z0-9]+(-[a-z0-9]+)*/)+$" // the directory the pages go in: "reference/cli/"
+	title:       string & !=""                    // the section index's title
+	description: string & !=""                    // the section index's description
+	weight?:     int & >=1                        // the section index's weight
+	citations?:  #Citations
+}
 ```
 
 `bundles` is keyed by project because one repository can publish several, as core and cli will in phase 2 and catalog_opm would with a second catalog. A `layout` choice for catalogs is left out until a second layout has a consumer. A path in content/ written by two sources fails the build, except an authored page at the path of a completable generated page (the catalog landing is one): it does not replace the generated page, the generated body is appended to it (C15).
@@ -403,6 +415,7 @@ package schema
 | `cue-catalog` | `data/catalog.json` (C10); a tab bundle only | `module`; `citations` only `"strip"` |
 | `markdown` | authored pages, copied | `dir`, `include`, `exclude` |
 | `cue-definitions` | `data/cue-definitions.json` (C17); a docs bundle only | `package`, `skip`, `section`, `title`, `description`, `weight`, `intro`, `pages`, `exclude`; `citations` |
+| `cobra` | `data/cobra.json` (C19) | `command`, `section`, `title`, `description`, `weight`, `citations` |
 
 **Adding an extractor** (one OpenSpec change per kind): an `Extractor` in `internal/build` (`Kind`, `Extract(ctx, Input) (Data, error)`), registered in its `extractors` table; a `Renderer` in `internal/render` (`Schema`, `Render(data, Target) ([]Page, error)`), registered by its data schema; its kind added to `#Source` with `citations?: #Citations` and its own options; its data file documented as a contract of its own. A renderer page may set `Completable` with its `Heading` and `Tail` (C15).
 
@@ -765,6 +778,7 @@ Callers and the site never `go run` or `go install` `opm-docs`: every consumer r
 - **Pinned in a build image**. A consumer may instead pin the `linux_amd64` archive by its SHA-256 in its own build image (opmodel.dev does this in `site/Dockerfile`, as it pins Hugo and Pagefind) and run `opm-docs` inside that image, with network on for the `pull` step only. The SHA-256 it pins is the archive's line in that release's `checksums.txt`. docs-kit therefore keeps shipping the `linux_amd64` archive and `checksums.txt` in every release, under the names above.
 - **Pin file.** A caller of `publish.yml`, and any consumer that runs the tool on the host (catalog_opm for its local `docs:bundle` tasks; opmodel.dev only if it does not use the image pattern), pins it in a repo-root file `.opm-docs-version`: one line, the release tag (`v0.1.0`), matching `^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$`. `publish.yml` reads the same file (C5), so every caller of `publish.yml` has one; its tag and the `publish.yml@` ref name the same release and move in one PR.
 - **The site bumps first** (since `generalize-build-assembly`). `#Manifest` is closed, so an `opm-docs` older than a manifest field refuses a bundle that carries it (`placement.owns` and `pins` came with `generalize-build-assembly`, `pages[].edit` with `add-authored-docs`; later changes add more). **opmodel.dev's pinned `opm-docs` is never older than any producer's `.opm-docs-version`.** A docs-kit release reaches the site first (its `site/Dockerfile` bump); only then may a producer move its `.opm-docs-version` and `publish.yml@` ref to it. `docs/orchestration.md` orders every bump that way.
+- **`cobradump`, the second component.** The nested Go module `github.com/open-platform-model/docs-kit/cobradump` (C19) releases on its own through release-please, from its own release PR (`separate-pull-requests`), tagged `cobradump/vX.Y.Z` (from `0.1.0`), the form the Go module proxy needs for a nested module. Its release is published at once and carries no assets: a CLI requires it by module version, and the proxy serves it from the tag. A commit under `cobradump/` releases only `cobradump` (the root package excludes that path) and takes the commit scope `cobradump`; goreleaser runs only for an `opm-docs` release, and `release.yml` marks a `cobradump` release not Latest (`gh release edit --latest=false`), so the Latest release is always `opm-docs`'. A `cobradump/` tag never matches the signer glob `refs/tags/v[0-9]*` (C9), so it can never act as a trusted `publish.yml` ref. The tag rulesets cover `cobradump/v*` as they cover `v*`.
 - **Verification.** Download the archive and `checksums.txt` for the host's os and arch, check with `grep ' <archive>$' checksums.txt | sha256sum -c -` (refusing an archive with no line), then extract only `opm-docs`. A failed check stops the task; nothing falls back to building from source. The install target is a gitignored repo-local directory (`.bin/` or `site/.bin/`), never a global path.
 
 ## C13. Version history, `history.json`
@@ -1042,6 +1056,80 @@ Prose (`summary`, `notes`) follows the source's `citations` policy ("Doc-comment
 An anchor is the name lowercased without `#` (`#ComponentNames` is `componentnames`); a link to a definition is `/docs/<section><file>/#<anchor>`. In prose, outside code spans (a run of n backticks up to the next run of exactly n) and inline Markdown links (`[text](url)`, so a URL fragment stays as written), a `#Name` (or `#Name.field`) of a placed definition other than the entry's own becomes such a link, any other `#name` and `$name` a code span, and `<` and `{{` are escaped; nothing else is, since a doc comment's prose is Markdown as written. Every code fence and code span the renderer writes (spec, example, text blocks, a rule's `code`, the Source and Shape spans, rule paths and expressions) is one backtick longer than the longest backtick run in its content (a fence at least three). No page carries a generator marker comment.
 
 **Parity record.** At core `main` `c5a6076` (`v2.0.0-beta.1-15`; the tag itself predates refgen) the nine pages built with core's config equal refgen's committed pages byte for byte, marker comments removed (`TestCoreDefinitionsParity`, run with `OPM_CORE_CHECKOUT`). No planned difference. CI's `core definitions parity` job checks out core at that pinned commit and runs only that test, so parity stays checkable after core retires refgen. A backfill of `v2.0.0-beta.1` with that config builds with three warnings (definitions without a doc comment).
+
+## C19. Command reference: `cobradump` and the `cobra` source
+
+A program's cobra command tree exists only inside the program, so the CLI prints it, through the nested module `github.com/open-platform-model/docs-kit/cobradump` (released as its own component, C12), and the `cobra` source reads what it prints. The module depends on cobra and pflag only (and cobra's own dependencies); the root module never imports it and reads only its JSON.
+
+**The Go API.**
+
+```go
+package cobradump // module github.com/open-platform-model/docs-kit/cobradump
+
+// Options adjusts a dump. Home is written as "~" in a flag default (the rule
+// below); "" leaves defaults as they are. Write fills it from
+// os.UserHomeDir when it is unset and NoHome is false.
+type Options struct {
+	Home   string
+	NoHome bool
+}
+
+// Write prints root's tree as one docs.opmodel.dev/cobradump/v1 document.
+func Write(root *cobra.Command, w io.Writer, opts Options) error
+
+// WritePins prints one docs.opmodel.dev/pins/v1 document (C15); a version
+// that is not exact SemVer without "v" writes nothing and returns an error
+// naming its project.
+func WritePins(w io.Writer, pins map[string]string) error
+```
+
+A CLI calls it from a program of its own that the shipped binary does not contain; the cli's is `hack/docskit-dump`, run by its `docs-kit.cue` as `["go", "run", "./hack/docskit-dump"]` (the dump) and `["go", "run", "./hack/docskit-dump", "pins"]` (its pins).
+
+**The dump, `docs.opmodel.dev/cobradump/v1`.** JSON, two-space indent, one trailing newline.
+
+```text
+{schema: "docs.opmodel.dev/cobradump/v1",
+ name: root.Name(), path: root.CommandPath(), short, long (raw), example (raw), aliases: [string],
+ useLine: root.UseLine(), runnable: bool,
+ flags: [#Flag],           // the root's LocalNonPersistentFlags
+ globalFlags: [#Flag],     // the root's persistent flags
+ commands: [#Command]}
+#Command: {path: "opm module apply", name: "apply", use: "apply [path]", useLine: "opm module apply [path] [flags]",
+           short, long (raw), example (raw), aliases: [string], runnable: bool,
+           flags: [#Flag]            // LocalFlags: its own, persistent or not
+           inheritedFlags: [#Flag]   // InheritedFlags
+           commands: [#Command]}
+#Flag:    {name, shorthand: "" | one printable ASCII character (0x21-0x7E), type: Value.Type(), default: DefValue (home as "~"), usage}
+```
+
+`Write` first calls `root.InitDefaultCompletionCmd()` and resolves every command's inherited flags, as cobra does on `Execute`. It lists every available command (`IsAvailableCommand()`) except one named `help`, so hidden and deprecated commands, help topics and the help command are left out and the default completion command is in. A hidden or deprecated flag, the `help` flag, and in `flags` and `inheritedFlags` any flag named like a root persistent flag are left out; a deprecated shorthand is dropped. Commands and flags are sorted by name. `short`, `long`, `example` and `usage` are cobra's strings, unparsed, so a parsing fix ships with docs-kit and needs no CLI release. Every list is present, empty or not. Two runs of one binary print the same bytes; `check` enforces it (C14). A shorthand outside printable ASCII makes `Write` return an error, and `opm-docs` refuses one the same way.
+
+**Home directory.** `Write` writes the home directory as `~` in a default only when the home is an absolute path other than the file-system root (a `HOME=/` rewrites nothing), and only where the match is followed by a path separator or ends the default: with home `/root`, `/root/x` becomes `~/x` and `/rootfs/x` stays as it is.
+
+**Versioning.** `docs.opmodel.dev/cobradump/v1` is closed: `opm-docs` decodes it with unknown fields refused, and any field added, removed or changed is a new schema, `docs.opmodel.dev/cobradump/v2`. A `cobradump` release that prints v2 comes out only after an `opm-docs` that reads v2 has reached every producer (the site first, C12).
+
+**The source.** A `cobra` source (C6) runs its `command` (C14) and requires one `docs.opmodel.dev/cobradump/v1` document: another schema exits `2` naming it and the one this `opm-docs` reads (``cli: command `go run ./hack/docskit-dump`: printed a document of schema "docs.opmodel.dev/cobradump/v2"; this build reads "docs.opmodel.dev/cobradump/v1"``); an unknown field, a command whose `path` is not its parent's path and its `name`, a command name that is not lower-case kebab-case, a command listed twice, a flag name with a leading `-`, a shorthand that is not one printable ASCII character or a top-level page name that is not lower-case kebab-case exits `2` naming the command. It writes `data/cobra.json`:
+
+```text
+{schema: "docs.opmodel.dev/data/cobra/v1",
+ section, title, description, weight (omitted when unset), citations: "strip" | "link",   // from the config
+ cli: <the dump without schema>, each top-level command adding page: "<section><root path with - for spaces>"}  // "reference/cli/opm-module"
+```
+
+**Pages.** Every page is generated (`generated: true`, no `source`) and must lie under an owned path (C15).
+
+| Path | Page |
+|---|---|
+| `<section>_index.md` | front matter `title`, `description`, `weight` from the config (no `type`); the root's description; a fixed sentence saying what the section holds, naming `` `<cli> <command> --help` ``; the root's usage lines; `## Global flags` with the table Flag, Shorthand, Type, Default, Description |
+| `<page>.md`, one per top-level command | front matter `title: "<path>"`, `description` its summary ending in a full stop, `type: reference`; a pointer to the global flags; then each command of the subtree, depth first in name order, under `## <path>`: summary, usage lines in a `text` fence, aliases, description, `**Flags**` (its own and inherited ones, by name), `**Examples**` in an `sh` fence, `**Subcommands**` (Command, Summary) |
+
+The anchor of an entry is its path in lower-case kebab case (`#opm-module-apply`); a subcommand row links `<section URL><page>/#<anchor>` (`/docs/reference/cli/opm-module/#opm-module-apply` in a docs bundle). Usage lines are cobra's: a runnable command's use line, then `<path> [command]` when it has subcommands, else the path alone. A default that `--help` would not print (`""`, `false`, `[]`, `0`, `0s`, `<nil>`) is left empty, and a line break in a table cell becomes a space. The root's own `flags`, `example` and `aliases` are in the data but on no page, as cmdref shows none of them.
+
+**Help-text rules.** `long` splits into paragraphs at blank lines. The first is prose; the base indentation is the shallowest first line of any later paragraph; a line indented beyond it is preformatted, a line at it is prose. A prose line `Examples:` (or `Example:`) starts examples, which run to the next prose line; `example` is appended after them, a blank line between. A preformatted block whose every line is `- item` or `N. item` becomes a list; any other is a fence, `sh` when it holds only commands of the CLI and comments, `text` otherwise. In prose, flags, paths, file names, placeholders, environment variables, CUE definitions and single-quoted spans become code spans (neighbours one space apart share one), and every other Markdown character is escaped. A fence is longer than any backtick run it holds, and Hugo shortcode delimiters are written in their shown form (`{{</* x */>}}`). `citations` applies to formatted prose only, never to a fence.
+
+**Parity.** For the cli tree at commit `ebf0479b`, every page equals the page the cli's `internal/cmdref` committed under `docs/site/reference/cli/` once its two marker comments are removed (the cobra pages carry none). The dump and those pages are frozen in `internal/render/testdata/cli/`, and `TestCLICommandParity` checks them on every run. `TestCLICommandParityLive` repeats it against a live checkout named by `OPM_CLI_CHECKOUT` and skips without one, without `hack/docskit-dump` or without a committed reference.
+
+**Backfill.** The hook must exist in the tagged tree, so a cli release tagged before it carries no cli bundle and cannot be backfilled; a docs revision of such a release is refused too (a help-text fix is a Go change, which "Docs revisions" refuses).
 
 ## Site decisions
 

@@ -15,8 +15,39 @@ Status: phase 1 is built, and phase 2's shared ground. `opm-docs` builds the opm
 | `cue-catalog` | `data/catalog.json` and the catalog's pages; a tab bundle only | `module` |
 | `markdown` | the authored pages of `dir` | `dir`, `include`, `exclude` (globs, or a directory ending `/`) |
 | `cue-definitions` | `data/cue-definitions.json` and a reference section of a CUE package's exported definitions, grouped into pages by the config (C17); a docs bundle only | `package`, `skip`, `section`, `title`, `description`, `weight`, `intro`, `pages`, `exclude` (definition: reason) |
+| `cobra` | `data/cobra.json` and a command reference: a section index with the global flags, one page per top-level command | `command`, `section`, `title`, `description`, `weight`, `citations` |
 
 A bundle placed in `/docs/` (`placement: {kind: "docs", root: "/docs/", owns: [...]}`) lists the content paths it owns; every generated page lies under one (C15). A bundle's `pins: {command, projects}` runs a repository command (C14) and records the exact versions it documents against in `manifest.json`.
+
+**Documenting a cobra CLI** (C19). Require the nested module `github.com/open-platform-model/docs-kit/cobradump` (tags `cobradump/vX.Y.Z`; it pulls in cobra and pflag only) from a small program that the shipped binary does not contain, and point a `cobra` source at it:
+
+```go
+// hack/docskit-dump/main.go
+func main() {
+	if len(os.Args) > 1 && os.Args[1] == "pins" {
+		check(cobradump.WritePins(os.Stdout, map[string]string{"core": coreVersion()}))
+		return
+	}
+	check(cobradump.Write(cmd.NewRootCmd(), os.Stdout, cobradump.Options{}))
+}
+```
+
+```cue
+bundles: cli: {
+	placement: {kind: "docs", root: "/docs/", owns: ["reference/cli/"]}
+	version: {from: "tag", prefix: "v"}
+	pins: {command: ["go", "run", "./hack/docskit-dump", "pins"], projects: ["core"]}
+	sources: [{
+		kind:        "cobra"
+		command:     ["go", "run", "./hack/docskit-dump"]
+		section:     "reference/cli/"
+		title:       "CLI Reference"
+		description: "Every opm command and flag, generated from the CLI's cobra commands."
+	}]
+}
+```
+
+The caller passes `setup-go: true` to `publish.yml`, so `go run` works in the build job. The dump carries help text raw; docs-kit parses it, so a presentation fix arrives with a docs-kit bump, not a CLI release.
 
 **Adding an extractor.** Write an `Extractor` in `internal/build` (`Kind`, `Extract(ctx, Input) (Data, error)`; `Input` carries the source tree, the source's own config entry, the build identity, the command runner and the citation policy) and add it to the `extractors` table; write a `Renderer` in `internal/render` (`Schema`, `Render(data, Target) ([]Page, error)`, reading only the data file) and add it to `renderers` under its data schema; add the kind to `#Source` in `schema/config.cue` with `citations?: #Citations` and its options. A test asserts that `#Source` and the registry name the same kinds. A renderer page may be completable: an authored page at its path comes first and the generated body follows it (C15).
 

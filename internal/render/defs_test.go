@@ -11,7 +11,7 @@ import (
 	"github.com/open-platform-model/docs-kit/internal/extract/cuedefs"
 )
 
-var docsTarget = Target{Kind: KindDocs, Root: "/docs/", Segment: "1.2", Version: "1.2.3", Repo: "example/defs", Commit: commit}
+var defsTarget = Target{Kind: KindDocs, Root: "/docs/", Segment: "1.2", Version: "1.2.3", Repo: "example/defs", Commit: commit}
 
 // renderDefs renders the extractor's golden data file, as written.
 func renderDefs(t *testing.T) []Page {
@@ -24,7 +24,7 @@ func renderDefs(t *testing.T) []Page {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pages, err := r.Render(data, docsTarget)
+	pages, err := r.Render(data, defsTarget)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestDefinitionsNeedDocsPlacement(t *testing.T) {
 }
 
 func TestDefinitionsProse(t *testing.T) {
-	r := &defsRender{m: &cuedefs.Model{Section: "reference/definitions/"}, t: docsTarget, byName: map[string]*cuedefs.Definition{
+	r := &defsRender{m: &cuedefs.Model{Section: "reference/definitions/"}, t: defsTarget, byName: map[string]*cuedefs.Definition{
 		"#Module": {Name: "#Module", Anchor: "module", Page: "modules"},
 	}}
 	for in, want := range map[string]string{
@@ -141,7 +141,7 @@ func TestDefinitionsFences(t *testing.T) {
 		t.Errorf("fence %q", f)
 	}
 	m := &cuedefs.Model{Section: "reference/definitions/", ModulePath: "example.com/m@v1"}
-	r := &defsRender{m: m, t: docsTarget, byName: map[string]*cuedefs.Definition{}}
+	r := &defsRender{m: m, t: defsTarget, byName: map[string]*cuedefs.Definition{}}
 	d := &cuedefs.Definition{
 		Name: "#T", Anchor: "t", Page: "p", File: "src/t.cue", Summary: "T.", Shape: "value",
 		CUE:   "#T: \"```\"",
