@@ -46,8 +46,10 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     outputs:
-      # The root package's outputs (path "."), never cobradump's
-      # (cobradump--release_created).
+      # The root package's outputs (path "." is unprefixed), never
+      # cobradump's (cobradump--release_created, cobradump--tag_name) nor
+      # releases_created, which is true for a cobradump-only release too.
+      # Each component has its own release PR (separate-pull-requests).
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
