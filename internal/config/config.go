@@ -34,13 +34,15 @@ type Placement struct {
 // markdown source's.
 type Source struct {
 	Kind string `json:"kind"`
-	Dir  string `json:"dir,omitempty"`
 	// Citations is an extractor source's citation policy, "strip" or
 	// "link"; "" for markdown, which copies text as written.
-	Citations string    `json:"citations,omitempty"`
-	Include   []string  `json:"include,omitempty"`
-	Exclude   []string  `json:"exclude,omitempty"`
-	Value     cue.Value `json:"-"`
+	Citations string `json:"citations,omitempty"`
+	// The markdown source's options, decoded from Value for a markdown
+	// source only: another kind may give the same names another type.
+	Dir     string    `json:"-"`
+	Include []string  `json:"-"`
+	Exclude []string  `json:"-"`
+	Value   cue.Value `json:"-"`
 }
 
 // Pins names the command that prints a build's pins and the projects it
@@ -105,7 +107,20 @@ func Load(path string) (*Config, error) {
 		b := c.Bundles[p]
 		list := v.LookupPath(cue.MakePath(cue.Str("bundles"), cue.Str(p), cue.Str("sources")))
 		for i := range b.Sources {
-			b.Sources[i].Value = list.LookupPath(cue.MakePath(cue.Index(i)))
+			src := &b.Sources[i]
+			src.Value = list.LookupPath(cue.MakePath(cue.Index(i)))
+			if src.Kind != "markdown" {
+				continue
+			}
+			var md struct {
+				Dir     string   `json:"dir"`
+				Include []string `json:"include"`
+				Exclude []string `json:"exclude"`
+			}
+			if err := src.Value.Decode(&md); err != nil {
+				return nil, fmt.Errorf("%s: %w", path, err)
+			}
+			src.Dir, src.Include, src.Exclude = md.Dir, md.Include, md.Exclude
 		}
 		if err := checkBundle(p, b); err != nil {
 			return nil, fmt.Errorf("%s: %w", path, err)

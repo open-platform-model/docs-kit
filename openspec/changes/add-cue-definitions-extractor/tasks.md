@@ -4,9 +4,9 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`. One PR, titled `
 
 ## 1. The extractor and its model
 
-- [ ] 1.1 `schema/config.cue`: `#CueDefinitions` (design.md D1) in `#Source`. Verify: `go test ./schema/...` accepts core's planned config (D1) and refuses a page without `definitions`.
-- [ ] 1.2 `internal/extract/cuedefs`: parse, collect, uses/used-by, shape, rules, spec text (D2), placement checks with the backfill leniency (D3), `data/cue-definitions.json` (D4). Port from core `tools/refgen` (`defs.go`, `spec.go`, `text.go`) at the newest core tag, reusing `internal/doctext` and `internal/mdtext`. Verify: tests on a fixture package under `internal/extract/cuedefs/testdata/` and a golden `cue-definitions.golden.json`.
-- [ ] 1.3 `task check` green, then commit `feat(extract): add the cue-definitions extractor`.
+- [x] 1.1 `schema/config.cue`: `#CueDefinitions` (design.md D1) in `#Source`. Verify: `go test ./schema/...` accepts core's planned config (D1) and refuses a page without `definitions`.
+- [x] 1.2 `internal/extract/cuedefs`: parse, collect, uses/used-by, shape, rules, spec text (D2), placement checks with the backfill leniency (D3), `data/cue-definitions.json` (D4). Port from core `tools/refgen` (`defs.go`, `spec.go`, `text.go`) at the newest core tag, reusing `internal/doctext` and `internal/mdtext`. Verify: tests on a fixture package under `internal/extract/cuedefs/testdata/` and a golden `cue-definitions.golden.json`.
+- [x] 1.3 `task check` green, then commit `feat(extract): add the cue-definitions extractor`.
 
 ## 2. The renderer and parity
 
