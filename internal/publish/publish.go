@@ -15,6 +15,7 @@ import (
 
 	"github.com/open-platform-model/docs-kit/internal/build"
 	"github.com/open-platform-model/docs-kit/internal/bundle"
+	"github.com/open-platform-model/docs-kit/internal/gitsrc"
 	"github.com/open-platform-model/docs-kit/internal/oci"
 	"github.com/open-platform-model/docs-kit/internal/tags"
 	"github.com/open-platform-model/docs-kit/internal/verify"
@@ -113,6 +114,9 @@ func readForPush(dir string) (*bundle.Manifest, time.Time, error) {
 	m, err := bundle.Read(dir)
 	if err != nil {
 		return nil, time.Time{}, err
+	}
+	if gitsrc.IsLocal(m.Source.Repo) {
+		return nil, time.Time{}, fmt.Errorf("%s was built in a repository with no GitHub origin (source.repo %s), so it is a preview: its source links name no real repository; build in a clone of the repository", dir, m.Source.Repo)
 	}
 	if m.Source.Dirty {
 		return nil, time.Time{}, fmt.Errorf("%s was built from a work tree with uncommitted changes (source.dirty); build from a clean checkout", dir)

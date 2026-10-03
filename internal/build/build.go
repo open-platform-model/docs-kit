@@ -20,6 +20,7 @@ import (
 	"github.com/open-platform-model/docs-kit/internal/dialect"
 	"github.com/open-platform-model/docs-kit/internal/extract/markdown"
 	"github.com/open-platform-model/docs-kit/internal/gitsrc"
+	"github.com/open-platform-model/docs-kit/internal/mdsafe"
 	"github.com/open-platform-model/docs-kit/internal/render"
 	"github.com/open-platform-model/docs-kit/internal/tags"
 )
@@ -99,6 +100,11 @@ func Run(ctx context.Context, o Options) ([]Result, error) {
 	projects, err := selectProjects(cfg, o.Projects)
 	if err != nil {
 		return nil, err
+	}
+	if o.Release != "" && len(o.Projects) == 0 {
+		if projects, err = skipSections(cfg, projects); err != nil {
+			return nil, err
+		}
 	}
 	var out []Result
 	for _, p := range projects {
@@ -240,6 +246,9 @@ func resolve(ctx context.Context, o Options, b config.Bundle, project string) (*
 
 func buildProject(ctx context.Context, o Options, cfg *config.Config, project string, outside bool) (Result, error) {
 	b := cfg.Bundles[project]
+	if b.Placement.Kind == render.KindSection && o.Release != "" {
+		return Result{}, &UsageError{SectionError(project)}
+	}
 	id, err := resolve(ctx, o, b, project)
 	if err != nil {
 		return Result{}, err
@@ -264,6 +273,13 @@ func buildProject(ctx context.Context, o Options, cfg *config.Config, project st
 		Dialect:   dialect.Version,
 		Placement: bundle.Placement{Kind: b.Placement.Kind, Root: b.Placement.Root, Owns: b.Placement.Owns},
 	}
+	if gitsrc.IsLocal(id.repo) {
+		w := o.Stderr
+		if w == nil {
+			w = os.Stderr
+		}
+		fmt.Fprintf(w, "opm-docs build: %s: %s has no GitHub origin, so the repository is named %s and every source link names it; this bundle is a preview, and push refuses it\n", project, o.Source, id.repo)
+	}
 	s := &assembly{ctx: ctx, o: o, id: id, m: m, dir: dir, cfgPath: cfg.Path, written: map[string]string{}, repo: gitsrc.Repo{Dir: o.Source}, patched: o.PatchDates}
 	if s.docs = b.Placement.Kind == render.KindDocs; s.docs && o.Edits == nil {
 		s.main = mainTree(ctx, o, id.repo)
@@ -279,6 +295,28 @@ func buildProject(ctx context.Context, o Options, cfg *config.Config, project st
 		return Result{}, err
 	}
 	return Result{Project: project, Dir: dir, Pages: len(m.Pages)}, nil
+}
+
+// skipSections leaves the section bundles out of a release that names no
+// project: a section builds from main only, and the other bundles of the
+// same repository still release. A config of sections alone is refused.
+func skipSections(cfg *config.Config, projects []string) ([]string, error) {
+	var out []string
+	for _, p := range projects {
+		if cfg.Bundles[p].Placement.Kind != render.KindSection {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		return nil, &UsageError{SectionError(projects[0])}
+	}
+	return out, nil
+}
+
+// SectionError is the refusal of a release or a revision of a section
+// bundle, which publishes from main only.
+func SectionError(project string) error {
+	return fmt.Errorf("%s is a section bundle; it builds from main only (edge), so it has no release and no docs revision", project)
 }
 
 // assembly collects one bundle's pages and data.
@@ -449,7 +487,8 @@ func (s *assembly) extract(b config.Bundle, cfgPath string, outside bool) ([]aut
 		}
 		byKind[src.Kind] = i
 		d, err := ex.Extract(s.ctx, Input{
-			Source: s.o.Source, Config: src.Value, Version: s.id.version, Release: s.o.Release, Outside: outside,
+			Source: s.o.Source, Config: src.Value, Version: s.id.version, Release: s.o.Release,
+			Repo: s.id.repo, Commit: s.id.commit, Target: s.target(), Outside: outside,
 			Commands: s.commands, Doc: policy(src.Citations),
 		})
 		if err != nil {
@@ -478,14 +517,16 @@ func (s *assembly) render(gen []*extracted) (map[string]bool, error) {
 	completable := map[string]bool{}
 	rendered := map[string]string{} // page path -> the extractor kind that rendered it
 	for _, e := range gen {
-		r, err := rendererFor(e.data.Schema)
-		if err != nil {
-			return nil, err
-		}
-		// The renderer reads the data file as written, never the
-		// extractor's value.
-		if e.pages, err = r.Render(e.data.Bytes, t); err != nil {
-			return nil, err
+		if e.pages = e.data.Pages; e.pages == nil {
+			r, err := rendererFor(e.data.Schema)
+			if err != nil {
+				return nil, err
+			}
+			// The renderer reads the data file as written, never the
+			// extractor's value.
+			if e.pages, err = r.Render(e.data.Bytes, t); err != nil {
+				return nil, err
+			}
 		}
 		for _, p := range e.pages {
 			if !rePagePath.MatchString(p.Path) {
@@ -569,7 +610,7 @@ func (s *assembly) markdown(src config.Source, cfgPath string, outside bool) ([]
 	}
 	// Links into the bundle's own catalog are pinned only in a tab bundle;
 	// a docs bundle's pages are copied as written.
-	if s.m.Placement.Kind != render.KindDocs {
+	if k := s.m.Placement.Kind; k == render.KindTab || k == "" {
 		opts.Catalog = s.m.Placement.Root
 		opts.Segment = s.id.build.Segment()
 		if !s.id.build.Edge {
@@ -653,6 +694,32 @@ func Lint(dir string) ([]string, error) {
 	}
 	for _, v := range vs {
 		out = append(out, v.String())
+	}
+	if m.Placement.Kind == render.KindSection {
+		safe, err := safeMarkup(dir, pages)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, safe...)
+	}
+	return out, nil
+}
+
+// safeMarkup parses every page of a section bundle as the site's renderer
+// does and refuses raw HTML, a script URL and a heading attribute block
+// (C21): the section's pages are a repository's authored text, so this,
+// not the transforms, is what keeps them safe to publish.
+func safeMarkup(dir string, pages []string) ([]string, error) {
+	var out []string
+	for _, p := range pages {
+		file := filepath.Join(dir, bundle.ContentDir, filepath.FromSlash(p))
+		body, err := os.ReadFile(file)
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range mdsafe.Check(mdsafe.Page{Path: file, Body: body}, mdsafe.Authored) {
+			out = append(out, v.String())
+		}
 	}
 	return out, nil
 }

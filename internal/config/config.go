@@ -35,6 +35,11 @@ const (
 	KindMarkdown = "markdown"
 	// KindCueDefinitions is checked here for what the schema cannot state.
 	KindCueDefinitions = "cue-definitions"
+	// KindEnhancements is the enhancements source, a section bundle's only
+	// source.
+	KindEnhancements = "enhancements"
+	// PlacementSection is the placement of an edge-only section bundle.
+	PlacementSection = "section"
 )
 
 // Source is one input of a bundle. Kind names the extractor or the
@@ -140,15 +145,14 @@ func Load(path string) (*Config, error) {
 
 // checkBundle applies the rules the schema cannot state: owned paths that
 // do not nest, a docs bundle without a catalog, the cue-definitions, crd
-// and go-api sources in a docs bundle only, and well-formed patterns.
+// and go-api sources in a docs bundle only, an enhancements source in a
+// section bundle and nothing else there, and well-formed patterns.
 func checkBundle(project string, b Bundle) error {
-	owns := b.Placement.Owns
-	for i, a := range owns {
-		for _, o := range owns[i+1:] {
-			if Nests(a, o) || Nests(o, a) {
-				return fmt.Errorf("bundles.%q.placement.owns: %s and %s nest; list the outer path alone", project, a, o)
-			}
-		}
+	if err := checkSection(project, b); err != nil {
+		return err
+	}
+	if err := checkOwns(project, b.Placement.Owns); err != nil {
+		return err
 	}
 	docs := b.Placement.Kind == "docs"
 	for i, src := range b.Sources {
@@ -165,6 +169,35 @@ func checkBundle(project string, b Bundle) error {
 		}
 		if err := checkGlobs(at, src); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// checkOwns refuses owned paths that nest.
+func checkOwns(project string, owns []string) error {
+	for i, a := range owns {
+		for _, o := range owns[i+1:] {
+			if Nests(a, o) || Nests(o, a) {
+				return fmt.Errorf("bundles.%q.placement.owns: %s and %s nest; list the outer path alone", project, a, o)
+			}
+		}
+	}
+	return nil
+}
+
+// checkSection keeps the enhancements source and the section placement
+// together: an enhancements source writes the /enhancements/ section, and
+// a section bundle holds that source alone.
+func checkSection(project string, b Bundle) error {
+	section := b.Placement.Kind == PlacementSection
+	for i, src := range b.Sources {
+		at := fmt.Sprintf("bundles.%q.sources[%d]", project, i)
+		switch {
+		case !section && src.Kind == KindEnhancements:
+			return fmt.Errorf("%s: an enhancements source writes the /enhancements/ section; give the bundle placement {kind: \"section\", root: \"/enhancements/\"}", at)
+		case section && src.Kind != KindEnhancements:
+			return fmt.Errorf("%s: a section bundle holds only an enhancements source, and this one is %s; give it a bundle of its own", at, src.Kind)
 		}
 	}
 	return nil
@@ -302,6 +335,13 @@ func (v SiteVersion) Role(project string) string {
 	return ""
 }
 
+// Section is one unversioned section the site shows, pulled from its edge
+// tag only, and who may sign its bundle.
+type Section struct {
+	Repo string `json:"repo"`
+	Root string `json:"root"`
+}
+
 // Pull is a validated bundles.cue, with defaults applied.
 type Pull struct {
 	Path     string
@@ -310,7 +350,18 @@ type Pull struct {
 	Signer   Signer                 `json:"signer"`
 	Tabs     map[string]Tab         `json:"tabs"`
 	Docs     map[string]DocsProject `json:"docs"`
+	Sections map[string]Section     `json:"sections"`
 	Versions map[string]SiteVersion `json:"versions"`
+}
+
+// SectionProjects returns the configured sections in name order.
+func (p *Pull) SectionProjects() []string {
+	out := make([]string, 0, len(p.Sections))
+	for s := range p.Sections {
+		out = append(out, s)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // SiteVersions returns the configured site versions in numeric order.
@@ -379,9 +430,22 @@ func LoadPull(path string) (*Pull, error) {
 }
 
 // checkVersions applies the rules the schema cannot state: a project is
-// a tab or a docs project, not both; every project a site version names is
-// a docs project; and a version names a project once.
+// a tab, a docs project or a section, never two of them; two sections
+// never claim one root; every project a site version names is a docs
+// project; and a version names a project once.
 func (p *Pull) checkVersions() error {
+	roots := map[string]string{}
+	for _, s := range p.SectionProjects() {
+		if prev, dup := roots[p.Sections[s].Root]; dup {
+			return fmt.Errorf("sections %s and %s both claim the root %s; a root shows one section, so remove one", prev, s, p.Sections[s].Root)
+		}
+		roots[p.Sections[s].Root] = s
+		_, tab := p.Tabs[s]
+		_, docs := p.Docs[s]
+		if tab || docs {
+			return fmt.Errorf("%s is both a section and a %s project; a project has one placement, so remove it from sections or from %s", s, map[bool]string{true: "tab", false: "docs"}[tab], map[bool]string{true: "tabs", false: "docs"}[tab])
+		}
+	}
 	docs := make([]string, 0, len(p.Docs))
 	for d := range p.Docs {
 		docs = append(docs, d)

@@ -18,10 +18,21 @@ func TestSourceKinds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"cobra", "crd", "cue-catalog", "cue-definitions", "go-api", "markdown"}
-	slices.Sort(kinds)
-	if !slices.Equal(kinds, want) {
-		t.Fatalf("kinds %v", kinds)
+	// Each kind is checked on its own, so changes adding kinds merge.
+	for _, k := range []string{"cobra", "crd", "cue-catalog", "cue-definitions", "go-api", "markdown"} {
+		if !slices.Contains(kinds, k) {
+			t.Errorf("kinds %v lack %s", kinds, k)
+		}
+	}
+}
+
+func TestSourceKindsEnhancements(t *testing.T) {
+	kinds, err := SourceKinds()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(kinds, "enhancements") {
+		t.Fatalf("kinds %v lack enhancements", kinds)
 	}
 }
 

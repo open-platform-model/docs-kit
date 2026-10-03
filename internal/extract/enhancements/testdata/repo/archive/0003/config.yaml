@@ -1,0 +1,16 @@
+id: "0003"
+slug: module-publishing-workflow
+title: Module Publishing Workflow
+summary: Bind a module's identity fields to one registry path.
+status: superseded
+category: distribution
+affects: [cli]
+created: "2026-05-01"
+updated: "2026-06-01"
+authors: [someone@example.com]
+history: []
+depends_on: []
+amends: []
+supersedes: ["legacy:003"]
+revives: []
+superseded_by: "0025"

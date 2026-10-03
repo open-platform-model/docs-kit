@@ -29,6 +29,14 @@ trailing-slash message. Their `shell.out` was captured by running opmodel.dev's
 `lint-sources.sh` at commit `b6a306492d129557504708d67ada7333af1f7aab` over each
 case's `core/docs/site`, as above.
 
+`link-enhancements-graph/` is docs-kit's: the `/enhancements/graph/` link form
+(change `add-enhancements-bundle`), with an optional fragment; its `shell.out`
+is written by hand. The same change dropped the `/enhancements/graph/` line from
+the copied `link-enhancements/` case's `shell.out` and `expect`, since the form
+is now allowed; its page is unchanged. opmodel.dev takes both, and teaches
+`lint-sources.sh` the form, in the PR that bumps its pinned `opm-docs` to the
+release that carries them.
+
 ## Re-sync rule
 
 - docs-kit is the source of every new fixture: a rule change lands here

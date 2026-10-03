@@ -6,10 +6,13 @@ package schema
 
 #Bundle: {
 	placement: #Placement
-	version: {
+	// Where a release version comes from. A section bundle builds from main
+	// only (edge), so its version may be left out and is ignored when given.
+	version?: {
 		from:   "tag"         // phase 1: the release version comes from the git tag
 		prefix: string & !="" // "opm-v": tag "opm-v4.4.5" is version "4.4.5"
 	}
+	if placement.kind != "section" {version: _}
 	sources: [#Source, ...#Source]
 	// The exact versions of other projects this build documents against
 	// (DESIGN decision 10). The command prints a pins document
@@ -29,7 +32,7 @@ package schema
 // "link" links each enhancement decision citation to its decisions page.
 #Citations: *"strip" | "link"
 
-#Source: #CueCatalog | #Markdown | #Cobra | #CueDefinitions | #CRD | #GoAPI
+#Source: #CueCatalog | #Markdown | #Cobra | #CueDefinitions | #CRD | #GoAPI | #Enhancements
 
 #CueCatalog: {
 	kind:   "cue-catalog"
@@ -135,3 +138,13 @@ package schema
 
 // A slash path that starts "./" and holds no ".." segment.
 #GoPath: =~"^\\./" & !~"(^|/)\\.\\.(/|$)"
+
+// The enhancements repository's entries, INDEX.md and GRAPH.md, as the
+// /enhancements/ section (docs-kit C21); a section bundle only. Its text is
+// authored, so it takes no citations policy: citations stay as written.
+#Enhancements: {
+	kind:        "enhancements"
+	dir:         *"." | =~"^[^/.][^.]*$" // the entry root, repo-relative
+	title:       *"Enhancements" | string & !="" // the section page's title
+	description: string & !=""                   // the section page's description
+}

@@ -80,6 +80,9 @@ func Run(ctx context.Context, o Options) (*Result, error) {
 		o.Main = DefaultMain
 	}
 	repo := gitsrc.Repo{Dir: o.Repo}
+	if err := section(o); err != nil {
+		return nil, err
+	}
 	if err := repo.CheckFix(ctx, o.Fix, o.Main); err != nil {
 		return nil, err
 	}
@@ -132,14 +135,31 @@ func Run(ctx context.Context, o Options) (*Result, error) {
 	return &Result{Dir: results[0].Dir, Version: version, Revision: p.next, Patches: patches, Pages: results[0].Pages, Rebuilt: p.rebuilt}, nil
 }
 
+// configPath is the config revise reads: --config, else the checkout's.
+func configPath(o Options) string {
+	if o.Config != "" {
+		return o.Config
+	}
+	return filepath.Join(o.Repo, build.ConfigFile)
+}
+
+// section refuses a section bundle before anything else: it publishes
+// from main only, so it has no release to revise. A config that does not
+// load is left to release, which reports it.
+func section(o Options) error {
+	cfg, err := config.Load(configPath(o))
+	if err == nil {
+		if b, ok := cfg.Bundles[o.Project]; ok && b.Placement.Kind == config.PlacementSection {
+			return &build.UsageError{Err: build.SectionError(o.Project)}
+		}
+	}
+	return nil
+}
+
 // release checks the tag against the project's prefix and returns its
 // version and commit.
 func release(ctx context.Context, o Options, repo gitsrc.Repo) (version, commit string, err error) {
-	path := o.Config
-	if path == "" {
-		path = filepath.Join(o.Repo, build.ConfigFile)
-	}
-	cfg, err := config.Load(path)
+	cfg, err := config.Load(configPath(o))
 	if err != nil {
 		return "", "", &build.UsageError{Err: err}
 	}

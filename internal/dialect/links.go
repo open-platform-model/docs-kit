@@ -13,7 +13,7 @@ var (
 	reDocs        = regexp.MustCompile(`^/docs/`)
 	reDocsOK      = regexp.MustCompile(`^/docs/([a-z0-9-]+/)*(#[^ ]*)?$`)
 	reEnh         = regexp.MustCompile(`^/enhancements([/#]|$)`)
-	reEnhOK       = regexp.MustCompile(`^/enhancements/([0-9][0-9][0-9][0-9]/((problem|design|decisions|graduation|risks|operational|questions)/)?)?(#[^ ]*)?$`)
+	reEnhOK       = regexp.MustCompile(`^/enhancements/(graph/|[0-9][0-9][0-9][0-9]/((problem|design|decisions|graduation|risks|operational|questions)/)?)?(#[^ ]*)?$`)
 	reCatalogs    = regexp.MustCompile(`^/catalogs([/#]|$)`)
 	reMinor       = regexp.MustCompile(`^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$`)
 	reCatalogLink = regexp.MustCompile(`^/catalogs/([a-z0-9]+(?:-[a-z0-9]+)*)/(?:((?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*))?|edge)/((?:[a-z0-9-]+/)*))?(#[^ ]*)?$`)
@@ -34,6 +34,10 @@ func (p *pageLint) dest(t string) {
 	case reEnh.MatchString(t):
 		if !reEnhOK.MatchString(t) {
 			p.err(p.nr, `enhancement link "`+t+`": write /enhancements/, /enhancements/<NNNN>/ or /enhancements/<NNNN>/<document>/ with a trailing slash`)
+			return
+		}
+		if p.opts.sectionBundle() {
+			p.sectionLink(t)
 		}
 	case reCatalogs.MatchString(t):
 		p.catalogLink(t)
@@ -132,6 +136,25 @@ func (p *pageLint) ownedLink(t string) {
 	if !owned {
 		return
 	}
+	if !p.pages[stem+".md"] && !p.pages[stem+"/_index.md"] {
+		p.err(p.nr, `link "`+t+`": no page `+path+` in this bundle`)
+	}
+}
+
+// sectionLink checks a link of a section bundle into its own root: it
+// names a page of the bundle. Fragments are not checked.
+func (p *pageLint) sectionLink(t string) {
+	path := strings.TrimPrefix(t, "/enhancements/")
+	if i := strings.IndexByte(path, '#'); i >= 0 {
+		path = path[:i]
+	}
+	if path == "" {
+		if !p.pages["_index.md"] {
+			p.err(p.nr, `link "`+t+`": no page _index.md in this bundle`)
+		}
+		return
+	}
+	stem := strings.TrimSuffix(path, "/")
 	if !p.pages[stem+".md"] && !p.pages[stem+"/_index.md"] {
 		p.err(p.nr, `link "`+t+`": no page `+path+` in this bundle`)
 	}

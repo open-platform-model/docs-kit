@@ -103,6 +103,38 @@ jobs:
           grep -q -- '--- PASS: TestServeWithHugo' "$RUNNER_TEMP/serve.log"
           grep -q -- '--- PASS: TestServeSignals' "$RUNNER_TEMP/serve.log"
 
+  # The markup check (internal/mdsafe, docs/contracts.md C21) against the
+  # Hugo opmodel.dev pins: every review probe that this Hugo renders as live
+  # markup must be refused. task check skips the test without hugo on PATH;
+  # here a missing hugo fails it, and the grep proves it ran.
+  markup-hugo:
+    name: markup check with hugo
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      HUGO_VERSION: 0.167.0
+      HUGO_SHA256: 4d84519b9f619e6d4c3fb45a50157abeabeb724f859c60605f44c23def6e1169
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Install Hugo
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/hugo.tgz" "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_${HUGO_VERSION}_linux-amd64.tar.gz"
+          echo "${HUGO_SHA256}  $RUNNER_TEMP/hugo.tgz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/hugo"
+          tar -xzf "$RUNNER_TEMP/hugo.tgz" -C "$RUNNER_TEMP/hugo" hugo
+          echo "$RUNNER_TEMP/hugo" >> "$GITHUB_PATH"
+      - name: TestProbesWithHugo
+        env:
+          OPM_DOCS_REQUIRE_HUGO: "1"
+        run: |
+          go test -count=1 -run '^TestProbesWithHugo$' -v ./internal/mdsafe/ | tee "$RUNNER_TEMP/markup.log"
+          grep -q -- '--- PASS: TestProbesWithHugo' "$RUNNER_TEMP/markup.log"
+
   actionlint:
     name: actionlint
     runs-on: ubuntu-latest

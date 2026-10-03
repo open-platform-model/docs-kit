@@ -18,6 +18,12 @@ package schema
 	docs: [#Project]: {
 		repo: =~"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
 	}
+	// Unversioned sections outside every site version, each pulled from its
+	// edge tag only, with the only repository allowed to sign it.
+	sections: [#Project]: {
+		repo: =~"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+		root: "/enhancements/"
+	}
 	versions: [#SiteVersion]: {
 		// The bundle that chooses the others: its manifest's pins.
 		anchor: {project: #Project, tag: #DocsTag}

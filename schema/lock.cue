@@ -13,7 +13,7 @@ package schema
 
 #Pulled: {
 	project:    #Project
-	root:       =~"^/catalogs/[a-z0-9]+(-[a-z0-9]+)*/$"
+	root:       #LockRoot
 	segment:    #Segment
 	tag:        #Segment      // the tag resolved: the segment itself
 	repository: string & !="" // "ghcr.io/open-platform-model/docs/catalog-opm"
@@ -33,7 +33,7 @@ package schema
 
 #Local: {
 	project:  #Project
-	root:     =~"^/catalogs/[a-z0-9]+(-[a-z0-9]+)*/$"
+	root:     #LockRoot
 	segment:  #Segment
 	local:    true
 	version:  #Version
@@ -43,6 +43,9 @@ package schema
 	builtBy:  #SemVer
 	dir:      string & !=""
 }
+
+// A tab's root, or the enhancements section's.
+#LockRoot: =~"^/catalogs/[a-z0-9]+(-[a-z0-9]+)*/$|^/enhancements/$"
 
 #Segment: =~"^((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)|edge)$"
 

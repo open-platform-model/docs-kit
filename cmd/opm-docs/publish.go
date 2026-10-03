@@ -127,7 +127,8 @@ func newPullCmd() *cobra.Command {
 			"layer, unpack it under <out>/<project>/<segment>/, lint it in bundle mode, write each tab's version\n" +
 			"history to <out>/<project>/history.json, and write the lock. Each site version's docs bundles (the\n" +
 			"anchor, the projects it pins, the projects pulled by their own tag) unpack under\n" +
-			"<out>/_versions/<site-version>/<project>/, replaced whole once every one of them passed.",
+			"<out>/_versions/<site-version>/<project>/, replaced whole once every one of them passed. A section\n" +
+			"(the enhancements) is pulled from its edge tag only, into <out>/<project>/edge/.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			for _, s := range locals {
@@ -167,7 +168,7 @@ func newPullCmd() *cobra.Command {
 	f.StringVar(&o.Lock, "lock", "", "the lock to write (default <out>/lock.json)")
 	f.StringVar(&o.Frozen, "frozen", "", "pull exactly the digests this lock names")
 	f.BoolVar(&o.Offline, "offline", false, "fetch nothing: with --frozen, use only the cache")
-	f.StringArrayVar(&locals, "local", nil, "take <project>@<segment> (a tab's MAJOR.MINOR or edge, or a site version v<MAJOR>.<MINOR>) from a local bundle tree: <project>@<segment>=<dir> (repeatable)")
+	f.StringArrayVar(&locals, "local", nil, "take <project>@<segment> (a tab's MAJOR.MINOR or edge, a section's edge, or a site version v<MAJOR>.<MINOR>) from a local bundle tree: <project>@<segment>=<dir> (repeatable)")
 	f.StringVar(&trustedRoot, "trusted-root", "", "a Sigstore trusted_root.json instead of the TUF-fetched one")
 	_ = f.MarkHidden("trusted-root")
 	return cmd

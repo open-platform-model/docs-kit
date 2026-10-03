@@ -189,6 +189,13 @@ func (r Repo) Branch(ctx context.Context) string {
 
 var reGitHub = regexp.MustCompile(`github\.com[:/]([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$`)
 
+// LocalOwner is the owner Name gives a repository with no GitHub origin:
+// a bundle built there is a preview, which push refuses.
+const LocalOwner = "local/"
+
+// IsLocal reports a repository name Name made up, "local/<directory>".
+func IsLocal(name string) bool { return strings.HasPrefix(name, LocalOwner) }
+
 // Name is the repository's "owner/name": GITHUB_REPOSITORY in GitHub
 // Actions, else parsed from the origin remote, else "local/<directory>".
 func (r Repo) Name(ctx context.Context) string {
@@ -205,5 +212,37 @@ func (r Repo) Name(ctx context.Context) string {
 		top = r.Dir
 	}
 	name := regexp.MustCompile(`[^A-Za-z0-9_.-]`).ReplaceAllString(filepath.Base(top), "-")
-	return "local/" + name
+	return LocalOwner + name
+}
+
+// Path kinds Tree reports, GitHub's URL forms for them.
+const (
+	KindBlob = "blob"
+	KindTree = "tree"
+)
+
+// Tree lists every path of commit's tree under Dir, relative to Dir and
+// slash-separated, with its kind: "tree" for a directory, "blob" for a
+// file or a symlink. A submodule is left out: no URL of the repository
+// names its contents.
+func (r Repo) Tree(ctx context.Context, commit string) (map[string]string, error) {
+	out, err := r.git(ctx, "ls-tree", "-r", "-t", "-z", commit)
+	if err != nil {
+		return nil, err
+	}
+	paths := map[string]string{}
+	for _, e := range strings.Split(strings.TrimSuffix(out, "\x00"), "\x00") {
+		meta, name, ok := strings.Cut(e, "\t")
+		if !ok {
+			continue
+		}
+		switch f := strings.Fields(meta); {
+		case len(f) < 2:
+		case f[1] == KindTree:
+			paths[name] = KindTree
+		case f[1] == KindBlob:
+			paths[name] = KindBlob
+		}
+	}
+	return paths, nil
 }

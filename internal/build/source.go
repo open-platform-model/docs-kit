@@ -28,6 +28,9 @@ type Input struct {
 	Config   cue.Value       // this source's entry in docs-kit.cue, validated
 	Version  string          // "4.4.5" or "edge"
 	Release  string          // the release tag built, "opm-v4.4.5"; "" for edge
+	Repo     string          // the repository built, "open-platform-model/enhancements"
+	Commit   string          // the 40-hex commit built
+	Target   render.Target   // the bundle the pages are rendered for
 	Outside  bool            // the config came from outside the source tree (a backfill)
 	Commands *command.Runner // runs repository commands (docs-kit C14)
 	Doc      doctext.Policy  // what the source's citations become
@@ -56,6 +59,10 @@ type Data struct {
 	// when more than its Sources file; a standalone page's lastmod is then
 	// the newest of their dates.
 	Inputs map[string][]string
+	// Pages, when set, are the source's pages, built by the source itself
+	// from its repository's text (enhancements): no renderer reads the data
+	// file for them.
+	Pages []render.Page
 }
 
 // extractors is every extractor this opm-docs carries, in the order
@@ -67,6 +74,7 @@ var extractors = []Extractor{
 	cobraExtractor{},
 	crdExtractor{},
 	goAPIExtractor{},
+	enhancementsExtractor{},
 }
 
 // Paths an extractor or renderer may write, checked before anything is

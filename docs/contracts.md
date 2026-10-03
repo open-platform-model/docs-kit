@@ -122,6 +122,10 @@ import (
 	placement: #Placement
 	pages: list.MinItems(1) & [...#Page]
 	if placement.kind == "tab" {pages: [...{edit?: error("a tab bundle's page has no edit")}]}
+	if placement.kind == "section" {
+		version: "edge"
+		pages: [...{edit?: error("a section bundle's page has no edit")}]
+	}
 	data: [...#DataFile]
 	// The exact versions of other projects this build documents against
 	// (DESIGN decision 10), from the config's pins command.
@@ -136,7 +140,9 @@ import (
 #Placement: {
 	// "tab": its own section with its own versions, /catalogs/<name>/<MAJOR.MINOR>/.
 	// "docs": merged into a site version's /docs/ tree (refused by a pull that predates it).
-	kind: "tab" | "docs"
+	// "section": one unversioned section outside every site version, built from
+	// main only (refused by a pull that predates it).
+	kind: "tab" | "docs" | "section"
 	if kind == "tab" {root: =~"^/catalogs/[a-z0-9]+(-[a-z0-9]+)*/$"}
 	if kind == "docs" {
 		root: "/docs/"
@@ -145,6 +151,8 @@ import (
 		// bundle lies under one; two of them never nest.
 		owns: *[] | [...#Owned]
 	}
+	// The one section root, until a second section has a consumer.
+	if kind == "section" {root: "/enhancements/"}
 }
 
 #Owned: =~"^([a-z0-9]+(-[a-z0-9]+)*/)+$|^([a-z0-9]+(-[a-z0-9]+)*/)*[a-z0-9]+(-[a-z0-9]+)*\\.md$"
@@ -181,6 +189,10 @@ Added by the change `generalize-build-assembly`, both optional and additive:
 Added by the change `add-authored-docs`, optional and additive:
 
 - `pages[].edit`, in a docs-placed bundle only, on a page with `generated: false` (a completed page included, C15): the repository-relative path of the page's source file, written when that path is a regular file in the `HEAD` of the main tree (C15, "Authored docs"), and absent when `main` no longer has it there. A file renamed or deleted on `main` since the release is not followed: the page has no `edit` rather than a guessed one (DESIGN decision 19). A generated page, and every page of a tab bundle, never has it, and the schema refuses either ("pages.0.edit: a tab bundle's page has no edit"), so a site whose `opm-docs` predates the field still pulls every tab bundle; `edit` is a repository-relative path (`#RepoPath`: no leading `/` or `.`, no `..` segment); a docs bundle carrying it needs the site's bump first (C12).
+
+Added by the change `add-enhancements-bundle`:
+
+- `placement.kind: "section"`, root `/enhancements/` (C21): one unversioned bundle outside every site version. Its `version` is always `edge` and none of its pages carries `edit` ("pages.0.edit: a section bundle's page has no edit"). `#Placement` is closed, so an `opm-docs` that predates the change refuses a section bundle: the site bumps first (C12).
 
 `#Manifest` is closed, so an `opm-docs` older than a field refuses a bundle that carries it; C12 orders the bumps so that never happens on the site.
 
@@ -320,10 +332,13 @@ package schema
 
 #Bundle: {
 	placement: #Placement
-	version: {
+	// Where a release version comes from. A section bundle builds from main
+	// only (edge), so its version may be left out and is ignored when given.
+	version?: {
 		from:   "tag"         // phase 1: the release version comes from the git tag
 		prefix: string & !="" // "opm-v": tag "opm-v4.4.5" is version "4.4.5"
 	}
+	if placement.kind != "section" {version: _}
 	sources: [#Source, ...#Source]
 	// The exact versions of other projects this build documents against
 	// (DESIGN decision 10). The command prints a pins document
@@ -343,7 +358,7 @@ package schema
 // "link" links each enhancement decision citation to its decisions page.
 #Citations: *"strip" | "link"
 
-#Source: #CueCatalog | #Markdown | #Cobra | #CueDefinitions | #CRD | #GoAPI
+#Source: #CueCatalog | #Markdown | #Cobra | #CueDefinitions | #CRD | #GoAPI | #Enhancements
 
 #CueCatalog: {
 	kind:   "cue-catalog"
@@ -449,6 +464,16 @@ package schema
 
 // A slash path that starts "./" and holds no ".." segment.
 #GoPath: =~"^\\./" & !~"(^|/)\\.\\.(/|$)"
+
+// The enhancements repository's entries, INDEX.md and GRAPH.md, as the
+// /enhancements/ section (docs-kit C21); a section bundle only. Its text is
+// authored, so it takes no citations policy: citations stay as written.
+#Enhancements: {
+	kind:        "enhancements"
+	dir:         *"." | =~"^[^/.][^.]*$" // the entry root, repo-relative
+	title:       *"Enhancements" | string & !="" // the section page's title
+	description: string & !=""                   // the section page's description
+}
 ```
 
 `bundles` is keyed by project because one repository can publish several, as core and cli will in phase 2 and catalog_opm would with a second catalog. A `layout` choice for catalogs is left out until a second layout has a consumer. A path in content/ written by two sources fails the build, except an authored page at the path of a completable generated page (the catalog landing is one): it does not replace the generated page, the generated body is appended to it (C15).
@@ -463,12 +488,15 @@ package schema
 | `cobra` | `data/cobra.json` (C19) | `command`, `section`, `title`, `description`, `weight`, `citations` |
 | `crd` | `data/crd.json` (C18) and one completable page; a docs bundle only | `dir`, `samples`, `hideSamplesMatching`, `stripLabels`, `page`, `title`, `description`, `weight`, `order`, `reconciledBy`, `citations` |
 | `go-api` | `data/go-api.json` (C20); a docs bundle only | `module`, `root`, `packages`, `section`, `title`, `description`, `weight`, `citations` |
+| `enhancements` | `data/enhancements.json` (C21) and the section's pages, which it builds itself; a section bundle only, and the only source there | `dir`, `title`, `description` (no `citations`: its text is authored) |
 
 **Adding an extractor** (one OpenSpec change per kind): an `Extractor` in `internal/build` (`Kind`, `Extract(ctx, Input) (Data, error)`), registered in its `extractors` table; a `Renderer` in `internal/render` (`Schema`, `Render(data, Target) ([]Page, error)`), registered by its data schema; its kind added to `#Source` with `citations?: #Citations` and its own options; its data file documented as a contract of its own. A renderer page may set `Completable` with its `Heading`, further `Headings` and `Tail` (C15). An extractor's `Data.Inputs` lists, per page, every file a page was built from; a standalone page's `lastmod` is then the newest of them.
 
 **`markdown`** copies one directory of authored pages, lints them and records their git dates. `include` and `exclude` are patterns relative to `dir`, matched against each file's slash path: a `path.Match` glob (`**` is not special) or a directory ending `/`, which matches every file under it. A file is copied when it matches some `include` (or `include` is absent) and no `exclude`. A pattern that matches no file fails the build (exit `2`, "markdown dir docs/site: exclude "reference/defintions/" matches no file"), except when the config came from outside the source tree (a backfill, C5), where a missing `dir` is likewise no error. A pattern that is not a valid glob exits `1`. Link pinning (C8) applies only in a tab bundle; a docs bundle's pages are copied as written.
 
-**`citations`** (`#Citations`) is an extractor source's citation policy ("Doc-comment rules").
+**`citations`** (`#Citations`) is an extractor source's citation policy ("Doc-comment rules"). The `enhancements` source takes none: like `markdown`, it publishes authored text, whose decision citations are the design record itself.
+
+**`version`** is required except in a section bundle (C21), which builds from `main` only: there it may be left out and is ignored when given.
 
 **`pins`** names a repository command (C14) that prints `{"schema": "docs.opmodel.dev/pins/v1", "pins": {"<project>": "<version>"}}` and the projects it must pin; build rules in C15.
 
@@ -512,6 +540,12 @@ package schema
 	docs: [#Project]: {
 		repo: =~"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
 	}
+	// Unversioned sections outside every site version, each pulled from its
+	// edge tag only, with the only repository allowed to sign it.
+	sections: [#Project]: {
+		repo: =~"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+		root: "/enhancements/"
+	}
 	versions: [#SiteVersion]: {
 		// The bundle that chooses the others: its manifest's pins.
 		anchor: {project: #Project, tag: #DocsTag}
@@ -545,7 +579,7 @@ opm-docs pull --config site/bundles.cue --out site/.bundles --lock site/.bundles
               [--frozen <lock>] [--offline] [--local <project>@<segment>=<dir>]...
 ```
 
-Everything below is about tabs; a site version's docs bundles follow C16, which states where it differs.
+Everything below is about tabs; a site version's docs bundles follow C16, and a section C21, which state where they differ.
 
 - Default: list each tab's tags (C4), resolve, verify (C9), fetch the layer **by digest** after verification, unpack, lint, write the lock.
 - `--frozen <lock>`: pull exactly the digests in that lock, no tag resolution; verification and lint still run. The recovery path, as `frozen.conf` is for site versions.
@@ -597,7 +631,7 @@ package schema
 
 #Pulled: {
 	project:    #Project
-	root:       =~"^/catalogs/[a-z0-9]+(-[a-z0-9]+)*/$"
+	root:       #LockRoot
 	segment:    #Segment
 	tag:        #Segment      // the tag resolved: the segment itself
 	repository: string & !="" // "ghcr.io/open-platform-model/docs/catalog-opm"
@@ -617,7 +651,7 @@ package schema
 
 #Local: {
 	project:  #Project
-	root:     =~"^/catalogs/[a-z0-9]+(-[a-z0-9]+)*/$"
+	root:     #LockRoot
 	segment:  #Segment
 	local:    true
 	version:  #Version
@@ -627,6 +661,9 @@ package schema
 	builtBy:  #SemVer
 	dir:      string & !=""
 }
+
+// A tab's root, or the enhancements section's.
+#LockRoot: =~"^/catalogs/[a-z0-9]+(-[a-z0-9]+)*/$|^/enhancements/$"
 
 #Segment: =~"^((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)|edge)$"
 
@@ -713,7 +750,7 @@ Serialization (so two pulls of one resolution compare byte for byte): JSON, two-
 }
 ```
 
-Every entry carries `root`, the tab's placement root, so a consumer maps a `dir` to its URLs without reading `bundles.cue`.
+Every entry carries `root`, the tab's placement root (or the section's, `/enhancements/`, C21), so a consumer maps a `dir` to its URLs without reading `bundles.cue`.
 
 `history` (added with C13; optional, so the schema id stays `lock/v1` and every lock without it still validates) records each `history.json` this pull wrote: `project`, `digest` (`sha256:` and the file's SHA-256) and `path` relative to the lock's directory (`catalog-opm/history.json`; the schema allows only `<project>/history.json`, so the lock sits in `--out`, as the default `<out>/lock.json` does; a pull that writes a history with the lock elsewhere exits 1 before anything is swapped in), one entry per project sorted by project, keys in that order. The key is left out when no history file was written. The site checks the file it mounts against it. `--frozen` does not compare the frozen lock's history digest, since history is a function of the trees and the tool and the tool may have moved; it records the file it wrote. `#Lock` is closed, so an `opm-docs` older than 0.3.0 refuses a lock that carries `history` under `--frozen`: the site bumps its `opm-docs` and receives its first lock with `history` together.
 
@@ -740,9 +777,13 @@ Links the renderer writes, and the forms the dialect lint (C11) allows:
 | a tab page | another catalog (none in phase 1) | its major alias, `/catalogs/<name>/<MAJOR>/...` |
 | a tab page | the docs | `/docs/<section>/<page>/`; the site resolves it in its default version |
 | a tab page | an enhancement | `/enhancements/<NNNN>/` or `/enhancements/<NNNN>/<document>/` |
+| any page | the enhancements index or graph | `/enhancements/` or `/enhancements/graph/` |
+| a section page | a page of the same section | `/enhancements/...` as above; must name a page of the bundle (C21) |
 | a docs page (any repository's `docs/site/`) | a catalog | `/catalogs/<name>/<MAJOR>/` plus an optional page path; never a minor or `edge` |
 
 An authored page in a bundle (a `markdown` source) links into its own catalog through the major alias, `/catalogs/<name>/<MAJOR>/<path>/`, the form that also reads correctly on GitHub and in docs mode. When `<MAJOR>` is the build's major (or the build is edge), the `markdown` source rewrites that link to the build's own segment, `/catalogs/<name>/<segment>/<path>/`, before bundle-mode lint checks that it names a page of the bundle. A link inside a fenced code block is an example and is left as written (added in review, 2026-10-02).
+
+A section bundle's `content/<path>` publishes at `<root><page URL>`, with no segment and outside every site version (C21): `content/0025/decisions.md` is `/enhancements/0025/decisions/`, `content/graph.md` is `/enhancements/graph/`.
 
 A docs bundle's `content/<path>` publishes at `/docs/<page URL>` under the site version that pulls it (C15): `content/reference/cli/opm-module.md` is `/docs/reference/cli/opm-module/` in every site version that holds it. Its segment (`MAJOR.MINOR` or `edge`) is not part of any URL. Its pages link other docs pages as `/docs/<section>/<page>/` and catalogs as a docs page does (the bare root or a major), and no link of a docs bundle is rewritten.
 
@@ -867,8 +908,8 @@ Written by `cue-catalog` (schema id `docs.opmodel.dev/data/cue-catalog/v1`). Pha
 - No `:::` line, no `import ... from` line, no component tag line, no image (`![`, `<img`), no raw `href=` or `src=`.
 - Every code fence carries a language tag.
 - An alert marker is exactly `> [!NOTE]` (or `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`) alone on its line.
-- Every link destination (inline and reference definitions) is `http:`, `https:`, `mailto:` or `#...`, or one of: `/docs/(<seg>/)*` with an optional fragment; `/enhancements/`, `/enhancements/<NNNN>/` or `/enhancements/<NNNN>/<document>/` with `<document>` one of `problem`, `design`, `decisions`, `graduation`, `risks`, `operational`, `questions`; `/catalogs/<name>/` or `/catalogs/<name>/<segment>/(<seg>/)*` with `<segment>` a major (`4`), a minor (`4.4`) or `edge`, with an optional fragment.
-- Bundle mode (`lint --bundle <dir>`, run by `build` and `pull`) adds: a link into the bundle's own root uses the bundle's own segment and names a page in the bundle; and `manifest.json` lists exactly the pages present; and a link to another catalog uses its bare root or a major segment, as C8's table requires (implementation decision, accepted 2026-10-02). A docs bundle's bundle mode is C15's instead: the docs-mode `/catalogs/` rules, and `/docs/` links into its owned paths name a page of it.
+- Every link destination (inline and reference definitions) is `http:`, `https:`, `mailto:` or `#...`, or one of: `/docs/(<seg>/)*` with an optional fragment; `/enhancements/`, `/enhancements/graph/` (added by `add-enhancements-bundle`, with its fixture `link-enhancements-graph`), `/enhancements/<NNNN>/` or `/enhancements/<NNNN>/<document>/` with `<document>` one of `problem`, `design`, `decisions`, `graduation`, `risks`, `operational`, `questions`; `/catalogs/<name>/` or `/catalogs/<name>/<segment>/(<seg>/)*` with `<segment>` a major (`4`), a minor (`4.4`) or `edge`, with an optional fragment.
+- Bundle mode (`lint --bundle <dir>`, run by `build` and `pull`) adds: a link into the bundle's own root uses the bundle's own segment and names a page in the bundle; and `manifest.json` lists exactly the pages present; and a link to another catalog uses its bare root or a major segment, as C8's table requires (implementation decision, accepted 2026-10-02). A docs bundle's bundle mode is C15's instead: the docs-mode `/catalogs/` rules, and `/docs/` links into its owned paths name a page of it. A section bundle's is C21's: the docs-mode `/catalogs/` rules, and a link into `/enhancements/` names a page of it.
 - Docs mode (the default) adds: a `/catalogs/` link is the bare tab root (`/catalogs/opm/`) or uses a major segment (`/catalogs/opm/4/...`); a minor or `edge` segment is a violation. A malformed link is reported by its second segment, as the shell lint does: a minor (`/catalogs/opm/4.4/traits/backup`) or `edge` (`/catalogs/opm/edge`) gets `docs pages link catalogs through /catalogs/opm/4/` (or `.../<MAJOR>/`) even without its trailing slash; anything else, the slashless root `/catalogs/opm` included, gets the trailing-slash message. Bundle mode gives every malformed link the trailing-slash message.
 
 **Agreement with the site's shell lint until phase 3**. Until phase 3 retires `opmodel.dev/site/scripts/lint-sources.sh`, the site lints `docs/site/` trees with the shell script and every bundle with `opm-docs lint`, so the two must agree. They are kept in agreement by one conformance fixture set, `internal/dialect/testdata/conformance/`, each fixture paired with its expected `<file>:<line>` output, which both linters must pass:
@@ -1473,6 +1514,96 @@ with `#Value: {names: [string], anchor, decl, doc}` and `#Func: {name, recv: str
 
 **Consumers.** library (`publish-go-api-bundle`): its `docs-kit.cue` as above, its doc comments repaired (the change's design.md lists what the trial build found at `v1.0.0-beta.1`). opmodel.dev pulls `library` per site version at the cli's pin (C16) and gains `/docs/reference/go-api/`.
 
+## C21. Sections and the enhancements bundle
+
+A **section** is one bundle outside every site version and outside the version switcher, built from `main` only (DESIGN decision 18). The one section is the enhancements repository's, at `/enhancements/`; the root is fixed in the schemas until a second section has a consumer. Added by the change `add-enhancements-bundle`.
+
+**Placement and build.** `placement: {kind: "section", root: "/enhancements/"}` (C3). `build` builds a section as edge only (`version: "edge"`, revision `0`, `source.ref` the branch); `build --release --project <section>` and `revise` refuse it with exit `1` ("enhancements is a section bundle; it builds from main only (edge), so it has no release and no docs revision"); `build --release` without `--project` leaves the sections out and builds the repository's other bundles, and is refused only when the config holds sections alone. Its `docs-kit.cue` entry may leave out `version` (C6). A section bundle holds exactly one source, `enhancements`, and an `enhancements` source belongs in a section bundle only; either mistake exits `1` naming the source. Bundle-mode lint (C11): the docs-mode `/catalogs/` rules, a link into `/enhancements/` names a page of the bundle (`/enhancements/` is `_index.md`, `/enhancements/<path>/` is `<path>.md` or `<path>/_index.md`; fragments are not checked), and the markup check below. Its pages never carry `edit` (C8: an entry changes through its own review).
+
+**The source.** `#Enhancements` (C6):
+
+```cue
+#Enhancements: {
+	kind:        "enhancements"
+	dir:         *"." | =~"^[^/.][^.]*$" // the entry root, repo-relative
+	title:       *"Enhancements" | string & !="" // the section page's title
+	description: string & !=""                   // the section page's description
+}
+```
+
+The enhancements repository's file:
+
+```cue
+bundles: enhancements: {
+	placement: {kind: "section", root: "/enhancements/"}
+	sources: [{kind: "enhancements", description: "OPM's design record: every proposal, its decisions and its status."}]
+}
+```
+
+It reads, under `dir`, every entry directory `NNNN/` and `archive/NNNN/` except `0000` (the template), plus `INDEX.md` and `GRAPH.md`. Each entry needs a `config.yaml` whose `id` equals its directory's name, a `README.md`, and exactly one `0<n>-*.md` for each `n` from 1 to 7 (no `08-*.md` or `09-*.md`). Every file read is a regular file (a symlink, file or directory, is refused), and an id both live and archived is refused. Each fault exits `2` naming the entry and the files. `config.yaml` is read as YAML; `title` and `summary` must be non-empty (whitespace collapsed), `created` and `updated` dates (`YYYY-MM-DD`), `slug`, `status`, `category` and each `affects` lower-case words, `depends_on` and `amends` four-digit ids, `supersedes`, `revives` and `superseded_by` four-digit ids or `legacy:NNN`.
+
+**Pages**, each recorded `generated: true` with `source` (its file) and `lastmod` (that file's git date):
+
+| Path | From | Front matter |
+|---|---|---|
+| `_index.md` | `INDEX.md` | `title` and `description` from the config |
+| `graph.md` | `GRAPH.md` | `title: "Relationship graph"`, `description: "How the enhancements depend on and amend one another, by category."`, `type: explanation`, `weight: 1` |
+| `<NNNN>/_index.md` | the entry's `README.md` | `title: "<NNNN>: <config title>"`, `description` the config `summary`, `weight` the id plus 1 |
+| `<NNNN>/<slug>.md` | the entry's `0<n>-*.md` | `title: "<NNNN>: <document title>"`, `description` the document's, `type: explanation`, `weight` `n` |
+
+An archived entry keeps its URL: `archive/0003/` publishes at `/enhancements/0003/`. The seven documents, by `n`: `problem` "Problem statement" ("What is wrong today, and for whom."), `design` "Design" ("How the proposal works."), `decisions` "Decisions" ("Each decision, numbered, with its rationale."), `graduation` "Graduation criteria" ("What has to be true before the design moves on."), `risks` "Risks and alternatives" ("What could go wrong, and what was weighed instead."), `operational` "Operational concerns" ("What it means for running and upgrading OPM."), `questions` "Open questions" ("What is still undecided."). The source builds these pages itself from the repository's text; no renderer reads `data/enhancements.json` for them (C6: the extractor's `Data.Pages`).
+
+**Transforms**, applied to each file in order (each refusal exits `2` naming the file and line):
+
+1. A line holding `{{<`, `{{%` or Hugo's context marker `{{__hugo_ctx`, code fences included, is refused: the site would act on it.
+2. HTML comments are removed outside code fences and code spans, across lines; a line that held only comments is removed whole; an unclosed `<!--` is refused.
+3. Leading blank lines are removed and, when the first line left is a `# ` heading, that line and the blank lines after it (the site prints the title).
+4. Outside code fences (the dialect's fence rule), an opening fence without a language becomes `text`.
+5. Every link destination outside code fences and code spans, inline or in a reference definition: a `#fragment`, a root-absolute path and an `http:`, `https:` or `mailto:` URL stay as written; another scheme is refused; a relative path is resolved against the file's directory (`%`-escapes decoded, a `?query` dropped, a fragment kept) and must name a path of the commit built (`git ls-tree -r -t`) without climbing out of the repository. The entry root and `INDEX.md` become `/enhancements/`, `GRAPH.md` `/enhancements/graph/`, an entry directory or its `README.md` `/enhancements/<NNNN>/`, a numbered document `/enhancements/<NNNN>/<slug>/`; any other path `https://github.com/<repo>/blob/<commit>/<path>` (`tree` for a directory).
+6. A link whose text (one code span around it allowed) is its target file's name, when the target is a page, reads as the page's title, escaped as prose: `INDEX.md` "the index", `GRAPH.md` "the relationship graph", others the page's `title`.
+7. Outside code spans and fences, a `<` that would open raw HTML (followed by a letter, `/`, `!` or `?`) is escaped `\<`; a CommonMark autolink stays (`<scheme:...>` with no blank or control character, `<name@host>` in CommonMark's email characters). The site renders raw HTML.
+
+The transforms are best effort: they read Markdown line by line and do not hold against every construct CommonMark allows. **The guarantee is the markup check** (`internal/mdsafe`), which bundle-mode lint runs on every page of a section bundle, so `build`, `lint --bundle` and `pull` all apply it. It prepares and parses each page body as the site does. Hugo first un-indents every line that starts with its internal context marker `{{__hugo_ctx` (`hugocontext.DedentMarkers`), which can turn an indented code block into live markup; the check applies the same step before parsing, and refuses the marker itself wherever it appears, code included. It then parses with goldmark v1.8.6 (the version Hugo 0.167.0, opmodel.dev's pinned Hugo, builds with) with Hugo's default extensions, which opmodel.dev's `markup.goldmark` leaves in place (GFM tables, strikethrough, linkify, task lists, definition lists, footnotes, the typographer, heading attributes), and refuses, as `<file>:<line>: <message>` violations (exit `2`):
+
+- raw HTML, inline or a block, comments and declarations included;
+- a link, image, autolink or reference definition whose destination, decoded as goldmark's renderer decodes it (`util.URLEscape(dest, true)`: backslash escapes, then numeric, then named character references), repeated until nothing changes, and with the characters a browser drops removed, has a scheme other than `http`, `https` and `mailto`, or is protocol-relative (`//host`); a relative path passes;
+- a heading attribute block (`## Title {...}`).
+
+A goldmark bump follows opmodel.dev's Hugo bump: `mdsafe.HugoVersion` and `mdsafe.GoldmarkVersion` name the pair, a test fails when `go.mod` requires another goldmark, and a CI job renders every review probe with that Hugo and requires the check to refuse whatever it renders as live markup. Anything else the dialect refuses (component tags, images) fails the build's lint too; the enhancements repository fixes it in its sources. The lint is never relaxed for a section.
+
+**`data/enhancements.json`** (`docs.opmodel.dev/data/enhancements/v1`), entries by id; `authors` and `history` are not copied; fields the site needs later are added, never changed:
+
+```json
+{
+  "schema": "docs.opmodel.dev/data/enhancements/v1",
+  "repo": "open-platform-model/enhancements",
+  "entries": [
+    {
+      "id": "0025", "slug": "self-describing-modules", "title": "Self-Describing Modules",
+      "summary": "...", "status": "draft", "category": "schema", "affects": ["core", "library"],
+      "created": "2026-09-08", "updated": "2026-09-29", "archived": false,
+      "dependsOn": ["0010", "0015", "0019"], "amends": [], "supersedes": [], "revives": [], "supersededBy": null,
+      "page": "0025",
+      "documents": [{"slug": "problem", "title": "Problem statement", "page": "0025/problem", "file": "0025/01-problem.md"}]
+    }
+  ]
+}
+```
+
+Every list is present (empty when the config has none); `supersededBy` is a string or `null`; `page` and each document's `page` are paths under the section's root; `file` is repository-relative.
+
+**Pull** (C7). `bundles.cue` names each section under `sections`, with the only repository allowed to sign it and its root:
+
+```cue
+sections: enhancements: {repo: "open-platform-model/enhancements", root: "/enhancements/"}
+```
+
+`pull` resolves a section's `edge` tag only, verifies it (C9 with the section's `repo`), requires placement `kind: "section"` with the configured root, unpacks and lints it into `<out>/<project>/edge/` as a tab segment, and locks it in `bundles` (`root: "/enhancements/"`, `segment` and `tag` `edge`; `#LockRoot` admits it). A section with no `edge` tag fails the pull ("enhancements has no edge build; the section would be empty, so publish main first"); so does a frozen lock with no entry for it. `--local enhancements@edge=<dir>` takes it from a local tree; any other segment exits `1`. No history is computed for a section. A project under more than one of `tabs`, `docs` and `sections`, and two sections claiming one root, exit `1` before any network call.
+
+**Previews.** A repository with no GitHub origin, outside GitHub Actions, is named `local/<directory>` (`source.repo`), and every source link of its bundle names that made-up repository: `build` warns that the bundle is a preview, and `push` refuses any bundle whose `source.repo` starts with `local/`.
+
+**Consumers.** The enhancements repository (enhancements#86, after the source fixes the spike of `add-enhancements-bundle` lists): `docs-kit.cue` as above, `.opm-docs-version`, and `docs.yml` calling `publish.yml` in `check` mode on pull requests and `edge` mode on push to `main`, never `release` or `revision`. opmodel.dev: bumps its `opm-docs` to a release carrying this contract first (C12), then adds `sections` to `bundles.cue`, builds the Enhancements section from `<out>/enhancements/edge/` (pages from `content/`, header data from `data/enhancements.json`), keeps an adapter only for what Hugo still needs (each page's `url` outside every version, since the dialect allows no `url` key), and copies the conformance fixtures `link-enhancements-graph` and the changed `link-enhancements` (C11).
+
 ## Site decisions
 
 These are the opmodel.dev change's to build, recorded here so docs-kit's pull output and the sibling plan agree:
@@ -1488,13 +1619,13 @@ Syntax `opm-docs <command> [args] [flags]`. Exit codes: `0` success, `1` usage e
 
 | Command | Flags (type, default) | Does |
 |---|---|---|
-| `build` | `--config` (path, `docs-kit.cue`), `--project` (string, repeatable; default every project), `--out` (path, `out`), `--source` (path, `.`), one of `--edge` (default) or `--release <tag>` | Extract, render, lint; write `out/<project>/`. With `--release`, a `cue-catalog` source must declare the tag's version (prefix removed) as its `metadata.version`, else exit `2` naming both (a docs revision, built through `--release`, likewise). A dirty work tree is allowed for a local preview and recorded as `source.dirty: true`, which `push` refuses. Repository commands (C14) run once. A config error (an unknown source kind, owned paths that nest, a `pins.projects` that is empty) exits `1`; a command failure, an output that does not validate, a generated page outside `owns` or a completable heading collision exits `2`. |
+| `build` | `--config` (path, `docs-kit.cue`), `--project` (string, repeatable; default every project), `--out` (path, `out`), `--source` (path, `.`), one of `--edge` (default) or `--release <tag>` | Extract, render, lint; write `out/<project>/`. With `--release`, a `cue-catalog` source must declare the tag's version (prefix removed) as its `metadata.version`, else exit `2` naming both (a docs revision, built through `--release`, likewise). A dirty work tree is allowed for a local preview and recorded as `source.dirty: true`, which `push` refuses. Repository commands (C14) run once. A config error (an unknown source kind, owned paths that nest, a `pins.projects` that is empty) exits `1`, and so does `--release` for a section bundle (C21); a command failure, an output that does not validate, a generated page outside `owns` or a completable heading collision exits `2`. |
 | `lint` | `--bundle` (bool, false), `--dialect` (int, 1) | Lint one or more page directories (or bundle directories) against the dialect. |
 | `check` | `--config`, `--project` | `build` into a temporary directory, running every repository command twice (C14); exit 2 on any failure. The PR gate. |
-| `push` | `--dir` (path, required), `--registry` (string, `ghcr.io/open-platform-model/docs`) | Validate, pack deterministically, push; write the full tag for a release build; print `{"digest": ..., "tag": ...}` as JSON on stdout. |
+| `push` | `--dir` (path, required), `--registry` (string, `ghcr.io/open-platform-model/docs`) | Validate, pack deterministically, push; write the full tag for a release build; print `{"digest": ..., "tag": ...}` as JSON on stdout. Refuses a bundle built from a dirty work tree or in a repository with no GitHub origin (`source.repo` `local/...`, C21). |
 | `promote` | `--project` (required), `--digest` (required), `--registry` | Verify the signature of the digest (C9), then move the moving tags of its line to it (C4 rule 5). |
-| `pull` | see C7; `--config` (path, `bundles.cue`), `--out` (path, `.bundles`), `--lock` (path, `<out>/lock.json`) | Resolve, verify, unpack, lint, write each tab's `history.json` (C13) and each site version's docs bundles (C16), lock. |
-| `revise` | `--project`, `--tag`, `--fix` (required), `--out` (path, `out`), `--registry` (string, `ghcr.io/open-platform-model/docs`), `--config` (path; default `docs-kit.cue` in the release tree, else the current directory) | Build the next docs revision of a published release into `out/<project>/` ("Docs revisions" below). Pushes nothing. Exit `1` for a missing flag or an invalid config, `2` when a step refuses. |
+| `pull` | see C7; `--config` (path, `bundles.cue`), `--out` (path, `.bundles`), `--lock` (path, `<out>/lock.json`) | Resolve, verify, unpack, lint, write each tab's `history.json` (C13), each site version's docs bundles (C16) and each section's edge build (C21), lock. |
+| `revise` | `--project`, `--tag`, `--fix` (required), `--out` (path, `out`), `--registry` (string, `ghcr.io/open-platform-model/docs`), `--config` (path; default `docs-kit.cue` in the release tree, else the current directory) | Build the next docs revision of a published release into `out/<project>/` ("Docs revisions" below). Pushes nothing. Exit `1` for a missing flag, an invalid config or a section project (C21), `2` when a step refuses. |
 | `serve` | `--config`, `--project`, `--source` (path, `.`), `--port` (int, `1313`; refused with `--site`), `--site` (path, none; an opmodel.dev checkout with `Taskfile.yml` and `site/bundles.cue`), `--site-version` (site version `v<MAJOR>.<MINOR>`, none; with `--site`, required when a docs bundle is built) | Build the selected projects as edge bundles through `build` (dirty tree allowed; its repository commands and bundle-mode lint included) into a temporary directory removed on exit. Without `--site`: serve them with the host's `hugo` (0.146.0 or later) on a skeleton site embedded in `opm-docs`, on `127.0.0.1:<port>` only, a tab bundle at `<root>edge/`, a docs bundle at `/docs/`, any other placement at its root; poll each bundle's sources once a second and rebuild it on a change, copying a passing build over the served tree and keeping the last good one when a build fails; a page added or removed restarts `hugo`. An interrupt, SIGTERM or SIGHUP stops `hugo` and removes the temporary directory; on Linux `hugo` gets SIGTERM if `serve` dies, and a later `serve` removes a dead run's directory (one whose lock no process holds). A `--port` in use exits `1` before the build. With `--site`: build once, then run the site interface ("Site decisions"), without the caller's `OPM_BUNDLES_FROZEN` and `OPM_BUNDLES`. Exit `0` when stopped (during the first build too); `1` for a usage error, no or too old `hugo`, no `task` with `--site`, a docs bundle without `--site-version`; `2` when the first build fails or `hugo` or a site task fails. |
 | `version` | none | Print `opm-docs <version>`. |
 

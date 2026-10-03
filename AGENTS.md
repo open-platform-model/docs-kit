@@ -51,12 +51,14 @@ internal/bundle/              the tree model, manifest.json, deterministic pack,
 internal/tags/                SemVer, build order, full and moving tags (pure)
 internal/doctext/             maintainer comments, citations and the citation policy, summary split, wrapping
 internal/mdtext/              Markdown escaping, code spans, cells, YAML strings
+internal/mdsafe/              the markup check: goldmark as Hugo parses a page; refuses raw HTML, script URLs, heading attributes
 internal/cuetok/              the CUE token scanner (comments skipped) shared by gitsrc and history
 internal/extract/cuecatalog/  the cue-catalog extractor: data/catalog.json
 internal/extract/crd/         the crd extractor: data/crd.json
 internal/extract/cuedefs/     the cue-definitions extractor: data/cue-definitions.json
 internal/extract/markdown/    the markdown source
 internal/extract/cobra/       the cobra source: a cobradump document to data/cobra.json
+internal/extract/enhancements/ the enhancements source: data/enhancements.json and the /enhancements/ section's pages
 internal/extract/goapi/       the go-api extractor: a Go module's exported packages (go/parser, go/doc) to data/go-api.json
 internal/render/              the renderer registry by data schema; embedded templates: landing, kind index, member page, definitions index and page, command reference, Go API index and page
 internal/render/helptext/     cobra help text (Long, Example, usage) to Markdown
@@ -101,6 +103,7 @@ Taskfile.yml                  build and gate tasks
 ## Environment Notes
 
 - Go version: `go.mod` (`1.26.0`, matching cli).
+- `github.com/yuin/goldmark` is pinned to the version opmodel.dev's pinned Hugo builds with (v1.8.6 for Hugo 0.167.0; `internal/mdsafe`, docs/contracts.md C21). Bump it with the site's Hugo, never on its own.
 - Extracting a CUE catalog needs the workspace registry mapping: `CUE_REGISTRY='opmodel.dev=ghcr.io/open-platform-model,registry.cue.works'`. Unit tests use self-contained fixtures and need no registry.
 
 ## Coding Standards
