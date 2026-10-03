@@ -3,6 +3,7 @@ package gitsrc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,14 +21,18 @@ type history struct {
 	later        string // a code change on main after the tag
 	conflict     string // a fix to a line the release tree does not have
 	merge        string // a merge commit on main
+	renamed      string // a fix of docs/howto.md, which main renamed from docs/guide.md
 	branch, root string // a fix never merged to main; the root commit
 }
+
+// guide is long enough for git to follow its rename.
+var guide = "# Guide\n\nLine 1.\nLine 2.\nLine 3.\nLine 4.\nLine 5.\nLine 6.\nLine 7.\nLine 8.\n"
 
 func newHistory(t *testing.T) *history {
 	t.Helper()
 	h := &history{r: gittest.New(t, "")}
 	r := h.r
-	r.Write(map[string]string{"docs/a.md": "A.\n", "docs/b.md": "B.\n", "x.cue": "package x\n\nv: 1\n"})
+	r.Write(map[string]string{"docs/a.md": "A.\n", "docs/b.md": "B.\n", "x.cue": "package x\n\nv: 1\n", "docs/guide.md": guide})
 	h.root = r.CommitAt("2026-09-01T00:00:00Z", "root")
 	r.Write(map[string]string{"notes.md": "one\n"})
 	h.release = r.CommitAt("2026-09-02T00:00:00Z", "release")
@@ -40,6 +45,10 @@ func newHistory(t *testing.T) *history {
 	h.fixB = r.CommitAt("2026-09-05T00:00:00Z", "fix b")
 	r.Write(map[string]string{"notes.md": "three\n"})
 	h.conflict = r.CommitAt("2026-09-06T00:00:00Z", "notes again")
+	r.Git("mv", "docs/guide.md", "docs/howto.md")
+	r.CommitAt("2026-09-06T01:00:00Z", "rename the guide")
+	r.Write(map[string]string{"docs/howto.md": strings.Replace(guide, "Line 5.", "Line five.", 1)})
+	h.renamed = r.CommitAt("2026-09-06T02:00:00Z", "fix the guide")
 	r.Git("checkout", "-q", "-b", "side", h.release)
 	r.Write(map[string]string{"side.md": "side\n"})
 	r.CommitAt("2026-09-07T00:00:00Z", "side")
@@ -104,7 +113,7 @@ func TestWorktreeCherryPick(t *testing.T) {
 	if worktrees(t, h.r) != 2 {
 		t.Fatal("no worktree added")
 	}
-	if err := w.CherryPick(ctx, []string{h.fixA, h.fixB}); err != nil {
+	if _, err := w.CherryPick(ctx, []string{h.fixA, h.fixB}); err != nil {
 		t.Fatal(err)
 	}
 	want := map[string]string{"docs/a.md": "A, fixed again.\n", "docs/b.md": "B, fixed.\n", "x.cue": "package x\n\nv: 1\n", "notes.md": "one\n"}
@@ -143,7 +152,7 @@ func TestCherryPickConflict(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = w.CherryPick(ctx, []string{h.fixA, h.conflict})
+	_, err = w.CherryPick(ctx, []string{h.fixA, h.conflict})
 	var ce *ConflictError
 	if !errors.As(err, &ce) || ce.Commit != h.conflict || strings.Join(ce.Files, ",") != "notes.md" {
 		t.Fatalf("got %v, want a conflict of %s in notes.md", err, h.conflict)
@@ -163,22 +172,44 @@ func TestCherryPickConflict(t *testing.T) {
 	}
 }
 
-func TestPatchDates(t *testing.T) {
+func TestPickedDates(t *testing.T) {
 	h := newHistory(t)
-	got, err := Repo{Dir: h.r.Dir}.PatchDates(t.Context(), []string{h.fixA, h.fixB})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got["docs/a.md"] != "2026-09-05T00:00:00Z" || got["docs/b.md"] != "2026-09-05T00:00:00Z" || len(got) != 2 {
-		t.Fatalf("dates %v", got)
-	}
-	got, _ = Repo{Dir: h.r.Dir}.PatchDates(t.Context(), []string{h.fixA})
-	if got["docs/a.md"] != "2026-09-03T00:00:00Z" || len(got) != 1 {
-		t.Fatalf("dates %v", got)
+	ctx := t.Context()
+	for _, c := range []struct {
+		name    string
+		commits []string
+		want    map[string]string
+	}{
+		{"one fix", []string{h.fixA}, map[string]string{"docs/a.md": "2026-09-03T00:00:00Z"}},
+		{"newest wins", []string{h.fixA, h.fixB}, map[string]string{"docs/a.md": "2026-09-05T00:00:00Z", "docs/b.md": "2026-09-05T00:00:00Z"}},
+		// main renamed the file after the release: the fix applies to, and
+		// dates, the release tree's name.
+		{"renamed on main", []string{h.renamed}, map[string]string{"docs/guide.md": "2026-09-06T02:00:00Z"}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			w, err := Repo{Dir: h.r.Dir}.AddWorktree(ctx, "opm-v4.4.5")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = w.Remove(ctx) }()
+			p, err := w.CherryPick(ctx, c.commits)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(p.Trees) != len(c.commits) || p.Trees[len(p.Trees)-1] == p.Base {
+				t.Fatalf("trees %v from %s", p.Trees, p.Base)
+			}
+			if fmt.Sprint(p.Dates) != fmt.Sprint(c.want) {
+				t.Fatalf("dates %v, want %v", p.Dates, c.want)
+			}
+			if d, err := w.Unstaged(ctx); err != nil || d {
+				t.Fatalf("the picked tree differs from its index: %v %v", d, err)
+			}
+		})
 	}
 }
 
-func TestPatchedDirty(t *testing.T) {
+func TestUnstaged(t *testing.T) {
 	h := newHistory(t)
 	ctx := t.Context()
 	w, err := Repo{Dir: h.r.Dir}.AddWorktree(ctx, "opm-v4.4.5")
@@ -186,14 +217,8 @@ func TestPatchedDirty(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = w.Remove(ctx) }()
-	if err := w.CherryPick(ctx, []string{h.fixA, h.fixB}); err != nil {
+	if _, err := w.CherryPick(ctx, []string{h.fixA, h.fixB}); err != nil {
 		t.Fatal(err)
-	}
-	if d, err := w.PatchedDirty(ctx, []string{h.fixA, h.fixB}); err != nil || d {
-		t.Fatalf("patched tree dirty=%v %v", d, err)
-	}
-	if d, _ := w.PatchedDirty(ctx, []string{h.fixA}); !d {
-		t.Fatal("a staged file no patch touches did not make the tree dirty")
 	}
 	out := filepath.Join(w.Dir, "out")
 	if err := os.MkdirAll(out, 0o750); err != nil {
@@ -202,16 +227,23 @@ func TestPatchedDirty(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(out, "x"), []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if d, _ := w.PatchedDirty(ctx, []string{h.fixA, h.fixB}, out); d {
+	if d, _ := w.Unstaged(ctx, out); d {
 		t.Fatal("the output directory made the tree dirty")
 	}
-	if d, _ := w.PatchedDirty(ctx, []string{h.fixA, h.fixB}); !d {
+	if d, _ := w.Unstaged(ctx); !d {
 		t.Fatal("an untracked file did not make the tree dirty")
 	}
+	if err := os.WriteFile(filepath.Join(w.Dir, "docs", "a b.md"), []byte("x\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ := w.Unstaged(ctx, out); !d {
+		t.Fatal("an untracked file with a space did not make the tree dirty")
+	}
+	_ = os.Remove(filepath.Join(w.Dir, "docs", "a b.md"))
 	if err := os.WriteFile(filepath.Join(w.Dir, "docs", "a.md"), []byte("edited\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if d, _ := w.PatchedDirty(ctx, []string{h.fixA, h.fixB}, out); !d {
+	if d, _ := w.Unstaged(ctx, out); !d {
 		t.Fatal("an unstaged edit did not make the tree dirty")
 	}
 }

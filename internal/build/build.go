@@ -36,9 +36,12 @@ type Options struct {
 	Tool     string   // the opm-docs version, without "v"
 	// Revision and Patches build a docs revision of Release: Source is the
 	// release tree with Patches (the fix commits, oldest first) applied
-	// and staged, as revise leaves it.
-	Revision int
-	Patches  []string
+	// and staged, as revise leaves it. PatchDates, from revise, is each
+	// patched file's lastmod; without it a patched file keeps its date at
+	// the release commit.
+	Revision   int
+	Patches    []string
+	PatchDates map[string]string
 }
 
 // UsageError is a mistake in the invocation or the config.
@@ -209,7 +212,7 @@ func resolve(ctx context.Context, o Options, b config.Bundle, project string) (*
 		return nil, err
 	}
 	if o.Revision > 0 {
-		id.dirty, err = repo.PatchedDirty(ctx, o.Patches, o.Out)
+		id.dirty, err = repo.Unstaged(ctx, o.Out)
 	} else {
 		id.dirty, err = repo.Dirty(ctx, o.Out)
 	}
@@ -245,10 +248,7 @@ func buildProject(ctx context.Context, o Options, cfg *config.Config, project st
 		Dialect:   dialect.Version,
 		Placement: bundle.Placement{Kind: b.Placement.Kind, Root: b.Placement.Root},
 	}
-	s := &assembly{ctx: ctx, o: o, id: id, m: m, dir: dir, written: map[string]string{}, repo: gitsrc.Repo{Dir: o.Source}}
-	if s.patched, err = s.repo.PatchDates(ctx, o.Patches); err != nil {
-		return Result{}, err
-	}
+	s := &assembly{ctx: ctx, o: o, id: id, m: m, dir: dir, written: map[string]string{}, repo: gitsrc.Repo{Dir: o.Source}, patched: o.PatchDates}
 	if err := s.sources(b, cfg.Path, outside); err != nil {
 		return Result{}, err
 	}

@@ -87,7 +87,17 @@ Permissions as `release` (`contents: read`, `packages: write`, `id-token: write`
 ## Risks / Trade-offs
 
 - [A cherry-pick of an older fix conflicts with a newer one] → refused naming the files; the author lands a combined fix on `main` and revises with that.
-- [Comment-only comparison misses a semantic change hidden in a comment-like construct] → CUE and Go parse comments as comments only; the comparison is on formatted syntax trees, not text.
+- [Comment-only comparison misses a semantic change hidden in a comment-like construct] → CUE and Go scanners read comments as comments only; the comparison is on token streams with comments skipped, never on text. Comments that are code (Go directives, the cgo preamble) are compared, with their place, or refused.
+
+## Review amendments (PR review, 2026-10-03)
+
+- Go directives are compared with their place (the number of code tokens before each), so a moved `//go:embed`, `//go:noinline` or `//go:build` is refused.
+- Patched paths and their dates come from the index after each pick, not from the fix commits, so a file main renamed after the release is dated under its release-tree name; `revise` refuses a work tree that differs from its index, and a fix that leaves the tree unchanged.
+- A revision counts as promoted only when every tag `promote` would move to it names it; a partly promoted one is rebuilt.
+- The re-run rebuild is refused when the newest revision was built by another `opm-docs` version.
+- The newest revision's signature is verified before its `source.patches` is trusted; an unsigned one is accepted only for a re-run, when the signed revision before it plus the fix gives its list.
+- A `.md` change is refused when the release's CUE declares `@extern(embed)`; a path that was a symlink or submodule is refused; `NextRevision` needs revision 0 itself; the 40-hex (SHA-1) limit is stated.
+- A cancelled pending revision run must be dispatched again (README, contracts).
 
 ## Durable decisions
 

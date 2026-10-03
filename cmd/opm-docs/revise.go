@@ -1,18 +1,22 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/open-platform-model/docs-kit/internal/oci"
 	"github.com/open-platform-model/docs-kit/internal/publish"
 	"github.com/open-platform-model/docs-kit/internal/revise"
+	"github.com/open-platform-model/docs-kit/internal/verify"
 	"github.com/open-platform-model/docs-kit/internal/version"
 )
 
 func newReviseCmd() *cobra.Command {
 	var o revise.Options
+	var trustedRoot string
 	cmd := &cobra.Command{
 		Use:   "revise",
 		Short: "Build the next docs revision of a published release with a documentation fix from main",
@@ -29,6 +33,18 @@ func newReviseCmd() *cobra.Command {
 			}
 			o.Repo, o.Tool = ".", version.Version
 			o.Client = oci.New(oci.Options{})
+			// The fixes the newest revision lists are trusted only after its
+			// signature verifies, under the policy promote applies.
+			repo := os.Getenv("GITHUB_REPOSITORY")
+			verifier := trust(trustedRoot, false, nil)
+			o.Verifier = func() (*verify.Verifier, error) {
+				if repo == "" {
+					return nil, errors.New("GITHUB_REPOSITORY is unset: revise checks the published revision was signed for the repository it runs for, so it runs in GitHub Actions")
+				}
+				return verifier()
+			}
+			o.Policy = verify.Policy{Issuer: githubIssuer, Workflow: publishWorkflow, Refs: []string{publishRefs},
+				Repository: "https://github.com/" + repo, Ref: mainRef}
 			res, err := revise.Run(cmd.Context(), o)
 			if err != nil {
 				return buildError(cmd.OutOrStdout(), err)
@@ -47,5 +63,7 @@ func newReviseCmd() *cobra.Command {
 	f.StringVar(&o.Out, "out", "out", "the output directory")
 	f.StringVar(&o.Registry, "registry", publish.DefaultRegistry, "the registry prefix; the repository is <registry>/<project>")
 	f.StringVar(&o.Config, "config", "", "the config file (default: docs-kit.cue in the release tree, else in the current directory)")
+	f.StringVar(&trustedRoot, "trusted-root", "", "a Sigstore trusted_root.json instead of the TUF-fetched one")
+	_ = f.MarkHidden("trusted-root")
 	return cmd
 }

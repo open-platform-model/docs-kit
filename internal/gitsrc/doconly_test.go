@@ -44,6 +44,13 @@ import (
 //go:embed banner.txt
 var banner string
 
+var other string
+
+//go:noinline
+func helper() {}
+
+func second() {}
+
 // Config is the tool's configuration.
 type Config struct {
 	Name string
@@ -72,7 +79,8 @@ func TestDocumentationOnly(t *testing.T) {
 		remove  []string
 		rename  [2]string
 		symlink [2]string
-		refused []string // "path: substring of the reason"
+		base    func(r *gittest.Repo) // extra release-tree setup
+		refused []string              // "path: substring of the reason"
 	}{
 		{name: "markdown changed", write: map[string]string{"README.md": "# Demo, fixed\n"}},
 		{name: "markdown added", write: map[string]string{"docs/new.md": "New.\n"}},
@@ -130,6 +138,14 @@ func TestDocumentationOnly(t *testing.T) {
 		{name: "go embed directive", write: map[string]string{"tool/main.go": strings.Replace(released["tool/main.go"],
 			"//go:embed banner.txt", "//go:embed other.txt", 1)},
 			refused: []string{"tool/main.go: changes a directive comment"}},
+		{name: "go embed directive moved", write: map[string]string{"tool/main.go": strings.Replace(strings.Replace(released["tool/main.go"],
+			"//go:embed banner.txt\nvar banner string", "var banner string", 1), "var other string", "//go:embed banner.txt\nvar other string", 1)},
+			refused: []string{"tool/main.go: changes a directive comment"}},
+		{name: "go noinline directive moved", write: map[string]string{"tool/main.go": strings.Replace(strings.Replace(released["tool/main.go"],
+			"//go:noinline\nfunc helper", "func helper", 1), "func second", "//go:noinline\nfunc second", 1)},
+			refused: []string{"tool/main.go: changes a directive comment"}},
+		{name: "go comment added before a directive", write: map[string]string{"tool/main.go": strings.Replace(released["tool/main.go"],
+			"//go:noinline\n", "// helper does nothing.\n//\n//go:noinline\n", 1)}},
 		{name: "go build constraint added", write: map[string]string{"tool/main.go": "//go:build linux\n\n" + released["tool/main.go"]},
 			refused: []string{"tool/main.go: changes a directive comment"}},
 		{name: "go cgo preamble", write: map[string]string{"cgo/c.go": strings.Replace(released["cgo/c.go"],
@@ -145,6 +161,16 @@ func TestDocumentationOnly(t *testing.T) {
 			refused: []string{"assets/logo.json: changed"}},
 		{name: "markdown symlink", symlink: [2]string{"../README.md", "docs/link.md"},
 			refused: []string{"docs/link.md: not a regular file"}},
+		{name: "markdown symlink removed", base: func(r *gittest.Repo) {
+			if err := os.Symlink("../README.md", filepath.Join(r.Dir, "docs", "old.md")); err != nil {
+				t.Fatal(err)
+			}
+		}, remove: []string{"docs/old.md"},
+			refused: []string{"docs/old.md: was not a regular file"}},
+		{name: "markdown embedded into CUE", base: func(r *gittest.Repo) {
+			r.Write(map[string]string{"opm/notes.cue": "@extern(embed)\n\npackage opm\n\nnotes: _ @embed(file=../docs/guide.md, type=text)\n"})
+		}, write: map[string]string{"docs/guide.md": "Guide, changed.\n", "README.md": "# Demo!\n"},
+			refused: []string{"README.md: opm/notes.cue embeds files into CUE values (@extern(embed))", "docs/guide.md: opm/notes.cue embeds"}},
 		{name: "several refusals", write: map[string]string{"go.mod": "module x\n", "tool/main.go": strings.Replace(released["tool/main.go"], "x := 1", "x := 3", 1), "README.md": "ok\n"},
 			refused: []string{"go.mod: changed", "tool/main.go: changes Go code"}},
 	}
@@ -152,6 +178,9 @@ func TestDocumentationOnly(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			r := gittest.New(t, "")
 			r.Write(released)
+			if tc.base != nil {
+				tc.base(r)
+			}
 			base := r.CommitAt(gittest.Date, "release")
 			r.Write(tc.write)
 			for _, p := range tc.remove {

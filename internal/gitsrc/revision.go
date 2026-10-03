@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -20,7 +19,7 @@ func IsSHA(s string) bool { return reSHA.MatchString(s) }
 // ancestor of main (a ref such as "origin/main").
 func (r Repo) CheckFix(ctx context.Context, fix, main string) error {
 	if !IsSHA(fix) {
-		return fmt.Errorf("the fix %q is not a full 40-hex commit hash; pass the commit's full hash", fix)
+		return fmt.Errorf("the fix %q is not a full 40-hex commit hash; pass the commit's full SHA-1 hash (a SHA-256 repository is not supported)", fix)
 	}
 	if _, err := r.git(ctx, "cat-file", "-e", fix+"^{commit}"); err != nil {
 		return fmt.Errorf("the fix %s is not a commit in %s; land the fix on main first, and check out main with full history", fix, r.Dir)
@@ -95,108 +94,65 @@ func (e *ConflictError) Error() string {
 	return fmt.Sprintf("the fix %s conflicts in %s; land one fix on main that makes the whole change and revise with that", e.Commit, files)
 }
 
+// Picked is what CherryPick applied.
+type Picked struct {
+	Base  string   // the index tree before the first pick
+	Trees []string // the index tree after each pick
+	// Dates maps every path a pick added or changed in this tree to the
+	// committer date, RFC 3339 UTC, of the newest pick that did: a patched
+	// file's lastmod. The paths are read from the index after each pick,
+	// so a file renamed on main after the release counts under its name in
+	// the release tree.
+	Dates map[string]string
+}
+
 // CherryPick applies each commit in order to the index and work tree with
-// `git cherry-pick --no-commit`, committing nothing. A conflict is a
-// *ConflictError naming the files.
-func (r Repo) CherryPick(ctx context.Context, commits []string) error {
+// `git cherry-pick --no-commit`, committing nothing, and records what each
+// changed. A conflict is a *ConflictError naming the files.
+func (r Repo) CherryPick(ctx context.Context, commits []string) (*Picked, error) {
+	base, err := r.IndexTree(ctx)
+	if err != nil {
+		return nil, err
+	}
+	p := &Picked{Base: base, Dates: map[string]string{}}
+	newest := map[string]time.Time{}
+	prev := base
 	for _, c := range commits {
 		if _, err := r.git(ctx, "cherry-pick", "--no-commit", c); err != nil {
 			files, ferr := r.git(ctx, "diff", "--name-only", "--diff-filter=U")
 			if ferr != nil || files == "" {
-				return fmt.Errorf("applying the fix %s: %w", c, err)
+				return nil, fmt.Errorf("applying the fix %s: %w", c, err)
 			}
-			return &ConflictError{Commit: c, Files: strings.Split(files, "\n")}
+			return nil, &ConflictError{Commit: c, Files: strings.Split(files, "\n")}
 		}
+		tree, err := r.IndexTree(ctx)
+		if err != nil {
+			return nil, err
+		}
+		when, err := r.CommitTime(ctx, c)
+		if err != nil {
+			return nil, err
+		}
+		names, err := r.git(ctx, "diff-tree", "-r", "--name-only", "--no-renames", "--diff-filter=d", prev, tree)
+		if err != nil {
+			return nil, err
+		}
+		for _, n := range strings.Split(names, "\n") {
+			if cur, ok := newest[n]; n != "" && (!ok || when.After(cur)) {
+				newest[n] = when
+			}
+		}
+		p.Trees = append(p.Trees, tree)
+		prev = tree
 	}
-	return nil
+	for n, t := range newest {
+		p.Dates[n] = t.Format(time.RFC3339)
+	}
+	return p, nil
 }
 
 // IndexTree writes the index as a tree object and returns its hash: after
 // CherryPick, the release tree with the fixes applied.
 func (r Repo) IndexTree(ctx context.Context) (string, error) {
 	return r.git(ctx, "write-tree")
-}
-
-// PatchedDirty reports a work tree that is not exactly HEAD plus the
-// staged fixes: a file that differs from the index, an untracked file
-// (paths under skip excepted), or a staged path that none of the patches
-// touches.
-func (r Repo) PatchedDirty(ctx context.Context, patches []string, skip ...string) (bool, error) {
-	out, err := r.git(ctx, "status", "--porcelain", "--untracked-files=all")
-	if err != nil {
-		return false, err
-	}
-	top, err := r.git(ctx, "rev-parse", "--show-toplevel")
-	if err != nil {
-		return false, err
-	}
-	touched, err := r.touched(ctx, patches)
-	if err != nil {
-		return false, err
-	}
-	for _, line := range strings.Split(out, "\n") {
-		if len(line) < 4 {
-			continue
-		}
-		p := strings.Trim(line[3:], `"`)
-		if i := strings.Index(p, " -> "); i >= 0 {
-			p = p[i+4:]
-		}
-		if under(filepath.Join(top, filepath.FromSlash(p)), skip) {
-			continue
-		}
-		staged, unstaged := line[0], line[1]
-		if staged == '?' || unstaged != ' ' || !touched[p] {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-// touched is every path the patches add, change, remove or rename (both
-// names of a rename).
-func (r Repo) touched(ctx context.Context, patches []string) (map[string]bool, error) {
-	out := map[string]bool{}
-	for _, p := range patches {
-		names, err := r.git(ctx, "diff-tree", "--no-commit-id", "-r", "--name-only", "--no-renames", p)
-		if err != nil {
-			return nil, err
-		}
-		for _, n := range strings.Split(names, "\n") {
-			if n != "" {
-				out[n] = true
-			}
-		}
-	}
-	return out, nil
-}
-
-// PatchDates maps every path the patches add or change to the committer
-// date, RFC 3339 UTC, of the newest patch that touched it: a patched
-// file's lastmod in a docs revision.
-func (r Repo) PatchDates(ctx context.Context, patches []string) (map[string]string, error) {
-	newest := map[string]time.Time{}
-	for _, p := range patches {
-		t, err := r.CommitTime(ctx, p)
-		if err != nil {
-			return nil, err
-		}
-		names, err := r.git(ctx, "diff-tree", "--no-commit-id", "-r", "--name-only", "--diff-filter=d", "-M", p)
-		if err != nil {
-			return nil, err
-		}
-		for _, n := range strings.Split(names, "\n") {
-			if n == "" {
-				continue
-			}
-			if cur, ok := newest[n]; !ok || t.After(cur) {
-				newest[n] = t
-			}
-		}
-	}
-	out := make(map[string]string, len(newest))
-	for n, t := range newest {
-		out[n] = t.Format(time.RFC3339)
-	}
-	return out, nil
 }

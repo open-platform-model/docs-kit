@@ -3,12 +3,16 @@ package gitsrc
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	goparser "go/parser"
 	goscanner "go/scanner"
 	gotoken "go/token"
+	"os/exec"
 	"path"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 
 	cuescanner "cuelang.org/go/cue/scanner"
@@ -23,6 +27,9 @@ type Refusal struct {
 
 func (r Refusal) String() string { return r.Path + ": " + r.Reason }
 
+// markdown is the extension of a documentation file.
+const markdown = ".md"
+
 // patchRelease ends every refusal: the way out of a code change.
 const patchRelease = "a change to code needs a patch release"
 
@@ -35,8 +42,11 @@ const patchRelease = "a change to code needs a patch release"
 // comment added, reworded or removed is not. Layout is not compared, since
 // a comment added between two fields moves the code below it. A Go
 // directive comment (//go:build, //go:embed, //line, //export) and the cgo
-// preamble are code, so a change to either is refused. Everything else is
-// refused.
+// preamble are code, so a change to either is refused, and so is moving a
+// directive to other code. When a .cue file of the release tree declares
+// @extern(embed), CUE may read Markdown as a value, so a Markdown change
+// is refused too. A path that is or was a symlink or a submodule is
+// refused. Everything else is refused.
 func (r Repo) DocumentationOnly(ctx context.Context, from, to string) ([]Refusal, error) {
 	out, err := r.git(ctx, "diff-tree", "-r", "-z", "-M", "--raw", "--no-commit-id", from, to)
 	if err != nil {
@@ -46,17 +56,44 @@ func (r Repo) DocumentationOnly(ctx context.Context, from, to string) ([]Refusal
 	if err != nil {
 		return nil, fmt.Errorf("reading the change from %s to %s: %w", from, to, err)
 	}
+	embeds, err := r.embedsFiles(ctx, from)
+	if err != nil {
+		return nil, err
+	}
 	var refused []Refusal
 	for _, c := range changes {
 		reason, err := r.judge(ctx, c)
 		if err != nil {
 			return nil, err
 		}
+		if reason == "" && embeds != "" && path.Ext(c.path) == markdown {
+			reason = fmt.Sprintf("%s embeds files into CUE values (@extern(embed)), so a Markdown file may be a value; %s", embeds, patchRelease)
+		}
 		if reason != "" {
 			refused = append(refused, Refusal{Path: c.path, Reason: reason})
 		}
 	}
 	return refused, nil
+}
+
+// embedsFiles names a .cue file of tree that declares @extern(embed),
+// with which CUE reads other files, Markdown included, as values; "" when
+// none does. A mention in a comment counts too: the check only refuses.
+func (r Repo) embedsFiles(ctx context.Context, tree string) (string, error) {
+	cmd := r.cmd(ctx, "grep", "-l", "-F", "-e", "@extern(embed)", tree, "--", "*.cue")
+	var out, errb bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &errb
+	err := cmd.Run()
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == 1 && errb.Len() == 0 {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("git grep in %s: %w: %s", r.Dir, err, strings.TrimSpace(errb.String()))
+	}
+	first, _, _ := strings.Cut(strings.TrimSpace(out.String()), "\n")
+	_, file, _ := strings.Cut(first, ":")
+	return file, nil
 }
 
 // rawChange is one entry of `git diff-tree --raw`.
@@ -105,8 +142,11 @@ func (r Repo) judge(ctx context.Context, c rawChange) (string, error) {
 	if c.status != 'D' && !isRegular(c.newMode) {
 		return "not a regular file (a symlink or a submodule); " + patchRelease, nil
 	}
+	if c.status != 'A' && c.status != 'C' && !isRegular(c.oldMode) {
+		return "was not a regular file (a symlink or a submodule) in the release; " + patchRelease, nil
+	}
 	switch ext {
-	case ".md":
+	case markdown:
 		return judgeMarkdown(c), nil
 	case ".cue", ".go":
 		if c.status != 'M' {
@@ -126,7 +166,7 @@ func judgeMarkdown(c rawChange) string {
 	case 'A', 'M', 'D', 'C':
 		return ""
 	case 'R':
-		if path.Ext(c.from) == ".md" {
+		if path.Ext(c.from) == markdown {
 			return ""
 		}
 		return fmt.Sprintf("renamed from %s, which is not Markdown; %s", c.from, patchRelease)
@@ -282,13 +322,14 @@ var reDirective = regexp.MustCompile(`^(//(line |extern |export |[a-z0-9]+:[a-z0
 // inserted semicolon equal to a written one, and the directive comments
 // in order.
 func goTokens(name string, src []byte) (code, directives []token, err error) {
+	var offsets []int // of every code token but a semicolon, in order
 	for _, mode := range []goscanner.Mode{0, goscanner.ScanComments} {
 		var s goscanner.Scanner
 		var errs goscanner.ErrorList
-		fset := gotoken.NewFileSet()
-		s.Init(fset.AddFile(name, -1, len(src)), src, errs.Add, mode)
+		file := gotoken.NewFileSet().AddFile(name, -1, len(src))
+		s.Init(file, src, errs.Add, mode)
 		for {
-			_, tok, lit := s.Scan()
+			pos, tok, lit := s.Scan()
 			if tok == gotoken.EOF {
 				break
 			}
@@ -297,8 +338,14 @@ func goTokens(name string, src []byte) (code, directives []token, err error) {
 				code = append(code, token{kind: tok.String()})
 			case mode == 0:
 				code = append(code, token{kind: tok.String(), lit: lit})
+				offsets = append(offsets, file.Offset(pos))
 			case tok == gotoken.COMMENT && reDirective.MatchString(lit):
-				directives = append(directives, token{kind: "DIRECTIVE", lit: lit})
+				// A directive applies to the code next to it, so it is
+				// compared with its place: the number of code tokens
+				// before it. Moving //go:embed to another variable is a
+				// change.
+				at := sort.SearchInts(offsets, file.Offset(pos))
+				directives = append(directives, token{kind: "DIRECTIVE@" + strconv.Itoa(at), lit: lit})
 			}
 		}
 		if errs.Len() > 0 {

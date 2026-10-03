@@ -23,6 +23,7 @@ import (
 	"github.com/open-platform-model/docs-kit/internal/oci"
 	"github.com/open-platform-model/docs-kit/internal/publish"
 	"github.com/open-platform-model/docs-kit/internal/tags"
+	"github.com/open-platform-model/docs-kit/internal/verify"
 )
 
 // DefaultMain is the ref a fix must be on.
@@ -40,6 +41,10 @@ type Options struct {
 	Config   string // "" reads docs-kit.cue in the release tree, else in Repo
 	Tool     string // the opm-docs version, without "v"
 	Client   *oci.Client
+	// Verifier and Policy check the signature of the revision whose
+	// fixes are read, as pull does, before its source.patches is trusted.
+	Verifier func() (*verify.Verifier, error)
+	Policy   verify.Policy
 }
 
 // Result is the revision built.
@@ -85,49 +90,44 @@ func Run(ctx context.Context, o Options) (*Result, error) {
 	if repo.IsAncestor(ctx, o.Fix, commit) {
 		return nil, fmt.Errorf("the fix %s is already in the release %s; nothing to revise", o.Fix, o.Tag)
 	}
-	newest, err := published(ctx, o, version, commit)
+	reg, err := o.Client.Repository(o.Registry + "/" + o.Project)
 	if err != nil {
 		return nil, err
 	}
-	next, prior, rebuilt := newest.revision+1, newest.patches, false
-	if i := slices.Index(prior, o.Fix); i >= 0 {
-		// A re-run of a revision that failed after its push: the newest
-		// revision ends with this fix and was never promoted, so it is
-		// built again, to the same digest, and the workflow signs and
-		// promotes it.
-		if i != len(prior)-1 || newest.promoted {
-			return nil, fmt.Errorf("the fix %s is already applied in %s.%d; nothing to revise", o.Fix, version, newest.revision)
-		}
-		next, prior, rebuilt = newest.revision, prior[:i], true
+	p := &plan{o: o, reg: reg, version: version, commit: commit}
+	if err := p.read(ctx); err != nil {
+		return nil, err
 	}
-	for _, p := range prior {
-		if err := repo.CheckFix(ctx, p, o.Main); err != nil {
-			return nil, fmt.Errorf("%s.%d lists the fix %s, which no longer checks out: %w", version, newest.revision, p, err)
+	for _, f := range p.prior {
+		if err := repo.CheckFix(ctx, f, o.Main); err != nil {
+			return nil, fmt.Errorf("%s.%d lists the fix %s, which no longer checks out: %w", version, p.newest.revision, f, err)
 		}
 	}
-	patches := append(slices.Clone(prior), o.Fix)
+	patches := append(slices.Clone(p.prior), o.Fix)
 	w, err := repo.AddWorktree(ctx, "refs/tags/"+o.Tag)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = w.Remove(ctx) }()
-	if err := apply(ctx, repo, w, o.Tag, patches); err != nil {
+	picked, err := apply(ctx, repo, w, o.Tag, patches)
+	if err != nil {
 		return nil, err
 	}
 	results, err := build.Run(ctx, build.Options{
-		Config:   buildConfig(o, w.Dir),
-		Projects: []string{o.Project},
-		Out:      o.Out,
-		Source:   w.Dir,
-		Release:  o.Tag,
-		Tool:     o.Tool,
-		Revision: next,
-		Patches:  patches,
+		Config:     buildConfig(o, w.Dir),
+		Projects:   []string{o.Project},
+		Out:        o.Out,
+		Source:     w.Dir,
+		Release:    o.Tag,
+		Tool:       o.Tool,
+		Revision:   p.next,
+		Patches:    patches,
+		PatchDates: picked.Dates,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &Result{Dir: results[0].Dir, Version: version, Revision: next, Patches: patches, Pages: results[0].Pages, Rebuilt: rebuilt}, nil
+	return &Result{Dir: results[0].Dir, Version: version, Revision: p.next, Patches: patches, Pages: results[0].Pages, Rebuilt: p.rebuilt}, nil
 }
 
 // release checks the tag against the project's prefix and returns its
@@ -158,48 +158,150 @@ func release(ctx context.Context, o Options, repo gitsrc.Repo) (version, commit 
 	return version, commit, nil
 }
 
-// newestRevision is the newest published revision of a version.
-type newestRevision struct {
+// pushedRevision is one published revision of the release.
+type pushedRevision struct {
 	revision int
-	patches  []string // the fixes it applied, oldest first
-	promoted bool     // the release tag names it
+	digest   string
+	manifest *bundle.Manifest
 }
 
-// published reads the newest published revision of version.
-func published(ctx context.Context, o Options, version, commit string) (newestRevision, error) {
-	var none newestRevision
-	r, err := o.Client.Repository(o.Registry + "/" + o.Project)
+// plan decides which revision to build and on which fixes.
+type plan struct {
+	o       Options
+	reg     *oci.Repo
+	version string
+	commit  string
+	builds  []tags.Build
+	newest  pushedRevision
+	next    int      // the revision to build
+	prior   []string // the fixes to apply before the new one
+	rebuilt bool
+}
+
+// read finds the newest published revision and decides. A new fix goes on
+// top of a signed newest revision. A re-run of a revision that failed
+// after its push (the fix is the newest revision's last, and that revision
+// is not promoted) builds the same revision again; when it was never
+// signed, its fixes are trusted only as the signed revision before it plus
+// this fix.
+func (p *plan) read(ctx context.Context) error {
+	var err error
+	if p.builds, err = publish.ReleaseBuilds(ctx, p.reg); err != nil {
+		return err
+	}
+	v, _ := tags.ParseVersion(p.version)
+	next, err := tags.NextRevision(v, p.builds)
 	if err != nil {
-		return none, err
+		return fmt.Errorf("%s has no published release in %s (%s.0): publish the release first: dispatch mode: release", p.o.Tag, p.reg.Name, p.version)
 	}
-	builds, err := publish.ReleaseBuilds(ctx, r)
+	if p.newest, err = p.fetch(ctx, next-1); err != nil {
+		return err
+	}
+	patches := p.newest.manifest.Source.Patches
+	i := slices.Index(patches, p.o.Fix)
+	if i < 0 {
+		if err := p.signed(ctx, p.newest); err != nil {
+			return fmt.Errorf("%w; finish the run that pushed it first: re-run it, or dispatch mode: revision with its last fix", err)
+		}
+		p.next, p.prior = next, patches
+		return nil
+	}
+	promoted, err := p.promoted(ctx, p.newest)
 	if err != nil {
-		return none, err
+		return err
 	}
-	v, _ := tags.ParseVersion(version)
-	next, err := tags.NextRevision(v, builds)
+	if i != len(patches)-1 || promoted {
+		return fmt.Errorf("the fix %s is already applied in %s.%d; nothing to revise", p.o.Fix, p.version, p.newest.revision)
+	}
+	if t := p.newest.manifest.Tool; t != p.o.Tool {
+		return fmt.Errorf("%s.%d ends with this fix but is not promoted, and it was built by opm-docs %s, not %s, so building it again would not give the pushed bytes: re-run it with .opm-docs-version at v%s", p.version, p.newest.revision, t, p.o.Tool, t)
+	}
+	if err := p.signed(ctx, p.newest); err != nil {
+		if err := p.trustedBefore(ctx, patches[:i]); err != nil {
+			return err
+		}
+	}
+	p.next, p.prior, p.rebuilt = p.newest.revision, patches[:i], true
+	return nil
+}
+
+// trustedBefore accepts the fixes of an unsigned revision n when revision
+// n-1 is signed and applied exactly those.
+func (p *plan) trustedBefore(ctx context.Context, prior []string) error {
+	n := p.newest.revision
+	if n == 0 {
+		return fmt.Errorf("%s.0 is not signed; publish the release first: re-run its release", p.version)
+	}
+	prev, err := p.fetch(ctx, n-1)
 	if err != nil {
-		return none, fmt.Errorf("%s has no published release in %s (%s.0): publish the release first: dispatch mode: release", o.Tag, r.Name, version)
+		return err
 	}
-	newest := fmt.Sprintf("%s.%d", version, next-1)
-	m, digest, err := fetchManifest(ctx, r, newest)
+	if err := p.signed(ctx, prev); err != nil {
+		return fmt.Errorf("%s.%d is not signed and neither is %w", p.version, n, err)
+	}
+	if !slices.Equal(prev.manifest.Source.Patches, prior) {
+		return fmt.Errorf("%s.%d is not signed, and its fixes %v are not those of %s.%d plus this one", p.version, n, p.newest.manifest.Source.Patches, p.version, n-1)
+	}
+	return nil
+}
+
+// fetch reads revision n of the release, checking it is that revision of
+// that release built from the tag's commit.
+func (p *plan) fetch(ctx context.Context, n int) (pushedRevision, error) {
+	full := fmt.Sprintf("%s.%d", p.version, n)
+	m, digest, err := fetchManifest(ctx, p.reg, full)
 	if err != nil {
-		return none, err
+		return pushedRevision{}, err
 	}
-	if m.Version != version || m.Revision != next-1 || m.Project != o.Project {
-		return none, fmt.Errorf("%s:%s holds %s %s.%d, not %s %s", r.Name, newest, m.Project, m.Version, m.Revision, o.Project, newest)
+	if m.Version != p.version || m.Revision != n || m.Project != p.o.Project {
+		return pushedRevision{}, fmt.Errorf("%s:%s holds %s %s.%d, not %s %s", p.reg.Name, full, m.Project, m.Version, m.Revision, p.o.Project, full)
 	}
-	if m.Source.Commit != commit {
-		return none, fmt.Errorf("%s:%s was built from %s, but %s is %s; a revision applies fixes to the tree that release was built from", r.Name, newest, m.Source.Commit, o.Tag, commit)
+	if m.Source.Commit != p.commit {
+		return pushedRevision{}, fmt.Errorf("%s:%s was built from %s, but %s is %s; a revision applies fixes to the tree that release was built from", p.reg.Name, full, m.Source.Commit, p.o.Tag, p.commit)
 	}
-	promoted := false
-	switch cur, err := r.Resolve(ctx, version); {
-	case err == nil:
-		promoted = cur.Digest.String() == digest
-	case !oci.IsNotFound(errors.Unwrap(err)) && !oci.IsNotFound(err):
-		return none, err
+	return pushedRevision{revision: n, digest: digest, manifest: m}, nil
+}
+
+// signed verifies a revision's signature under the policy pull applies.
+func (p *plan) signed(ctx context.Context, r pushedRevision) error {
+	if p.o.Verifier == nil {
+		return fmt.Errorf("%s.%d: no signature verifier configured", p.version, r.revision)
 	}
-	return newestRevision{revision: next - 1, patches: m.Source.Patches, promoted: promoted}, nil
+	v, err := p.o.Verifier()
+	if err != nil {
+		return err
+	}
+	desc, err := p.reg.Resolve(ctx, r.digest)
+	if err != nil {
+		return err
+	}
+	if _, err := v.Digest(ctx, p.reg.Graph(), desc, p.o.Policy); err != nil {
+		return fmt.Errorf("%s.%d (%s) is not signed by docs-kit's publish workflow for this repository: %w", p.version, r.revision, r.digest, err)
+	}
+	return nil
+}
+
+// promoted reports a revision every moving tag promote would move to it
+// already names. A partly promoted revision is not: building it again and
+// promoting it moves the rest.
+func (p *plan) promoted(ctx context.Context, r pushedRevision) (bool, error) {
+	d, err := tags.NewBuild(p.version, r.revision, r.digest)
+	if err != nil {
+		return false, err
+	}
+	for _, t := range tags.Promotion(d, p.builds) {
+		cur, err := p.reg.Resolve(ctx, t)
+		if err != nil {
+			if oci.IsNotFound(errors.Unwrap(err)) || oci.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		if cur.Digest.String() != r.digest {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 // fetchManifest reads manifest.json of a pushed build: the layer is
@@ -232,24 +334,36 @@ func fetchManifest(ctx context.Context, r *oci.Repo, tag string) (bm *bundle.Man
 	return bm, desc.Digest.String(), nil
 }
 
-// apply picks the patches onto the release tree and refuses anything but
+// apply picks the patches onto the release tree and refuses a tree with
+// anything else in it, a last fix that changes nothing, and anything but
 // documentation.
-func apply(ctx context.Context, repo gitsrc.Repo, w *gitsrc.Worktree, tag string, patches []string) error {
-	if err := w.CherryPick(ctx, patches); err != nil {
-		return err
-	}
-	tree, err := w.IndexTree(ctx)
+func apply(ctx context.Context, repo gitsrc.Repo, w *gitsrc.Worktree, tag string, patches []string) (*gitsrc.Picked, error) {
+	picked, err := w.CherryPick(ctx, patches)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	if dirty, err := w.Unstaged(ctx); err != nil || dirty {
+		if err == nil {
+			err = fmt.Errorf("applying the fixes left files in the work tree that are not in its index; nothing is built")
+		}
+		return nil, err
+	}
+	before := picked.Base
+	if len(picked.Trees) > 1 {
+		before = picked.Trees[len(picked.Trees)-2]
+	}
+	tree := picked.Trees[len(picked.Trees)-1]
+	if tree == before {
+		return nil, fmt.Errorf("the fix %s changes nothing in the release tree with the earlier fixes applied; nothing to revise", patches[len(patches)-1])
 	}
 	refused, err := repo.DocumentationOnly(ctx, "refs/tags/"+tag, tree)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if len(refused) > 0 {
-		return &RefusedError{Fix: patches[len(patches)-1], Refused: refused}
+		return nil, &RefusedError{Fix: patches[len(patches)-1], Refused: refused}
 	}
-	return nil
+	return picked, nil
 }
 
 // buildConfig is the config build reads: --config when given, else the

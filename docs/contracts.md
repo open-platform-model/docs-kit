@@ -643,30 +643,35 @@ Syntax `opm-docs <command> [args] [flags]`. Exit codes: `0` success, `1` usage e
 | `revise` | `--project`, `--tag`, `--fix` (required), `--out` (path, `out`), `--registry` (string, `ghcr.io/open-platform-model/docs`), `--config` (path; default `docs-kit.cue` in the release tree, else the current directory) | Build the next docs revision of a published release into `out/<project>/` ("Docs revisions" below). Pushes nothing. Exit `1` for a missing flag or an invalid config, `2` when a step refuses. |
 | `version` | none | Print `opm-docs <version>`. |
 
-`build` also takes the hidden `--revision` (int, `0`) and `--patches` (commits, repeatable) that `revise` passes: they write `revision` and `source.patches` (C3), need `--release`, and accept a work tree that is exactly the release commit plus the staged fixes.
+`build` also takes the hidden `--revision` (int, `0`) and `--patches` (commits, repeatable) that `revise` passes: they write `revision` and `source.patches` (C3), need `--release`, and record `source.dirty` when the work tree differs from its index (the staged fixes). Run by hand, without `revise`, a patched file keeps its `lastmod` at the release commit.
 
 ## Docs revisions
 
 A published release's pages change only through a docs revision (DESIGN decision 6): its full tag is never overwritten, so the fix is built as the next revision of the same version. `opm-docs revise --project P --tag T --fix F` runs in the checkout of `main` (the workflow's `revision` mode) and takes these steps; each refusal exits `2` with the message shown:
 
-1. **The fix.** `F` is a full 40-hex hash of a commit with exactly one parent that is an ancestor of `origin/main` ("the fix must land on main first"; "has 2 parents ... not a merge"), and not already in `T` ("already in the release").
-2. **The release.** `T` carries the project's tag prefix (from the checkout's `docs-kit.cue`, or `--config`), and the registry holds revision `0` of its version `V` ("publish the release first: dispatch mode: release"). The next revision is `1 +` the highest published for `V` (C4 rule 3).
-3. **The fixes so far.** The newest published revision's `manifest.json` (its layer unpacked with every check `pull` applies) must name `V`, that revision and `T`'s commit as `source.commit`. Its `source.patches` (empty for revision `0`) plus `F` is the new list. `F` already in the list is refused ("already applied in `V.<n>`"), except a re-run: when `F` is the last fix of revision `n` and the release tag `V` does not name revision `n` (pushed, never promoted), revision `n` is built again with the same list. The build is deterministic, so `push` finds the same digest and writes nothing, and signing and promote finish the run. Every earlier fix is checked again as in step 1.
-4. **The patched tree.** `git worktree add --detach <tmp> T`, then `git cherry-pick --no-commit` of each fix in order. A conflict is refused naming the files ("land one fix on main that makes the whole change and revise with that"). The worktree is removed on every path.
+1. **The fix.** `F` is a full 40-hex (SHA-1) hash of a commit with exactly one parent that is an ancestor of `origin/main` ("the fix must land on main first"; "has 2 parents ... not a merge"), and not already in `T` ("already in the release"). A SHA-256 repository is not supported.
+2. **The release.** `T` carries the project's tag prefix (from the checkout's `docs-kit.cue`, or `--config`), and the registry holds revision `0` of its version `V` ("publish the release first: dispatch mode: release"); a later revision without revision `0` does not count. The next revision is `1 +` the highest published for `V` (C4 rule 3).
+3. **The fixes so far.** The newest published revision `n`'s `manifest.json` (its layer unpacked with every check `pull` applies) must name `V`, `n` and `T`'s commit as `source.commit`. Its `source.patches` (empty for revision `0`) are trusted only after its signature verifies under the C9 policy, with the repository from `GITHUB_REPOSITORY` (as `promote`); an unsigned newest revision is refused ("finish the run that pushed it first"). Its `source.patches` plus `F` is the new list. `F` already in the list is refused ("already applied in `V.<n>`"), except a re-run of a run that failed after its push:
+   - `F` is the last fix of revision `n`, and revision `n` is not promoted: some tag that `promote` would move to it (C4 rule 5) does not name it yet;
+   - revision `n` was built by the running `opm-docs` version (its `tool`), else refused, since another version would not rebuild the pushed bytes;
+   - when revision `n` is unsigned, revision `n-1` is signed and its fixes plus `F` are exactly revision `n`'s.
+
+   Then revision `n` is built again with the same list. The build is deterministic, so `push` finds the same digest and writes nothing, and signing and promote finish the run. Every earlier fix is checked again as in step 1.
+4. **The patched tree.** `git worktree add --detach <tmp> T`, then `git cherry-pick --no-commit` of each fix in order. A conflict is refused naming the files ("land one fix on main that makes the whole change and revise with that"). After each pick the index is written as a tree, and the paths that pick changed in it (so a file main renamed after the release counts under its release-tree name) take the pick's committer date. A work tree that differs from its index afterwards is refused, and so is an `F` that leaves the tree unchanged ("changes nothing in the release tree"). The worktree is removed on every path.
 5. **Documentation only.** `T`'s tree and the worktree's index (`git write-tree`) are compared with `git diff-tree -r -M`:
 
    | Path | Allowed |
    |---|---|
-   | `*.md` | added, changed, renamed (from `.md`), removed |
+   | `*.md` | added, changed, renamed (from `.md`), removed; refused when any `.cue` file of `T` declares `@extern(embed)`, since CUE can then read a Markdown file as a value |
    | `*.cue` | changed only; both versions scanned with comments skipped give the same token sequence (a comma inserted at a line end equals a written one; interpolations resumed as the parser does) |
-   | `*.go` | changed only; both versions scanned with comments skipped give the same token sequence (an inserted semicolon equals a written one); the directive comments (`//go:build`, `//go:embed`, `//line`, `//export`, any `//word:word`, `// +build`) equal in order; never a file that imports `"C"` |
-   | a symlink or submodule, at any path | refused |
+   | `*.go` | changed only; both versions scanned with comments skipped give the same token sequence (an inserted semicolon equals a written one); the directive comments (`//go:build`, `//go:embed`, `//line`, `//export`, any `//word:word`, `// +build`) equal in order and each at the same place (the number of code tokens before it), so a directive moved to other code is refused; never a file that imports `"C"` |
+   | a symlink or submodule, at any path, before or after | refused |
    | anything else, or an added, renamed or removed `.cue` or `.go` file | refused |
 
    Layout is not compared: a comment added above a field moves the code below it, which a comparison of formatted output would refuse. A change to `metadata.description`, a default, a constraint or an attribute is a value change and refused. Every refusal is listed, one line per file, as `<path>: <why>; a change to code needs a patch release`.
-6. **The build.** `build --release T --source <tmp> --revision <n> --patches <list>` into `--out`: `source.commit` is `T`'s commit, `source.ref` is `T`, `created` is `T`'s commit time, and a patched file's `lastmod` is the committer date of the newest fix that touched it.
+6. **The build.** `build --release T --source <tmp> --revision <n> --patches <list>` into `--out`: `source.commit` is `T`'s commit, `source.ref` is `T`, `created` is `T`'s commit time, and a patched file's `lastmod` is the committer date of the newest fix that changed it (step 4).
 
-`revise` pushes nothing: the workflow's `push`, `cosign sign` and `promote` follow, as for a release, so a tag never points at an unsigned build. Edge is never revised; it is rebuilt on every push to `main`. A fix that changes code and documentation together is refused whole: split it, or ship a patch release.
+`revise` pushes nothing: the workflow's `push`, `cosign sign` and `promote` follow, as for a release, so a tag never points at an unsigned build. Edge is never revised; it is rebuilt on every push to `main`. Revisions of one release share its concurrency group (C5): GitHub keeps one pending run per group and cancels an older pending one, so a revision dispatched while two others wait may be cancelled and must be dispatched again. A fix that changes code and documentation together is refused whole: split it, or ship a patch release.
 
 ## Page renderer
 

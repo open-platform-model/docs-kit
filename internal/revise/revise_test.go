@@ -15,6 +15,8 @@ import (
 	"github.com/open-platform-model/docs-kit/internal/oci"
 	"github.com/open-platform-model/docs-kit/internal/ocitest"
 	"github.com/open-platform-model/docs-kit/internal/publish"
+	"github.com/open-platform-model/docs-kit/internal/verify"
+	"github.com/open-platform-model/docs-kit/internal/verify/sigtest"
 )
 
 const (
@@ -50,8 +52,12 @@ type env struct {
 	registry string
 	client   *oci.Client
 	repo     *oci.Repo
+	auth     *sigtest.Authority
 	release  string // the tag's commit
+	tool     string // the opm-docs version revise runs as
 }
+
+const owner = "example/demo"
 
 // newEnv makes a repository tagged demo-v1.2.3 with origin/main at HEAD,
 // and an empty registry.
@@ -72,7 +78,7 @@ func newEnv(t *testing.T) *env {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e := &env{t: t, r: r, registry: host + "/docs", client: c, repo: repo, release: r.Head()}
+	e := &env{t: t, r: r, registry: host + "/docs", client: c, repo: repo, auth: sigtest.New(t), release: r.Head(), tool: "0.2.0"}
 	e.syncMain()
 	return e
 }
@@ -107,9 +113,36 @@ func (e *env) push(dir string) *publish.PushResult {
 	return res
 }
 
-// promoteRelease points the release tag 1.2.3 at a pushed digest, as a
-// promote after signing does.
-func (e *env) promoteRelease(digest string) {
+// sign signs a pushed digest as the publish workflow of owner's main.
+func (e *env) sign(digest string) {
+	e.t.Helper()
+	d, err := e.repo.Resolve(context.Background(), digest)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	e.auth.Sign(e.t, e.repo.Graph(), d, sigtest.Publisher(owner))
+}
+
+// promote verifies and promotes a signed digest, as the workflow does.
+func (e *env) promote(digest string) {
+	e.t.Helper()
+	if _, err := publish.Promote(context.Background(), publish.PromoteOptions{Project: project, Digest: digest, Registry: e.registry,
+		Client: e.client, Verifier: e.auth.Verifier(e.t), Policy: sigtest.Policy(owner)}); err != nil {
+		e.t.Fatal(err)
+	}
+}
+
+// publishBuilt pushes, signs and promotes a built directory.
+func (e *env) publishBuilt(dir string) {
+	e.t.Helper()
+	d := e.push(dir).Digest
+	e.sign(d)
+	e.promote(d)
+}
+
+// tagAs points tag at a pushed digest by hand: a promote that stopped
+// half-way.
+func (e *env) tagAs(digest, tag string) {
 	e.t.Helper()
 	ctx := context.Background()
 	d, err := e.repo.Resolve(ctx, digest)
@@ -120,7 +153,7 @@ func (e *env) promoteRelease(digest string) {
 	if err != nil {
 		e.t.Fatal(err)
 	}
-	if err := e.repo.Tag(ctx, d, raw, "1.2.3"); err != nil {
+	if err := e.repo.Tag(ctx, d, raw, tag); err != nil {
 		e.t.Fatal(err)
 	}
 }
@@ -135,7 +168,7 @@ func (e *env) publishRelease() {
 	if _, err := build.Run(context.Background(), build.Options{Source: wt, Out: out, Release: tag, Tool: "0.1.0"}); err != nil {
 		e.t.Fatal(err)
 	}
-	e.push(filepath.Join(out, project))
+	e.publishBuilt(filepath.Join(out, project))
 }
 
 func (e *env) revise(fix string) (*Result, string, error) {
@@ -143,7 +176,8 @@ func (e *env) revise(fix string) (*Result, string, error) {
 	out := filepath.Join(e.t.TempDir(), "out")
 	res, err := Run(context.Background(), Options{
 		Repo: e.r.Dir, Project: project, Tag: tag, Fix: fix, Out: out,
-		Registry: e.registry, Tool: "0.2.0", Client: e.client,
+		Registry: e.registry, Tool: e.tool, Client: e.client,
+		Verifier: func() (*verify.Verifier, error) { return e.auth.Verifier(e.t), nil }, Policy: sigtest.Policy(owner),
 	})
 	return res, filepath.Join(out, project), err
 }
@@ -230,18 +264,7 @@ func TestRevisions(t *testing.T) {
 	if got := lastmod(m, "traits/backup.md"); got != gittest.Date {
 		t.Fatalf("an unpatched member's lastmod is %s, want the release's", got)
 	}
-	first := e.push(dir)
-
-	// A re-run after the push failed to sign or promote: 1.2.3.1 ends
-	// with the fix and the release tag does not name it, so it is built
-	// again, to the same digest, and the push writes nothing.
-	_, dir = e.built(fixA, 1, fixA)
-	if again := e.push(dir); !again.Existing || again.Digest != first.Digest {
-		t.Fatalf("the rebuilt revision is %s (existing %v), want %s unchanged", again.Digest, again.Existing, first.Digest)
-	}
-
-	// Once promoted, the fix again is refused.
-	e.promoteRelease(first.Digest)
+	e.publishBuilt(dir)
 	e.refused(fixA, "already applied in 1.2.3.1")
 
 	// The second revision carries the first fix: a Markdown fix.
@@ -253,13 +276,59 @@ func TestRevisions(t *testing.T) {
 	if got := lastmod(m, "_index.md"); got != fixDateB {
 		t.Fatalf("the patched landing's lastmod is %s", got)
 	}
-	e.push(dir)
-	if ts := e.tags(); !slices.Contains(ts, "1.2.3.2") {
-		t.Fatalf("tags %v", ts)
+	e.publishBuilt(dir)
+	if at, _ := e.repo.Resolve(context.Background(), "1.2"); at.Digest.String() == "" {
+		t.Fatal("1.2 does not resolve")
+	}
+}
+
+// A run that fails after its push is finished by running it again.
+func TestRerun(t *testing.T) {
+	e := newEnv(t)
+	e.publishRelease()
+	fixA := e.fix(fixDateA, map[string][2]string{landing: {"Every member is listed below.", "Every member is listed here."}})
+
+	// Pushed, never signed: rebuilt to the same digest, trusted because
+	// 1.2.3.0 is signed and 1.2.3.1 is 1.2.3.0's fixes plus this one.
+	_, dir := e.built(fixA, 1, fixA)
+	first := e.push(dir).Digest
+	_, dir = e.built(fixA, 1, fixA)
+	if again := e.push(dir); !again.Existing || again.Digest != first {
+		t.Fatalf("the rebuilt revision is %s (existing %v), want %s unchanged", again.Digest, again.Existing, first)
 	}
 
-	// 1.2.3.2 is not promoted, but fixA is not its last fix: refused.
+	// A new fix on top of an unsigned revision is refused.
+	fixB := e.fix(fixDateB, map[string][2]string{landing: {"Every member is listed here.", "Each member is listed here."}})
+	e.refused(fixB, "1.2.3.1 ("+first+") is not signed by docs-kit's publish workflow")
+
+	// Built by another opm-docs: building it again would not give the
+	// pushed bytes.
+	e.tool = "0.2.1"
+	e.refused(fixA, "built by opm-docs 0.2.0, not 0.2.1")
+	e.tool = "0.2.0"
+
+	// Signed and partly promoted: 1.2.3 moved, 1.2 and 1 did not. Rebuilt,
+	// so the promote that follows moves the rest.
+	e.sign(first)
+	e.tagAs(first, "1.2.3")
+	e.built(fixA, 1, fixA)
+	e.promote(first)
+	e.refused(fixA, "already applied in 1.2.3.1")
+
+	// fixA is not the last fix of the unpromoted 1.2.3.2: refused.
+	_, dir = e.built(fixB, 2, fixA, fixB)
+	e.push(dir)
 	e.refused(fixA, "already applied in 1.2.3.2")
+}
+
+func TestNoOpFix(t *testing.T) {
+	e := newEnv(t)
+	e.publishRelease()
+	// The second fix undoes the first; picked alone onto the release, it
+	// changes nothing.
+	e.fix(fixDateA, map[string][2]string{landing: {"Every member is listed below.", "Every member is listed here."}})
+	undo := e.fix(fixDateB, map[string][2]string{landing: {"Every member is listed here.", "Every member is listed below."}})
+	e.refused(undo, "changes nothing in the release tree")
 }
 
 func TestRefusals(t *testing.T) {
@@ -303,7 +372,7 @@ func TestRefusals(t *testing.T) {
 	}
 
 	// The wrong prefix.
-	_, err = Run(ctx, Options{Repo: e.r.Dir, Project: project, Tag: "v1.2.3", Fix: two, Out: t.TempDir(), Registry: e.registry, Tool: "0.2.0", Client: e.client})
+	_, err = Run(ctx, Options{Repo: e.r.Dir, Project: project, Tag: "v1.2.3", Fix: two, Out: t.TempDir(), Registry: e.registry, Tool: e.tool, Client: e.client})
 	if err == nil || !strings.Contains(err.Error(), `prefix "demo-v"`) {
 		t.Fatalf("wrong prefix: %v", err)
 	}
