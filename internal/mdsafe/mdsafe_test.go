@@ -34,6 +34,10 @@ func TestCheckRefuses(t *testing.T) {
 		{"reference definition", "[r]: javascript:x\n", "reference definition"},
 		{"protocol-relative", "[x](//evil.example/)\n", "is protocol-relative"},
 		{"heading attributes", "## Title {onclick=\"x\"}\n", "p.md:1: a heading attribute block"},
+		{"context marker in a code block", "    {{__hugo_ctx/}} x\n", "p.md:1: Hugo's internal context marker"},
+		{"backslash colon", "[x](javascript\\:alert(1))\n", "has the scheme javascript:"},
+		{"double reference", "[x](javascript&#38;colon;alert(1))\n", "has the scheme javascript:"},
+		{"backslash then reference", "[x](javascript\\&#58;alert(1))\n", "has the scheme javascript:"},
 		{"front matter offset", "---\ntitle: \"t\"\n---\n\n<b>x</b>\n", "p.md:5: raw HTML"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -64,7 +68,7 @@ func toHTML(t *testing.T, body []byte) []byte {
 	md := newMarkdown(goldmark.WithRendererOptions(html.WithUnsafe()))
 	var out bytes.Buffer
 	b, _ := splitFrontMatter(body)
-	if err := md.Convert(b, &out); err != nil {
+	if err := md.Convert(dedentMarkers(b), &out); err != nil {
 		t.Fatal(err)
 	}
 	return out.Bytes()
@@ -73,7 +77,7 @@ func toHTML(t *testing.T, body []byte) []byte {
 func probes(t *testing.T) map[string][]byte {
 	t.Helper()
 	files, err := filepath.Glob(filepath.Join("testdata", "probes", "*.md"))
-	if err != nil || len(files) != 24 {
+	if err != nil || len(files) != 33 {
 		t.Fatalf("%d probes: %v", len(files), err)
 	}
 	out := map[string][]byte{}
@@ -93,8 +97,10 @@ func TestProbesRaw(t *testing.T) {
 	for name, body := range probes(t) {
 		t.Run(name, func(t *testing.T) {
 			if vs := Check(Page{Path: name, Body: body}, Authored); len(vs) > 0 {
+				t.Logf("refused: %s", vs[0].Msg)
 				return
 			}
+			t.Log("accepted; checking it renders inert")
 			if h := toHTML(t, body); reActive.Match(h) {
 				t.Fatalf("accepted, and renders active HTML:\n%s", h)
 			}

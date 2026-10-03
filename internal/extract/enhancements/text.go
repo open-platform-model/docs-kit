@@ -11,17 +11,17 @@ import (
 )
 
 // clean applies the transforms, in order, to one source file's text:
-// refuse a Hugo shortcode delimiter; remove HTML comments; remove the
-// first heading; then, outside code fences, tag an untagged opening fence
-// "text", resolve every relative link and read a link whose text is its
-// target's file name as the target page's title, and escape a "<" that
-// would open raw HTML.
+// refuse a Hugo shortcode delimiter or context marker; remove HTML
+// comments; remove the first heading; then, outside code fences, tag an
+// untagged opening fence "text", resolve every relative link and read a
+// link whose text is its target's file name as the target page's title,
+// and escape a "<" that would open raw HTML.
 func (x *extraction) clean(file, text string) (string, error) {
 	text = strings.ReplaceAll(text, "\r\n", "\n")
 	raw := strings.Split(text, "\n")
 	for i, l := range raw {
-		if strings.Contains(l, "{{<") || strings.Contains(l, "{{%") {
-			return "", fmt.Errorf("%s:%d: holds a Hugo shortcode delimiter ({{< or {{%%), which the site would run; remove it", file, i+1)
+		if strings.Contains(l, "{{<") || strings.Contains(l, "{{%") || strings.Contains(l, "{{__hugo_ctx") {
+			return "", fmt.Errorf("%s:%d: holds a Hugo shortcode delimiter ({{< or {{%%) or Hugo's context marker ({{__hugo_ctx), which the site would act on; remove it", file, i+1)
 		}
 	}
 	lines, err := dropComments(file, raw)
@@ -467,8 +467,10 @@ func short(commit string) string {
 	return commit
 }
 
-// reAutolink is an autolink: "<https://...>" or "<name@host>".
-var reAutolink = regexp.MustCompile(`^<([A-Za-z][A-Za-z0-9+.-]*:[^<> ]*|[^<> @]+@[^<> @]+)>`)
+// reAutolink is a CommonMark autolink: a URI ("<https://...>", a scheme
+// of 2 to 32 characters, no blank, control character, "<" or ">") or an
+// email address in CommonMark's character set ("<name@host>").
+var reAutolink = regexp.MustCompile("^<([A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\\x00-\\x20\\x7f]*|[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*)>")
 
 // escapeHTML escapes, from byte from on, every "<" outside a code span
 // that would open raw HTML (a tag, a closing tag, a comment or a

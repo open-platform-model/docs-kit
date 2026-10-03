@@ -27,6 +27,14 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
+// The versions the check is pinned to: goldmark as Hugo HugoVersion builds
+// with it. A test compares GoldmarkVersion with the goldmark this binary is
+// built with, so a dependency bump that drifts from the site's Hugo fails.
+const (
+	HugoVersion     = "0.167.0"
+	GoldmarkVersion = "v1.8.6"
+)
+
 // Mode selects the pages a check is for. Today every mode applies the same
 // rules; the mode names the producer, so a later rule can differ by it
 // (docs-kit#27 runs the check on every generated page).
@@ -71,14 +79,21 @@ func newMarkdown(opts ...goldmark.Option) goldmark.Markdown {
 }
 
 // Check parses a page and returns every construct it refuses, in source
-// order: raw HTML (inline or a block, comments included), a link, image,
-// autolink or reference definition whose destination has a scheme other
-// than http, https or mailto or is protocol-relative ("//host"), and a
-// heading attribute block.
+// order: Hugo's internal context marker, raw HTML (inline or a block,
+// comments included), a link, image, autolink or reference definition
+// whose destination has a scheme other than http, https or mailto or is
+// protocol-relative ("//host"), and a heading attribute block.
+//
+// Hugo rewrites a page before goldmark sees it: it un-indents every line
+// that starts with its context marker, "{{__hugo_ctx" (hugocontext
+// DedentMarkers, Hugo 0.167.0), so an indented code block can become live
+// markup. The marker is refused wherever it appears, code included, and
+// the body is parsed as Hugo would parse it after that step.
 func Check(p Page, _ Mode) []Violation {
 	body, offset := splitFrontMatter(p.Body)
-	doc := markdown.Parser().Parse(text.NewReader(body))
-	c := &checker{page: p, src: body, offset: offset}
+	c := &checker{page: p, src: dedentMarkers(body), offset: offset}
+	c.markers(body)
+	doc := markdown.Parser().Parse(text.NewReader(c.src))
 	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if entering {
 			c.node(n)
@@ -89,11 +104,37 @@ func Check(p Page, _ Mode) []Violation {
 	return c.out
 }
 
+// hugoMarker opens Hugo's internal context marker, and reIndentedMarker
+// is a marker line Hugo un-indents (hugocontext.hugoCtxIndentedRe).
+var (
+	hugoMarker       = []byte("{{__hugo_ctx")
+	reIndentedMarker = regexp.MustCompile(`(?m)^[ \t]+({{__hugo_ctx[^\n]*}})`)
+)
+
+// dedentMarkers is Hugo's DedentMarkers: it removes the indentation of
+// every line that starts with a context marker. It keeps every line.
+func dedentMarkers(b []byte) []byte {
+	if !bytes.Contains(b, hugoMarker) {
+		return b
+	}
+	return reIndentedMarker.ReplaceAll(b, []byte("$1"))
+}
+
 type checker struct {
 	page   Page
 	src    []byte
 	offset int // lines of front matter before src
 	out    []Violation
+}
+
+// markers refuses every line of body holding Hugo's context marker.
+func (c *checker) markers(body []byte) {
+	for i, l := range bytes.Split(body, []byte("\n")) {
+		if bytes.Contains(l, hugoMarker) {
+			c.out = append(c.out, Violation{Path: c.page.Path, Line: c.offset + i + 1,
+				Msg: "Hugo's internal context marker {{__hugo_ctx; Hugo rewrites the page around it, so remove it"})
+		}
+	}
 }
 
 func (c *checker) add(n ast.Node, msg string) {
@@ -125,12 +166,13 @@ func (c *checker) node(n ast.Node) {
 var reScheme = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9+.-]*):`)
 
 // dest refuses a destination with a scheme other than http, https or
-// mailto, or one starting "//". The renderer resolves character
-// references in a destination ("javascript&colon;"), and a browser strips
-// leading control characters and blanks and drops tabs and line breaks
-// inside a URL, so the scheme is read as both would.
+// mailto, or one starting "//". The renderer decodes a destination as
+// util.URLEscape(dest, true) does (backslash escapes, then numeric, then
+// named character references), here repeated until nothing changes, and
+// a browser strips leading control characters and blanks and drops tabs
+// and line breaks inside a URL, so the scheme is read as both would.
 func (c *checker) dest(n ast.Node, what string, d []byte) {
-	r := util.ResolveNumericReferences(util.ResolveEntityNames(d))
+	r := decode(d)
 	u := strings.Map(func(r rune) rune {
 		if r == '\t' || r == '\n' || r == '\r' {
 			return -1
@@ -151,6 +193,18 @@ func (c *checker) dest(n ast.Node, what string, d []byte) {
 		return
 	}
 	c.add(n, fmt.Sprintf("%s %q has the scheme %s:; link with http, https or mailto", what, string(d), m[1]))
+}
+
+// decode applies goldmark's destination decoding until it is stable.
+func decode(d []byte) []byte {
+	for i := 0; i < 16; i++ {
+		next := util.ResolveEntityNames(util.ResolveNumericReferences(util.UnescapePunctuations(d)))
+		if bytes.Equal(next, d) {
+			break
+		}
+		d = next
+	}
+	return d
 }
 
 // line is the 1-based line of the body a node starts on: its own position,
