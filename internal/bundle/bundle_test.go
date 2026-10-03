@@ -258,3 +258,38 @@ func TestUnpackRefuses(t *testing.T) {
 		})
 	}
 }
+
+// A page's edit is optional: a bundle written before it parses. A docs
+// bundle's authored page keeps it; a tab bundle's page may not carry it.
+func TestPageEdit(t *testing.T) {
+	raw, _ := os.ReadFile("testdata/tree/manifest.json")
+	m, err := Parse("manifest.json", raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range m.Pages {
+		if p.Edit != "" {
+			t.Fatalf("an older bundle's page has edit %q", p.Edit)
+		}
+	}
+	tab := strings.Replace(string(raw), `"generated": true`, `"generated": false, "edit": "docs/catalogs/opm/_index.md"`, 1)
+	if tab == string(raw) {
+		t.Fatal("replacement did not apply")
+	}
+	if _, err := Parse("manifest.json", []byte(tab)); err == nil || !strings.Contains(err.Error(), "edit") {
+		t.Fatalf("a tab bundle's page with edit: err = %v", err)
+	}
+	docs := strings.Replace(tab, `"kind": "tab",
+    "root": "/catalogs/opm/"`, `"kind": "docs",
+    "root": "/docs/"`, 1)
+	if docs == tab {
+		t.Fatal("placement replacement did not apply")
+	}
+	m, err = Parse("manifest.json", []byte(docs))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Pages[0].Edit != "docs/catalogs/opm/_index.md" {
+		t.Fatalf("pages %+v", m.Pages)
+	}
+}

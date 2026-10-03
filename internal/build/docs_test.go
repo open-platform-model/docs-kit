@@ -198,3 +198,18 @@ func TestBadDataFile(t *testing.T) {
 		}
 	}
 }
+
+// A committed generated page left in the markdown dir collides with the
+// extractor's page of the same path, naming both sources.
+func TestDocsCommittedGeneratedPage(t *testing.T) {
+	_, _, err := docsBuild(t, []string{"reference/"}, []string{"reference/a.md", "reference/components.md"},
+		map[string]string{"docs/site/reference/components.md": authoredOps})
+	if err == nil {
+		t.Fatal("no collision")
+	}
+	for _, w := range []string{"content/reference/components.md", "markdown docs/site", "fake"} {
+		if !strings.Contains(err.Error(), w) {
+			t.Errorf("error %q does not name %q", err, w)
+		}
+	}
+}
