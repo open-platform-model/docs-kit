@@ -10,6 +10,9 @@
     ".": {
       "release-type": "go",
       "package-name": "opm-docs",
+      "exclude-paths": [
+        "cobradump"
+      ],
       "initial-version": "0.1.0",
       "changelog-path": "CHANGELOG.md",
       "changelog-sections": [
@@ -64,6 +67,16 @@
           "hidden": true
         }
       ]
+    },
+    "cobradump": {
+      "release-type": "go",
+      "package-name": "cobradump",
+      "component": "cobradump",
+      "include-component-in-tag": true,
+      "tag-separator": "/",
+      "initial-version": "0.1.0",
+      "draft": false,
+      "changelog-path": "CHANGELOG.md"
     }
   }
 }
