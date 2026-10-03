@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: docs-kit.cue configures the bundles a repository builds
-`build` and `check` SHALL read `docs-kit.cue` (or `--config`) and validate it against the embedded `#Config` schema before any extraction. A `package` clause in the file SHALL be optional and ignored. The file SHALL hold `bundles`, keyed by project, each with a `placement`, a `version` (`from: "tag"` and a tag `prefix`), at least one source of a kind the tool registers (`docs/contracts.md` C6 lists them, each with its options), and optionally `pins`. Every extractor source SHALL accept `citations` (`"strip"`, the default, or `"link"`); a `markdown` source SHALL accept `include`, a list of globs relative to its `dir`. A bundle SHALL hold at most one source of each extractor kind.
+`build` and `check` SHALL read `docs-kit.cue` (or `--config`) and validate it against the embedded `#Config` schema before any extraction. A `package` clause in the file SHALL be optional and ignored. The file SHALL hold `bundles`, keyed by project, each with a `placement`, a `version` (`from: "tag"` and a tag `prefix`), at least one source of a kind the tool registers (`docs/contracts.md` C6 lists them, each with its options), and optionally `pins`. Every extractor source SHALL accept `citations` (`"strip"`, the default, or `"link"`); a `markdown` source SHALL accept `include` and `exclude`, lists of patterns relative to its `dir` (a glob, or a directory ending `/` matching every file under it), copying a file that matches some `include` (all files when it is absent) and no `exclude`. A bundle SHALL hold at most one source of each extractor kind.
 
 #### Scenario: Package clause ignored
 - **WHEN** one `docs-kit.cue` starts with `package docs` and another has no package clause, with the same fields
@@ -18,6 +18,10 @@
 #### Scenario: Include selects one page
 - **WHEN** a `markdown` source has `dir: "docs/site"` and `include: ["reference/operator-resources.md"]`
 - **THEN** only that page is copied from `docs/site`
+
+#### Scenario: Exclude a committed generated directory
+- **WHEN** a `markdown` source has `dir: "docs/site"` and `exclude: ["reference/cli/"]`
+- **THEN** every page of `docs/site` except those under `reference/cli/` is copied
 
 #### Scenario: Citations linked
 - **WHEN** a source with `citations: "link"` documents a comment citing `0010:D28`

@@ -2,7 +2,7 @@
 
 ## Context
 
-Builds on `generalize-build-assembly` (registry, docs placement, completable pages, `include`, the `link` citation policy; C6, C15). The behavior to reproduce is opm-operator `hack/crdref`: it reads `config/crd/bases` (four CRDs), `config/samples`, and scans `internal/controller` for the controller of each kind, and writes the block between `<!-- BEGIN GENERATED ... -->` and `<!-- END GENERATED ... -->` in `docs/site/reference/operator-resources.md` (authored front matter and intro above it). The site serves it at `/docs/reference/operator-resources/`.
+Builds on `generalize-build-assembly` (registry, docs placement, completable pages, `exclude`, the `link` citation policy; C6, C15). The behavior to reproduce is opm-operator `hack/crdref`: it reads `config/crd/bases` (four CRDs), `config/samples`, and scans `internal/controller` for the controller of each kind, and writes the block between `<!-- BEGIN GENERATED ... -->` and `<!-- END GENERATED ... -->` in `docs/site/reference/operator-resources.md` (authored front matter and intro above it). The site serves it at `/docs/reference/operator-resources/`.
 
 ## Goals / Non-Goals
 
@@ -35,7 +35,13 @@ bundles: "opm-operator": {
 	placement: {kind: "docs", root: "/docs/", owns: ["reference/operator-resources.md"]}
 	version: {from: "tag", prefix: "v"}
 	sources: [
-		{kind: "markdown", dir: "docs/site", include: ["reference/operator-resources.md"]},
+		// The authored pages ship in the same bundle (docs/orchestration.md).
+		// While the site still builds the operator from git, the committed page
+		// holds crdref's block, which would collide with the generated entries,
+		// so it is excluded and the crd page stands alone with title and
+		// description. When the site reads the bundle, the operator deletes the
+		// block and this exclude, and the authored intro completes the page.
+		{kind: "markdown", dir: "docs/site", exclude: ["reference/operator-resources.md"]},
 		{
 			kind:        "crd"
 			dir:         "./config/crd/bases"

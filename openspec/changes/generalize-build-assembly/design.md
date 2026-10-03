@@ -6,9 +6,9 @@ Contracts read: C1 (projects), C3 (`manifest.json`, `#Placement` already allowin
 
 ## Goals / Non-Goals
 
-**Goals:** a registry any extractor plugs into; building and linting docs-placed bundles; completable pages; `include`; the citation policy; repository commands; pins in the manifest; the workflow job split; the project names of every later bundle.
+**Goals:** a registry any extractor plugs into; building and linting docs-placed bundles; completable pages; `include` and `exclude`; the citation policy; repository commands; pins in the manifest; the workflow job split; the project names of every later bundle.
 
-**Non-Goals:** any new extractor (four sibling changes); pulling docs bundles (`pull-docs-placement`); authored `docs/site` trees in bundles beyond `include` (phase 3, `add-authored-docs`).
+**Non-Goals:** any new extractor (four sibling changes); pulling docs bundles (`pull-docs-placement`); the edit path of authored pages (`add-authored-docs`).
 
 ## Decisions
 
@@ -109,19 +109,22 @@ Rules for a docs bundle (build exits 2 on each, naming the page and the config):
 
 A renderer page with `Completable: true` and an authored page at the same path from a `markdown` source of the same bundle combine: the authored front matter and body come first, unchanged, then one blank line and the generated body. The authored body must not contain the generated page's `Heading` line (exit 2 naming the file, as the catalog landing does today). The combined page is `generated: false` with the authored file as `source` (C3). Without an authored page, the generated page stands alone with its own front matter. The catalog landing becomes the first completable page (its heading `## Catalog members`; its output unchanged). A completable page's generated body never carries front matter of its own when completed; the renderer returns both forms.
 
-### D4. `markdown` `include`
+### D4. `markdown` `include` and `exclude`
 
 ```cue
 #Markdown: {
 	kind: "markdown"
 	dir:  =~"^[^/.][^.]*$"
-	// path.Match globs relative to dir, matched against each file's slash
-	// path; "**" is not special. Only matching files are copied. Absent: all.
+	// Patterns relative to dir, matched against each file's slash path: a
+	// path.Match glob ("**" is not special), or a directory ending "/",
+	// which matches every file under it. A file is copied when it matches
+	// some include (or include is absent) and no exclude.
 	include?: [string, ...string]
+	exclude?: [string, ...string]
 }
 ```
 
-An `include` glob that matches nothing fails a normal build ("`include` `reference/operator-resource.md` matches no file under `docs/site`") and is ignored when the config came from outside the source tree (a backfill), like a missing `dir` (C5). A link-pinning rule (C8) applies only to tab bundles; a docs bundle's authored pages are copied as written.
+A pattern that matches nothing fails a normal build ("`exclude` `reference/defintions/` matches no file under `docs/site`") and is ignored when the config came from outside the source tree (a backfill), like a missing `dir` (C5). The transition this serves: a repository adopting docs-kit ships `docs/site/` in its bundle with `exclude` naming its committed generated pages (they would collide with the extractor's pages), keeps them in git while the site still builds that repository from git, and deletes them and the `exclude` once the site reads the bundle (`docs/orchestration.md`). A link-pinning rule (C8) applies only to tab bundles; a docs bundle's authored pages are copied as written.
 
 ### D5. The citation policy
 
@@ -253,7 +256,7 @@ No new command or flag. `build` and `check` exit `1` for a config error (an unkn
 ## Durable decisions
 
 - C1 project table and naming rule: `docs/contracts.md` C1.
-- `placement.owns`, `pins` in the manifest: C3; config additions (`include`, `citations`, `pins`, the registry): C6; C8 gains the docs-bundle URL form `/docs/<page>/`.
+- `placement.owns`, `pins` in the manifest: C3; config additions (`include`, `exclude`, `citations`, `pins`, the registry): C6; C8 gains the docs-bundle URL form `/docs/<page>/`.
 - Repository commands: `docs/contracts.md` C14 (new). Docs placement build and lint rules, pins: C15 (new).
 - The job split and `setup-go`: C5.
 - `README.md`: the source-kind table and how to add an extractor (the registry); `AGENTS.md` layout tree gains `internal/command`.

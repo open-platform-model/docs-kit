@@ -12,10 +12,10 @@ A `crd` source SHALL read every `CustomResourceDefinition` in the YAML files of 
 - **THEN** `build` exits 2 naming both files
 
 ### Requirement: The crd page is one completable page
-The renderer SHALL write one page at the source's `page` path, one of the bundle's owned paths: per kind a `## <Kind>` entry with `### At a glance`, the printer-column table, `### Spec`, `### Status`, `### Example` when a sample exists, `### Notes`, `### Served by` when `reconciledBy` names a controller, and `### Enforcement`, in crdref's order and wording. The page SHALL be completable, so an included authored page with the same path supplies the front matter and intro. The entries SHALL match crdref's generated block for the same tree.
+The renderer SHALL write one page at the source's `page` path, one of the bundle's owned paths: per kind a `## <Kind>` entry with `### At a glance`, the printer-column table, `### Spec`, `### Status`, `### Example` when a sample exists, `### Notes`, `### Served by` when `reconciledBy` names a controller, and `### Enforcement`, in crdref's order and wording. The page SHALL be completable, so an authored page with the same path from a `markdown` source supplies the front matter and intro. The entries SHALL match crdref's generated block for the same tree.
 
 #### Scenario: Authored intro kept
-- **WHEN** the operator includes `docs/site/reference/operator-resources.md` holding front matter and an intro paragraph and no `## ModuleInstance` heading
+- **WHEN** a `markdown` source over `docs/site` supplies `reference/operator-resources.md` holding front matter and an intro paragraph and no `## ModuleInstance` heading
 - **THEN** the bundle's page is that front matter and intro followed by the four generated entries
 
 #### Scenario: Citation linked

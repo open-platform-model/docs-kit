@@ -1,6 +1,6 @@
 # Tasks: add-authored-docs
 
-Gate: `generalize-build-assembly` and `pull-docs-placement` are merged on docs-kit `main`. One PR, titled `feat: record the edit path of authored pages`.
+Gate: `generalize-build-assembly` is merged on docs-kit `main`; parallel with the extractor changes and `pull-docs-placement`. One PR, titled `feat: record the edit path of authored pages`.
 
 ## 1. The edit path
 

@@ -109,6 +109,10 @@ bundles: cli: {
 		title:       "CLI Reference"
 		description: "Every opm command and flag, generated from the CLI's cobra commands."
 		weight:      2
+	}, {
+		// Authored pages in the same bundle; the exclude goes with the
+		// committed generated pages (docs/orchestration.md).
+		kind: "markdown", dir: "docs/site", exclude: ["reference/cli/"]
 	}]
 }
 ```

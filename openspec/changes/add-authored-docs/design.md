@@ -37,15 +37,16 @@ What the site does with it (recorded in C8 so both sides agree):
 
 ### D2. Authored docs, one bundle per repository
 
-A repository has one docs-placed bundle. Its phase-2 generated reference and its authored `docs/site/` are sources of the same bundle; the committed generated pages are deleted before the `markdown` source covers `docs/site`, or the build refuses the collision. The configurations the phase-3 siblings write:
+A repository has one docs-placed bundle. Its generated reference and its authored `docs/site/` are sources of the same bundle, from the repository's adoption on: core, cli, library and opm-operator ship both at once (their phase-2 siblings), while their committed generated pages are excluded (`exclude`, C6) until the site reads the bundle and they are deleted; a committed generated page that is not excluded collides and fails the build. catalog_opm's docs and opm follow in phase 3. The configurations, as the siblings write them:
 
 ```cue
-// core: phase 2's bundle, plus its authored pages.
+// core, after its committed reference is deleted (before that, the markdown
+// source carries exclude: ["reference/definitions/"]).
 bundles: core: {
 	placement: {kind: "docs", root: "/docs/", owns: ["reference/definitions/"]}
 	version: {from: "tag", prefix: "v"}
 	sources: [
-		{kind: "cue-definitions", /* as in phase 2 */},
+		{kind: "cue-definitions", /* as add-cue-definitions-extractor D1 */},
 		{kind: "markdown", dir: "docs/site"},
 	]
 }

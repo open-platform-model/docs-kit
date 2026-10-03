@@ -42,6 +42,8 @@ bundles: library: {
 		section:     "reference/go-api/"
 		title:       "Go API"
 		description: "Every exported package of the OPM library, from its doc comments."
+	}, {
+		kind: "markdown", dir: "docs/site" // the library commits no generated pages
 	}]
 }
 ```

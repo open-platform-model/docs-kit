@@ -55,6 +55,10 @@ bundles: core: {
 			// ... the other seven pages of groups.go, in order
 		]
 		exclude: {"#BlueprintMap": "map shorthand", /* ... the rest of groups.go's excluded map */}
+	}, {
+		// core's authored pages ship in the same bundle (docs/orchestration.md);
+		// the exclude goes when the committed generated pages are deleted.
+		kind: "markdown", dir: "docs/site", exclude: ["reference/definitions/"]
 	}]
 }
 ```
