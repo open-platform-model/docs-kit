@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -111,7 +112,7 @@ func TestModel(t *testing.T) {
 	if len(m.Pages) != 2 || m.Pages[1].Weight != 2 {
 		t.Errorf("pages %+v", m.Pages)
 	}
-	if len(m.Excluded) != 2 || m.Excluded[0].Name != "#ComponentMap" || m.Excluded[0].Reason != "map shorthand" {
+	if len(m.Excluded) != 3 || m.Excluded[0].Name != "#ComponentMap" || m.Excluded[0].Reason != "map shorthand" {
 		t.Errorf("excluded %+v", m.Excluded)
 	}
 }
@@ -196,6 +197,9 @@ func TestPlacement(t *testing.T) {
 			[]string{`#Policy is placed on page "modules", but the package declares no such definition`}},
 		{"unknown excluded", func(c *Config) { c.Exclude["#Gone"] = "old" },
 			[]string{"#Gone is excluded, but the package declares no such definition"}},
+		{"anchors collide", func(c *Config) {
+			c.Pages[1].Definitions = append(c.Pages[1].Definitions, "#MODE")
+		}, []string{`#Mode and #MODE on page "types" share the anchor #mode`}},
 		{"placed and excluded", func(c *Config) { c.Exclude["#Mode"] = "x" },
 			[]string{`#Mode is placed on page "types" and also excluded`}},
 		{"all at once", func(c *Config) {
@@ -273,5 +277,44 @@ func TestText(t *testing.T) {
 		if got := stripNameLabel(in[0], in[1]); got != want {
 			t.Errorf("stripNameLabel(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// A placed definition whose doc comment yields no summary (missing, or
+// only rationale) fails a normal build; a backfill warns and leaves the
+// summary empty.
+func TestPlacementNoSummary(t *testing.T) {
+	for name, doc := range map[string]string{
+		"no doc comment": "",
+		"only rationale": "// WHY: maintainers only.\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			if err := os.CopyFS(root, os.DirFS("testdata/defs")); err != nil {
+				t.Fatal(err)
+			}
+			p := filepath.Join(root, "src", "module.cue")
+			b, err := os.ReadFile(p)
+			if err != nil {
+				t.Fatal(err)
+			}
+			b = bytes.Replace(b, []byte("// #Widget: shared fields every component embeds.\n"), []byte(doc), 1)
+			if err := os.WriteFile(p, b, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			cfg := loadConfig(t, "testdata/defs/config.cue")
+			_, err = Extract(Options{Root: root, Config: cfg, Version: "1.2.3"})
+			if err == nil || !strings.Contains(err.Error(), "#Widget (src/module.cue) has no summary") {
+				t.Fatalf("err = %v", err)
+			}
+			var warned []string
+			m, err := Extract(Options{Root: root, Config: cfg, Version: "1.2.3", Lenient: true, Warn: func(s string) { warned = append(warned, s) }})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(warned) != 1 || find(t, m, "#Widget").Summary != "" {
+				t.Fatalf("warnings %q, summary %q", warned, find(t, m, "#Widget").Summary)
+			}
+		})
 	}
 }

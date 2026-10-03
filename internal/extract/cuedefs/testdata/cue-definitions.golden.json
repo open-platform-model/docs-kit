@@ -186,6 +186,10 @@
       "reason": "map shorthand"
     },
     {
+      "name": "#MODE",
+      "reason": "differs from #Mode only in case"
+    },
+    {
       "name": "#Unused",
       "reason": "not documented"
     }

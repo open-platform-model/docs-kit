@@ -28,7 +28,7 @@ type Model struct {
 	// Intro is the section index's opening paragraph, Markdown as
 	// configured; "" when unset, and the renderer names the module path.
 	Intro string `json:"intro,omitempty"`
-	Pages       []Page `json:"pages"`
+	Pages []Page `json:"pages"`
 	// Definitions in page order, then in each page's configured order.
 	Definitions []Definition `json:"definitions"`
 	Excluded    []Excluded   `json:"excluded"` // by name

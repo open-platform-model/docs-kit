@@ -13,3 +13,6 @@ import "strings"
 
 // #Unused is declared but not on any page.
 #Unused: string
+
+// #MODE differs from #Mode only in case.
+#MODE: "FAST"

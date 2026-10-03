@@ -17,6 +17,7 @@ bundles: defs: {
 		exclude: {
 			"#ComponentMap": "map shorthand"
 			"#Unused":       "not documented"
+			"#MODE":         "differs from #Mode only in case"
 		}
 	}]
 }

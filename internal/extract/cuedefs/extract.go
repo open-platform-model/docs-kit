@@ -151,6 +151,7 @@ func place(cfg Config, defs map[string]*def) (pages []PageConfig, problems []str
 	for _, p := range cfg.Pages {
 		kept := p
 		kept.Definitions = nil
+		anchors := map[string]string{}
 		for _, n := range p.Definitions {
 			d, ok := defs[n]
 			switch {
@@ -160,12 +161,16 @@ func place(cfg Config, defs map[string]*def) (pages []PageConfig, problems []str
 			case placed[n] != "":
 				problems = append(problems, fmt.Sprintf("%s is placed on pages %q and %q; place it on one page", n, placed[n], p.File))
 				continue
+			case anchors[Anchor(n)] != "":
+				problems = append(problems, fmt.Sprintf("%s and %s on page %q share the anchor #%s; place one of them on another page", anchors[Anchor(n)], n, p.File, Anchor(n)))
+				continue
 			case cfg.Exclude[n] != "":
 				problems = append(problems, fmt.Sprintf("%s is placed on page %q and also excluded; remove it from one of them", n, p.File))
-			case len(d.doc) == 0:
-				problems = append(problems, fmt.Sprintf("%s (%s) has no doc comment; write one, its first sentence is the definition's summary", n, d.file))
+			case parseDoc(n, d.doc, doctext.Strip).summary == "":
+				problems = append(problems, fmt.Sprintf("%s (%s) has no summary: its doc comment is missing or holds nothing a reader sees; write one, its first sentence is the definition's summary", n, d.file))
 			}
 			placed[n] = p.File
+			anchors[Anchor(n)] = n
 			kept.Definitions = append(kept.Definitions, n)
 		}
 		if len(kept.Definitions) > 0 {
