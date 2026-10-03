@@ -634,7 +634,7 @@ Syntax `opm-docs <command> [args] [flags]`. Exit codes: `0` success, `1` usage e
 
 | Command | Flags (type, default) | Does |
 |---|---|---|
-| `build` | `--config` (path, `docs-kit.cue`), `--project` (string, repeatable; default every project), `--out` (path, `out`), `--source` (path, `.`), one of `--edge` (default) or `--release <tag>` | Extract, render, lint; write `out/<project>/`. A dirty work tree is allowed for a local preview and recorded as `source.dirty: true`, which `push` refuses. |
+| `build` | `--config` (path, `docs-kit.cue`), `--project` (string, repeatable; default every project), `--out` (path, `out`), `--source` (path, `.`), one of `--edge` (default) or `--release <tag>` | Extract, render, lint; write `out/<project>/`. With `--release`, a `cue-catalog` source must declare the tag's version (prefix removed) as its `metadata.version`, else exit `2` naming both (a docs revision, built through `--release`, likewise). A dirty work tree is allowed for a local preview and recorded as `source.dirty: true`, which `push` refuses. |
 | `lint` | `--bundle` (bool, false), `--dialect` (int, 1) | Lint one or more page directories (or bundle directories) against the dialect. |
 | `check` | `--config`, `--project` | `build` into a temporary directory; exit 2 on any failure. The PR gate. |
 | `push` | `--dir` (path, required), `--registry` (string, `ghcr.io/open-platform-model/docs`) | Validate, pack deterministically, push; write the full tag for a release build; print `{"digest": ..., "tag": ...}` as JSON on stdout. |

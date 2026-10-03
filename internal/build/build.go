@@ -318,6 +318,11 @@ func (s *assembly) cueCatalog(src config.Source) error {
 	if err != nil {
 		return fmt.Errorf("cue-catalog %s: %w", src.Module, err)
 	}
+	// A release bundle is tagged with the tag's version; the catalog must
+	// declare the same one, or its pages would contradict their tag.
+	if !s.id.build.Edge && model.Version != s.id.version {
+		return fmt.Errorf("--release %s names version %s, but the catalog %s declares metadata.version %q; build the tag of the catalog's version, or advance the catalog's version on the release commit", s.id.ref, s.id.version, src.Module, model.Version)
+	}
 	data, err := model.Encode()
 	if err != nil {
 		return err

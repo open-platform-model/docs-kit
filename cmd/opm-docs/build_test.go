@@ -68,3 +68,13 @@ func TestBuildAndCheck(t *testing.T) {
 		t.Fatalf("wrong prefix: exit %d: %s", code, errb.String())
 	}
 }
+
+func TestBuildRefusesTagVersionMismatch(t *testing.T) {
+	r := demoRepo(t)
+	t.Chdir(r.Dir)
+	r.Git("tag", "demo-v1.2.4")
+	var out, errb bytes.Buffer
+	if code := run([]string{"build", "--release", "demo-v1.2.4"}, &out, &errb); code != 2 || !strings.Contains(errb.String(), "version 1.2.4") || !strings.Contains(errb.String(), `"1.2.3"`) {
+		t.Fatalf("tag and catalog version differ: exit %d: %s", code, errb.String())
+	}
+}

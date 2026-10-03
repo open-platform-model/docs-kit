@@ -21,4 +21,4 @@
 
 #### Scenario: Tag and catalog version differ
 - **WHEN** `build --release opm-v4.6.0` runs on a tree whose catalog declares `metadata.version: "4.5.0"`
-- **THEN** `build` exits 2 naming `4.6.0` and `4.5.0`, and writes no bundle
+- **THEN** `build` exits 2 naming `4.6.0` and `4.5.0`, and writes no `manifest.json`
