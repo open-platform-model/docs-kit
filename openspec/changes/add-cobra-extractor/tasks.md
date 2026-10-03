@@ -4,9 +4,9 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`. One PR, titled `
 
 ## 1. cobradump
 
-- [ ] 1.1 `cobradump/go.mod` (module `github.com/open-platform-model/docs-kit/cobradump`, `go 1.26.0`, cobra and pflag), `Write` and `WritePins` (design.md D1, D2). Verify: `go -C cobradump test ./...` with a fixture tree covering hidden, deprecated, help, completion, inherited and persistent flags, a home default, and a golden `cobradump/testdata/dump.golden.json` written twice identically.
-- [ ] 1.2 `Taskfile.yml` and `.github/workflows/ci.yml`: `test`, `vet` and `lint` cover `cobradump/`; the constitution's commit scopes gain `cobradump`. Verify: `task check` runs the nested module's tests.
-- [ ] 1.3 `task check` green, then commit `feat(cobradump): print a cobra command tree and pins as JSON`.
+- [x] 1.1 `cobradump/go.mod` (module `github.com/open-platform-model/docs-kit/cobradump`, `go 1.26.0`, cobra and pflag), `Write` and `WritePins` (design.md D1, D2). Verify: `go -C cobradump test ./...` with a fixture tree covering hidden, deprecated, help, completion, inherited and persistent flags, a home default, and a golden `cobradump/testdata/dump.golden.json` written twice identically.
+- [x] 1.2 `Taskfile.yml` and `.github/workflows/ci.yml`: `test`, `vet` and `lint` cover `cobradump/`; the constitution's commit scopes gain `cobradump`. Verify: `task check` runs the nested module's tests.
+- [x] 1.3 `task check` green, then commit `feat(cobradump): print a cobra command tree and pins as JSON`.
 
 ## 2. The extractor and renderer
 
