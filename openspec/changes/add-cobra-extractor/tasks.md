@@ -10,11 +10,11 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`. One PR, titled `
 
 ## 2. The extractor and renderer
 
-- [ ] 2.1 `schema/config.cue`: `#Cobra` (D3). Verify: `go test ./schema/...`.
-- [ ] 2.2 `internal/extract/cobra`: run the command (C14), validate, write `data/cobra.json` (D4); its test reads `cobradump/testdata/dump.golden.json` through a stub command. Verify: `go test ./internal/extract/cobra/...`.
-- [ ] 2.3 `internal/render`: the cobra pages and the Long/Example parser ported from cli `internal/cmdref/text.go` with its tests (D4). Verify: golden pages for the fixture tree.
-- [ ] 2.4 `TestCLICommandParity` (skipped unless `OPM_CLI_CHECKOUT` names a cli checkout with `hack/docskit-dump`; until the cli has one, run against a scratch branch of the cli adding it): compare with cmdref's pages for the same tree. Verify: run it; record the cli commit and the result in design.md.
-- [ ] 2.5 `task check` green, then commit `feat(extract): add the cobra extractor`.
+- [x] 2.1 `schema/config.cue`: `#Cobra` (D3). Verify: `go test ./schema/...`.
+- [x] 2.2 `internal/extract/cobra`: run the command (C14), validate, write `data/cobra.json` (D4); its test reads `cobradump/testdata/dump.golden.json` through a stub command. Verify: `go test ./internal/extract/cobra/...`.
+- [x] 2.3 `internal/render`: the cobra pages and the Long/Example parser ported from cli `internal/cmdref/text.go` with its tests (D4). Verify: golden pages for the fixture tree.
+- [x] 2.4 `TestCLICommandParity` (skipped unless `OPM_CLI_CHECKOUT` names a cli checkout with `hack/docskit-dump`; until the cli has one, run against a scratch branch of the cli adding it): compare with cmdref's pages for the same tree. Verify: run it; record the cli commit and the result in design.md.
+- [x] 2.5 `task check` green, then commit `feat(extract): add the cobra extractor`.
 
 ## 3. Release plumbing
 

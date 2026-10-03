@@ -174,6 +174,19 @@ No new command or flag. Messages: "the dump from `go run ./hack/docskit-dump` ha
 
 **Decision**: the dump carries `Long` and `Example` raw; parsing stays in docs-kit's renderer, so presentation fixes ship with docs-kit, not with the cli.
 
+### Parity record (task 2.4)
+
+**Run**: 2026-10-03, `OPM_CLI_CHECKOUT=<cli worktree> go test ./internal/render/ -run TestCLICommandParity`, against cli `ebf0479b` (main, "fix contradictions in the CLI help text and install page") plus a scratch, uncommitted `hack/docskit-dump/main.go` calling `cobradump.Write(cmd.NewRootCmd(), os.Stdout, cobradump.Options{})`, with `cobradump` replaced by this branch's `cobradump/`. cmdref reported that tree's committed pages current (`go run ./hack/cmdref -check`).
+**Result**: pass. All ten pages (`_index.md` and nine `opm-<command>.md`) equal cmdref's committed pages byte for byte once the two marker comments are removed; the command runs twice (C14) and prints the same bytes. A one-word edit to a committed page fails the test, naming the page and the line.
+
+### Implementation notes (decided in implementation)
+
+- The dump's root also carries `path` (`CommandPath`, which honours a display-name annotation) and `runnable`, so the renderer derives the root's usage lines as cmdref does instead of reading a prepared string. Its `useLine` is cobra's own (`opm [flags]`), not the `opm [command]` the D2 sketch shows.
+- A command's `flags` leave out, like its `inheritedFlags`, any flag named like a root persistent flag, and every list leaves out the `help` flag, as cmdref does. The home directory becomes `~` wherever it occurs in a default (cmdref's rule), not only at the start.
+- The Long/Example parser lives in `internal/render/helptext` so its names cannot collide with sibling renderers in `internal/render`; `FenceLang` takes the CLI's name instead of cmdref's literal `opm`.
+- `citations` applies to formatted prose (paragraphs, list items, summaries, flag descriptions), never to preformatted blocks or examples; prose without a citation is unchanged, so the policy cannot break parity.
+- `cobradump` needs `github.com/inconshreveable/mousetrap` indirectly: cobra's own Windows dependency, not one of cobradump's.
+
 ## Risks / Trade-offs
 
 - `go run` in a release build needs the tag's Go toolchain; `setup-go` reads `src/go.mod` and `GOTOOLCHAIN=auto` covers a newer directive.

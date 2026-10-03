@@ -15,7 +15,7 @@ func TestSourceKinds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(kinds) != 2 || kinds[0] != "cue-catalog" || kinds[1] != "markdown" {
+	if len(kinds) != 3 || kinds[0] != "cue-catalog" || kinds[1] != "markdown" || kinds[2] != "cobra" {
 		t.Fatalf("kinds %v", kinds)
 	}
 }
