@@ -4,8 +4,21 @@
   "path": "demo",
   "short": "Demo manages widgets",
   "long": "Demo manages widgets and the gadgets they hold.",
+  "example": "demo widget list",
+  "aliases": [
+    "dm"
+  ],
   "useLine": "demo [flags]",
   "runnable": false,
+  "flags": [
+    {
+      "name": "dry",
+      "shorthand": "",
+      "type": "bool",
+      "default": "false",
+      "usage": "Dry run"
+    }
+  ],
   "globalFlags": [
     {
       "name": "config",
@@ -201,6 +214,13 @@
               "type": "int",
               "default": "1",
               "usage": "Replica count"
+            },
+            {
+              "name": "rootfs",
+              "shorthand": "",
+              "type": "string",
+              "default": "/home/uu/rootfs",
+              "usage": "Not under the home directory"
             },
             {
               "name": "template",

@@ -45,8 +45,14 @@ tasks:
     desc: Run golangci-lint (both modules)
     cmds:
       - golangci-lint run ./...
-      - cmd: golangci-lint run ./... # finds ../.golangci.yml
-        dir: cobradump
+      - task: lint:cobradump
+
+  lint:cobradump:
+    desc: Run golangci-lint in the nested cobradump module (finds ../.golangci.yml)
+    dir: cobradump
+    cmds:
+      - echo "golangci-lint cobradump/"
+      - golangci-lint run ./...
 
   tidy:
     desc: Tidy both Go modules

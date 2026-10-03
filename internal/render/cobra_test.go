@@ -98,6 +98,7 @@ func TestCobraPageFacts(t *testing.T) {
 		"| `--cache` |  | string | `~/.cache/demo` | Cache directory. |",
 		"| `--context` |  | string |  | Kubernetes context \\| cluster. |",
 		"| `--namespace` | `-n` | string | `default` | Target namespace. |",
+		"| `--rootfs` |  | string | `/home/uu/rootfs` | Not under the home directory. |",
 		"**Examples**\n\n```sh\n# Create from the built-in template\ndemo widget create web\n\ndemo widget create web --template ./tpl\n\ndemo widget create api\ndemo w create {{</* x */>}}\n```",
 		"- render the template\n- write the widget\n",
 	} {
@@ -105,7 +106,7 @@ func TestCobraPageFacts(t *testing.T) {
 			t.Errorf("demo-widget.md lacks %q", want)
 		}
 	}
-	for _, not := range []string{"--verbose", "--old", "--secret", "## demo widget secret", "## demo widget old", "/home/u"} {
+	for _, not := range []string{"--verbose", "--old", "--secret", "## demo widget secret", "## demo widget old", "/home/u/"} {
 		if strings.Contains(w, not) {
 			t.Errorf("demo-widget.md holds %q", not)
 		}

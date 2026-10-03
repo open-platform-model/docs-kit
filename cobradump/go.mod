@@ -1,6 +1,6 @@
 module github.com/open-platform-model/docs-kit/cobradump
 
-go 1.26.0
+go 1.18
 
 require (
 	github.com/spf13/cobra v1.10.2

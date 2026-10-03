@@ -25,10 +25,13 @@ func noop(*cobra.Command, []string) {}
 // Long and Example texts in the shapes the renderer parses.
 func fixtureRoot() *cobra.Command {
 	root := &cobra.Command{
-		Use:   "demo",
-		Short: "Demo manages widgets",
-		Long:  "Demo manages widgets and the gadgets they hold.",
+		Use:     "demo",
+		Short:   "Demo manages widgets",
+		Long:    "Demo manages widgets and the gadgets they hold.",
+		Example: "demo widget list",
+		Aliases: []string{"dm"},
 	}
+	root.Flags().Bool("dry", false, "Dry run")
 	root.PersistentFlags().String("config", "/home/u/.demo/config.cue", "Path to config file (env: DEMO_CONFIG)")
 	root.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
 	root.PersistentFlags().Bool("trace", false, "Trace everything")
@@ -80,6 +83,7 @@ under ./widgets/.`,
 	create.Flags().String("secret", "", "Hidden flag")
 	_ = create.Flags().MarkHidden("secret")
 	create.Flags().String("cache", "/home/u/.cache/demo", "Cache directory")
+	create.Flags().String("rootfs", "/home/uu/rootfs", "Not under the home directory")
 
 	list := &cobra.Command{Use: "list", Short: "List widgets", Run: noop, Aliases: []string{"ls"}}
 	hiddenCmd := &cobra.Command{Use: "secret", Short: "Hidden", Hidden: true, Run: noop}
@@ -117,7 +121,7 @@ func TestWriteGolden(t *testing.T) {
 		t.Fatal("two dumps of the same tree differ")
 	}
 	if *update {
-		if err := os.WriteFile(golden, got, 0o644); err != nil { //nolint:gosec // a test fixture
+		if err := os.WriteFile(golden, got, 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -130,48 +134,93 @@ func TestWriteGolden(t *testing.T) {
 	}
 }
 
-func TestWriteChoices(t *testing.T) {
+func decodeFixture(t *testing.T) dump {
+	t.Helper()
 	var d dump
 	if err := json.Unmarshal(dumpFixture(t), &d); err != nil {
 		t.Fatal(err)
 	}
-	var names []string
-	for _, c := range d.Commands {
-		names = append(names, c.Name)
+	return d
+}
+
+func names[T any](items []T, name func(T) string) string {
+	out := make([]string, 0, len(items))
+	for _, it := range items {
+		out = append(out, name(it))
 	}
-	if got := strings.Join(names, ","); got != "completion,version,widget" {
+	return strings.Join(out, ",")
+}
+
+func cmdName(c cmdEntry) string   { return c.Name }
+func flagName(f flagEntry) string { return f.Name }
+
+func TestWriteCommands(t *testing.T) {
+	d := decodeFixture(t)
+	if got := names(d.Commands, cmdName); got != "completion,version,widget" {
 		t.Fatalf("top-level commands = %s; want completion listed, help and the help topic left out", got)
 	}
-	widget := d.Commands[2]
-	var subs []string
-	for _, c := range widget.Commands {
-		subs = append(subs, c.Name)
-	}
-	if got := strings.Join(subs, ","); got != "create,list" {
+	if got := names(d.Commands[2].Commands, cmdName); got != "create,list" {
 		t.Fatalf("widget subcommands = %s; want hidden and deprecated left out", got)
 	}
-	if d.GlobalFlags[0].Name != "config" || d.GlobalFlags[0].Default != "~/.demo/config.cue" {
-		t.Fatalf("global flags = %+v; want the home default written with ~", d.GlobalFlags)
+	create := d.Commands[2].Commands[0]
+	if !strings.HasPrefix(create.Long, "Create a widget from a template.\n\n\tThe template") {
+		t.Fatalf("Long is not raw: %q", create.Long)
 	}
-	for _, f := range d.GlobalFlags {
-		if f.Name == "trace" {
-			t.Fatal("a hidden global flag is dumped")
-		}
+	if d.Example != "demo widget list" || names(d.Aliases, func(s string) string { return s }) != "dm" || names(d.Flags, flagName) != "dry" {
+		t.Fatalf("root example %q, aliases %v, local flags %+v", d.Example, d.Aliases, d.Flags)
 	}
-	create := widget.Commands[0]
-	var flagNames []string
-	for _, f := range create.Flags {
-		flagNames = append(flagNames, f.Name)
+}
+
+func TestWriteFlags(t *testing.T) {
+	d := decodeFixture(t)
+	if got := names(d.GlobalFlags, flagName); got != "config,verbose" {
+		t.Fatalf("global flags = %s; want the hidden one left out", got)
 	}
-	if got := strings.Join(flagNames, ","); got != "cache,label,replicas,template,timeout" {
+	if d.GlobalFlags[0].Default != "~/.demo/config.cue" {
+		t.Fatalf("config default = %q; want the home written with ~", d.GlobalFlags[0].Default)
+	}
+	create := d.Commands[2].Commands[0]
+	if got := names(create.Flags, flagName); got != "cache,label,replicas,rootfs,template,timeout" {
 		t.Fatalf("create flags = %s", got)
 	}
 	inh := create.InheritedFlags
 	if len(inh) != 2 || inh[0].Name != "context" || inh[0].Shorthand != "" || inh[1].Name != "namespace" || inh[1].Shorthand != "n" {
 		t.Fatalf("create inherited flags = %+v; want the group's flags, the deprecated shorthand dropped, no global flag", inh)
 	}
-	if !strings.HasPrefix(create.Long, "Create a widget from a template.\n\n\tThe template") {
-		t.Fatalf("Long is not raw: %q", create.Long)
+}
+
+func TestReplaceHome(t *testing.T) {
+	for _, c := range []struct{ home, in, want string }{
+		{"/home/u", "/home/u/.demo/config.cue", "~/.demo/config.cue"},
+		{"/home/u", "/home/u", "~"},
+		{"/home/u/", "/home/u/.cache", "~/.cache"},
+		{"/home/u", "[/home/u/a,/home/u/b]", "[~/a,~/b]"},
+		{"/root", "/rootfs/x", "/rootfs/x"},
+		{"/root", "/root/x", "~/x"},
+		{"/", "/etc/demo", "/etc/demo"},
+		{"relative", "relative/x", "relative/x"},
+	} {
+		var b bytes.Buffer
+		root := &cobra.Command{Use: "demo"}
+		root.PersistentFlags().String("p", c.in, "")
+		if err := Write(root, &b, Options{Home: c.home}); err != nil {
+			t.Fatal(err)
+		}
+		var d dump
+		if err := json.Unmarshal(b.Bytes(), &d); err != nil {
+			t.Fatal(err)
+		}
+		if got := d.GlobalFlags[0].Default; got != c.want {
+			t.Errorf("home %q, default %q: got %q, want %q", c.home, c.in, got, c.want)
+		}
+	}
+}
+
+func TestShorthand(t *testing.T) {
+	root := &cobra.Command{Use: "demo"}
+	root.Flags().StringP("q", "?", "", "")
+	if err := Write(root, &bytes.Buffer{}, Options{NoHome: true}); err != nil {
+		t.Fatalf("a printable shorthand: %v", err)
 	}
 }
 

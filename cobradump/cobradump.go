@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -37,9 +38,11 @@ const (
 
 // Options adjusts a dump.
 type Options struct {
-	// Home is replaced by "~" wherever it appears in a flag default; ""
-	// leaves defaults as they are. Write fills it from os.UserHomeDir when
-	// it is unset and NoHome is false.
+	// Home is replaced by "~" in a flag default wherever it is followed by
+	// a path separator or ends the default, and only when it is an absolute
+	// path other than the file-system root; "" leaves defaults as they are.
+	// Write fills it from os.UserHomeDir when it is unset and NoHome is
+	// false.
 	Home   string
 	NoHome bool
 }
@@ -50,8 +53,11 @@ type dump struct {
 	Path        string      `json:"path"`
 	Short       string      `json:"short"`
 	Long        string      `json:"long"`
+	Example     string      `json:"example"`
+	Aliases     []string    `json:"aliases"`
 	UseLine     string      `json:"useLine"`
 	Runnable    bool        `json:"runnable"`
+	Flags       []flagEntry `json:"flags"`
 	GlobalFlags []flagEntry `json:"globalFlags"`
 	Commands    []cmdEntry  `json:"commands"`
 }
@@ -80,11 +86,14 @@ type flagEntry struct {
 }
 
 // Write prints root's tree as one docs.opmodel.dev/cobradump/v1 document.
+// The format is closed: any change to its fields is a new schema,
+// docs.opmodel.dev/cobradump/v2.
 // It calls root.InitDefaultCompletionCmd and resolves every command's
 // inherited flags before walking, as cobra does on Execute. A hidden or
 // deprecated command, the help command, a hidden or deprecated flag and the
 // help flag are left out; a deprecated shorthand is dropped. Commands and
-// flags are sorted by name, and Long and Example are printed raw.
+// flags are sorted by name, and Long and Example are printed raw. A flag
+// shorthand that is not one printable ASCII character is an error.
 func Write(root *cobra.Command, w io.Writer, opts Options) error {
 	if root == nil {
 		return fmt.Errorf("cobradump: no root command")
@@ -94,8 +103,10 @@ func Write(root *cobra.Command, w io.Writer, opts Options) error {
 			opts.Home = home
 		}
 	}
-	if opts.NoHome {
+	if opts.NoHome || !usableHome(opts.Home) {
 		opts.Home = ""
+	} else {
+		opts.Home = filepath.Clean(opts.Home)
 	}
 	root.InitDefaultCompletionCmd()
 	// cobra merges a parent's persistent flags into a command only when it
@@ -110,17 +121,72 @@ func Write(root *cobra.Command, w io.Writer, opts Options) error {
 		Path:        root.CommandPath(),
 		Short:       root.Short,
 		Long:        root.Long,
+		Example:     root.Example,
+		Aliases:     append([]string{}, root.Aliases...),
 		UseLine:     root.UseLine(),
 		Runnable:    root.Runnable(),
+		Flags:       flags(root.LocalNonPersistentFlags(), nil, opts),
 		GlobalFlags: flags(root.PersistentFlags(), nil, opts),
 		Commands:    commands(root, global, opts),
+	}
+	if err := checkShorthands(d.Path, d.Flags, d.GlobalFlags, d.Commands); err != nil {
+		return err
 	}
 	return encode(w, d)
 }
 
+// checkShorthands refuses a shorthand that is not one printable ASCII
+// character, which opm-docs would refuse too.
+func checkShorthands(path string, local, other []flagEntry, cmds []cmdEntry) error {
+	for _, f := range append(append([]flagEntry{}, local...), other...) {
+		if !reShorthand.MatchString(f.Shorthand) {
+			return fmt.Errorf("cobradump: %s: flag --%s has the shorthand %q, not one printable ASCII character", path, f.Name, f.Shorthand)
+		}
+	}
+	for i := range cmds {
+		c := &cmds[i]
+		if err := checkShorthands(c.Path, c.Flags, c.InheritedFlags, c.Commands); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+var reShorthand = regexp.MustCompile(`^[\x21-\x7E]?$`)
+
+// usableHome reports a home directory worth replacing: absolute and not
+// the file-system root.
+func usableHome(home string) bool {
+	return filepath.IsAbs(home) && strings.TrimRight(home, `/\`) != "" && filepath.Dir(home) != home
+}
+
+// replaceHome writes home as "~" in s wherever it is followed by a path
+// separator or ends s, so /root is replaced in /root/x but not in /rootfs.
+func replaceHome(s, home string) string {
+	if home == "" {
+		return s
+	}
+	var b strings.Builder
+	for {
+		i := strings.Index(s, home)
+		if i < 0 {
+			b.WriteString(s)
+			return b.String()
+		}
+		end := i + len(home)
+		if end == len(s) || s[end] == '/' || s[end] == filepath.Separator {
+			b.WriteString(s[:i] + "~")
+		} else {
+			b.WriteString(s[:end])
+		}
+		s = s[end:]
+	}
+}
+
 func commands(c *cobra.Command, global func(*pflag.Flag) bool, opts Options) []cmdEntry {
-	out := []cmdEntry{}
-	for _, s := range available(c) {
+	subs := available(c)
+	out := make([]cmdEntry, 0, len(subs))
+	for _, s := range subs {
 		aliases := append([]string{}, s.Aliases...)
 		out = append(out, cmdEntry{
 			Path:           s.CommandPath(),
@@ -171,10 +237,7 @@ func flags(fs *pflag.FlagSet, skip func(*pflag.Flag) bool, opts Options) []flagE
 		if f.ShorthandDeprecated != "" {
 			short = ""
 		}
-		def := f.DefValue
-		if opts.Home != "" {
-			def = strings.ReplaceAll(def, opts.Home, "~")
-		}
+		def := replaceHome(f.DefValue, opts.Home)
 		out = append(out, flagEntry{Name: f.Name, Shorthand: short, Type: f.Value.Type(), Default: def, Usage: f.Usage})
 	})
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Name < out[j].Name })

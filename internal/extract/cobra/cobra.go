@@ -31,14 +31,18 @@ type Model struct {
 	CLI         CLI    `json:"cli"`
 }
 
-// CLI is the root command.
+// CLI is the root command. Flags are its local, non-persistent flags;
+// GlobalFlags its persistent ones.
 type CLI struct {
 	Name        string    `json:"name"`
 	Path        string    `json:"path"`
 	Short       string    `json:"short"`
 	Long        string    `json:"long"`
+	Example     string    `json:"example"`
+	Aliases     []string  `json:"aliases"`
 	UseLine     string    `json:"useLine"`
 	Runnable    bool      `json:"runnable"`
+	Flags       []Flag    `json:"flags"`
 	GlobalFlags []Flag    `json:"globalFlags"`
 	Commands    []Command `json:"commands"`
 }
@@ -87,7 +91,7 @@ type dump struct {
 
 var (
 	reName      = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
-	reShorthand = regexp.MustCompile(`^[A-Za-z0-9]?$`)
+	reShorthand = regexp.MustCompile(`^[\x21-\x7E]?$`) // "" or one printable ASCII character
 )
 
 // FromDump validates a cobradump document and builds the doc model from it.
@@ -104,7 +108,7 @@ func FromDump(data []byte, o Options) (*Model, error) {
 	if d.Name == "" || d.Path == "" {
 		return nil, fmt.Errorf("the dump names no root command")
 	}
-	if err := checkFlags(d.Path, d.GlobalFlags); err != nil {
+	if err := checkFlags(d.Path, append(append([]Flag{}, d.Flags...), d.GlobalFlags...)); err != nil {
 		return nil, err
 	}
 	m := &Model{Schema: SchemaID, Section: o.Section, Title: o.Title, Description: o.Description, Weight: o.Weight, Citations: o.Citations, CLI: d.CLI}
@@ -128,8 +132,11 @@ func checkCommands(parent string, cmds []Command) error {
 	seen := map[string]bool{}
 	for i := range cmds {
 		c := &cmds[i]
-		if c.Name == "" || c.Path != parent+" "+c.Name {
+		if c.Path != parent+" "+c.Name {
 			return fmt.Errorf("command %q under %q: its path is not %q", c.Path, parent, parent+" "+c.Name)
+		}
+		if !reName.MatchString(c.Name) {
+			return fmt.Errorf("command %q: its name %q is not lower-case kebab-case, which its page and anchor need", c.Path, c.Name)
 		}
 		if seen[c.Name] {
 			return fmt.Errorf("command %q is listed twice", c.Path)

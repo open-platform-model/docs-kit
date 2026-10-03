@@ -67,6 +67,7 @@ Steps:
 | `--label` |  | stringSlice |  | Labels, `key=value`. |
 | `--namespace` | `-n` | string | `default` | Target namespace. |
 | `--replicas` |  | int | `1` | Replica count. |
+| `--rootfs` |  | string | `/home/uu/rootfs` | Not under the home directory. |
 | `--template` |  | string |  | Template directory. |
 | `--timeout` |  | duration |  | How long to wait. |
 

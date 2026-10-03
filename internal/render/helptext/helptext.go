@@ -472,8 +472,10 @@ func ListItems(lines []string) (marker string, items []string, ok bool) {
 	return marker, items, len(items) > 0
 }
 
-// Cell keeps a value inside its table column.
+// Cell keeps a value inside its table column and on its row: pipes are
+// escaped and line breaks become spaces.
 func Cell(s string) string {
+	s = strings.NewReplacer("\r\n", " ", "\n", " ", "\r", " ").Replace(s)
 	return strings.ReplaceAll(strings.ReplaceAll(s, "|", `\|`), `\\|`, `\|`)
 }
 

@@ -116,3 +116,8 @@ func TestWriteBlocksListBecomesAMarkdownList(t *testing.T) {
 	WriteBlocks(&b, Parse("Show version.\n\nDisplays:\n  - the CLI version\n  - the CUE SDK version").Desc, "opm", func(s string) string { return s })
 	eq(t, b.String(), "Show version.\n\nDisplays:\n\n- the CLI version\n- the CUE SDK version\n")
 }
+
+func TestCell(t *testing.T) {
+	eq(t, Cell("a | b\nc\r\nd"), `a \| b c d`)
+	eq(t, Cell(`a \| b`), `a \| b`)
+}

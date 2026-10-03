@@ -61,6 +61,8 @@ func TestFromDumpRefuses(t *testing.T) {
 		{"a wrong path", strings.Replace(dump, `"path": "demo widget create"`, `"path": "demo create"`, 1), `"demo create"`},
 		{"no root", strings.Replace(dump, `"name": "demo",`, `"name": "",`, 1), "no root command"},
 		{"a bad flag", strings.Replace(dump, `"name": "namespace"`, `"name": "--namespace"`, 1), `"--namespace"`},
+		{"an upper-case subcommand", strings.ReplaceAll(strings.ReplaceAll(dump, "demo widget list", "demo widget List"), `"name": "list"`, `"name": "List"`), `its name "List" is not lower-case kebab-case`},
+		{"a two-character shorthand", strings.Replace(dump, `"shorthand": "n"`, `"shorthand": "nn"`, 1), `shorthand "nn"`},
 		{"an upper-case command", strings.ReplaceAll(strings.ReplaceAll(dump, "demo version", "demo Version"), `"name": "version"`, `"name": "Version"`), "lower-case kebab-case"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
