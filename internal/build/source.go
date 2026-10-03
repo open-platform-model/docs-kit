@@ -68,6 +68,7 @@ const markdownKind = "markdown"
 // #Source in schema/config.cue.
 var extractors = []Extractor{
 	cueCatalogExtractor{},
+	cobraExtractor{},
 	crdExtractor{},
 }
 

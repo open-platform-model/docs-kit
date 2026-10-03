@@ -1,7 +1,11 @@
 name: Release
 
 # release-please (as the opm-release-please App) creates the release tag and
-# a draft GitHub Release. goreleaser then uploads every asset into the draft
+# a draft GitHub Release. It releases two components: opm-docs (path ".",
+# tags vX.Y.Z) and the nested cobradump module (path "cobradump", tags
+# cobradump/vX.Y.Z, published at once with no draft and no assets: the Go
+# module proxy serves it from the tag). Only an opm-docs release runs
+# goreleaser. goreleaser then uploads every asset into the draft
 # (four archives and checksums.txt) and publishes it last, so no release is
 # published without its binaries. Release tags are immutable: nothing here
 # moves, deletes or re-creates a tag, and a published release never changes.
@@ -42,7 +46,11 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     outputs:
-      releases_created: ${{ steps.release.outputs.releases_created }}
+      # The root package's outputs (path "." is unprefixed), never
+      # cobradump's (cobradump--release_created, cobradump--tag_name) nor
+      # releases_created, which is true for a cobradump-only release too.
+      # Each component has its own release PR (separate-pull-requests).
+      release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - name: Mint the release App token
@@ -60,12 +68,23 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+      # A cobradump release is published at once, and GitHub would mark it
+      # Latest; the Latest release stays opm-docs', which install docs and
+      # the releases/latest link point at.
+      - name: Keep a cobradump release from becoming Latest
+        if: steps.release.outputs['cobradump--release_created'] == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.release.outputs['cobradump--tag_name'] }}
+        run: gh release edit "$TAG" --latest=false
+
   goreleaser:
     name: Build and publish release binaries
     needs: release-please
     # always(): on a manual run release-please is skipped, and a skipped need
     # would skip this job too.
-    if: always() && (needs.release-please.outputs.releases_created == 'true' || github.event_name == 'workflow_dispatch')
+    if: always() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     # One run per tag: two runs on one draft would delete each other's
     # uploads.
