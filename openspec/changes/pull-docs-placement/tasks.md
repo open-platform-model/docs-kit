@@ -10,8 +10,8 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`. One PR, titled `
 
 ## 2. Resolution and layout
 
-- [ ] 2.1 `internal/pull`: anchor, pins and own tags (D2); the `_versions/` layout, per-version staging and replacement, sweep (D3). Verify: in-process registry tests (as the tab tests) for a pinned resolution, a docs revision followed through the release tag, a missing pin, a pinned release without a bundle, an anchor outside its line, a refused version keeping the old one.
-- [ ] 2.2 `task check` green, then commit `feat(pull): resolve site versions from the anchor's pins`.
+- [x] 2.1 `internal/pull`: anchor, pins and own tags (D2); the `_versions/` layout, per-version staging and replacement, sweep (D3). Verify: in-process registry tests (as the tab tests) for a pinned resolution, a docs revision followed through the release tag, a missing pin, a pinned release without a bundle, an anchor outside its line, a refused version keeping the old one.
+- [x] 2.2 `task check` green, then commit `feat(pull): resolve site versions from the anchor's pins`.
 
 ## 3. Cross-bundle checks, local and frozen
 

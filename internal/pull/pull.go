@@ -1,7 +1,7 @@
 // Package pull is the site's side: it resolves each tab's versions from a
-// registry's tags, verifies every bundle's signature before fetching its
-// layer, unpacks and lints it, writes each tab's version history and the
-// lock.
+// registry's tags and each site version's docs bundles from its anchor's
+// pins, verifies every bundle's signature before fetching its layer,
+// unpacks and lints it, writes each tab's version history and the lock.
 package pull
 
 import (
@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -79,9 +80,15 @@ type puller struct {
 	staged   map[string]string // "<project>/<segment>": its unpacked and linted tree, not yet swapped in
 	order    []string          // the staged keys, in the order they were staged
 	entries  []Entry
+	// Site versions, staged and swapped whole: "<v>" to its incoming tree.
+	versionStaged  map[string]string
+	versionOrder   []string
+	versionWritten map[string]bool
+	docs           []DocsEntry
 }
 
-// Run pulls every tab, writes each tab's history.json and the lock.
+// Run pulls every tab and every site version, writes each tab's
+// history.json and the lock.
 func Run(ctx context.Context, o Options) (*Lock, error) {
 	cfg, err := config.LoadPull(o.Config)
 	if err != nil {
@@ -93,7 +100,8 @@ func Run(ctx context.Context, o Options) (*Lock, error) {
 	if o.Warn == nil {
 		o.Warn = func(string) {}
 	}
-	p := &puller{o: o, cfg: cfg, written: map[string]bool{}, staged: map[string]string{}}
+	p := &puller{o: o, cfg: cfg, written: map[string]bool{}, staged: map[string]string{},
+		versionStaged: map[string]string{}, versionWritten: map[string]bool{}}
 	// A staged tree left behind by a failure is removed; a swapped one is
 	// already gone from its staging path.
 	defer p.discard()
@@ -104,6 +112,9 @@ func Run(ctx context.Context, o Options) (*Lock, error) {
 	if err := p.stageAll(ctx, locals, frozen); err != nil {
 		return nil, err
 	}
+	if err := p.stageVersions(ctx); err != nil {
+		return nil, err
+	}
 	// Everything that can refuse runs before the first segment is swapped
 	// in: a refused bundle, history or lock leaves the previous trees, the
 	// previous history.json files and the previous lock as they were.
@@ -111,7 +122,7 @@ func Run(ctx context.Context, o Options) (*Lock, error) {
 	if err != nil {
 		return nil, err
 	}
-	lock := &Lock{Schema: LockSchema, Tool: o.Tool, Config: cfg.Digest, Bundles: p.entries}
+	lock := &Lock{Schema: LockSchema, Tool: o.Tool, Config: cfg.Digest, Bundles: p.entries, Docs: p.docs}
 	for _, h := range histories {
 		if h.data != nil {
 			lock.History = append(lock.History, h.entry)
@@ -147,13 +158,19 @@ func (p *puller) stageAll(ctx context.Context, locals map[string][]Local, frozen
 	return nil
 }
 
-// commit swaps the staged segments in, sweeps, and writes the histories
-// and the lock.
+// commit swaps the staged segments and site versions in, sweeps, and
+// writes the histories and the lock.
 func (p *puller) commit(histories []pendingHistory, lock []byte) error {
 	if err := p.swap(); err != nil {
 		return err
 	}
+	if err := p.swapVersions(); err != nil {
+		return err
+	}
 	if err := p.sweep(); err != nil {
+		return err
+	}
+	if err := p.sweepVersions(); err != nil {
 		return err
 	}
 	if err := writeHistories(histories); err != nil {
@@ -327,6 +344,11 @@ func (p *puller) discard() {
 			_ = os.RemoveAll(p.staged[key])
 		}
 	}
+	for _, sv := range p.versionOrder {
+		if !p.versionWritten[sv] {
+			_ = os.RemoveAll(p.versionStaged[sv])
+		}
+	}
 }
 
 // LintError is a pulled bundle that breaks the page dialect.
@@ -430,26 +452,11 @@ func (p *puller) frozen(ctx context.Context, project string, l *Lock) error {
 func (p *puller) fetch(ctx context.Context, project, segment string, repo *oci.Repo, desc ocispec.Descriptor) error {
 	tab := p.cfg.Tabs[project]
 	what := fmt.Sprintf("%s %s (%s@%s)", project, segment, repo.Name, desc.Digest)
-	man, err := p.manifest(ctx, repo, desc)
+	f, err := p.verified(ctx, repo, desc, project, tab.Repo, segment, what)
 	if err != nil {
-		return fmt.Errorf("%s: %w", what, err)
+		return err
 	}
-	b, err := checkManifest(man, project, segment)
-	if err != nil {
-		return fmt.Errorf("%s: %w", what, err)
-	}
-	id, err := p.verify(ctx, repo, desc, verify.Policy{
-		Issuer: p.cfg.Signer.Issuer, Workflow: p.cfg.Signer.Workflow, Refs: p.cfg.Signer.Refs,
-		Repository: "https://github.com/" + tab.Repo, Ref: "refs/heads/main",
-	})
-	if err != nil {
-		return fmt.Errorf("%s: %w", what, err)
-	}
-	layer, err := p.layer(ctx, repo, man.Layers[0])
-	if err != nil {
-		return fmt.Errorf("%s: %w", what, err)
-	}
-	dir, rel, err := p.unpack(project, segment, layer, what)
+	dir, rel, err := p.unpack(project, segment, f.layer, what)
 	if err != nil {
 		return err
 	}
@@ -460,15 +467,58 @@ func (p *puller) fetch(ctx context.Context, project, segment string, repo *oci.R
 	if err := checkBundle(m, project, tab); err != nil {
 		return fmt.Errorf("%s: %w", what, err)
 	}
-	if m.Version != man.Annotations[bundle.AnnVersion] || strconv.Itoa(m.Revision) != man.Annotations[bundle.AnnDocsRev] {
-		return fmt.Errorf("%s: manifest.json says %s revision %d, the annotations %s revision %s", what, m.Version, m.Revision, man.Annotations[bundle.AnnVersion], man.Annotations[bundle.AnnDocsRev])
+	if err := f.matches(m); err != nil {
+		return fmt.Errorf("%s: %w", what, err)
 	}
 	p.entries = append(p.entries, Entry{
 		Project: project, Root: tab.Root, Segment: segment, Tag: segment, Repository: repo.Name, Digest: desc.Digest.String(),
-		Version: b.version, Revision: b.revision, Commit: m.Source.Commit, Dialect: m.Dialect, BuiltBy: m.Tool,
-		Signer: &Signer{Workflow: id.Workflow, Repository: id.Repository, Ref: id.Ref}, Dir: rel,
+		Version: f.version, Revision: f.revision, Commit: m.Source.Commit, Dialect: m.Dialect, BuiltBy: m.Tool,
+		Signer: &Signer{Workflow: f.id.Workflow, Repository: f.id.Repository, Ref: f.id.Ref}, Dir: rel,
 	})
 	return nil
+}
+
+// fetched is a bundle whose signature verified, with its layer.
+type fetched struct {
+	annotated
+	man   *ocispec.Manifest
+	id    *verify.Identity
+	layer []byte
+}
+
+// matches checks the unpacked manifest.json agrees with the annotations
+// that were verified.
+func (f *fetched) matches(m *bundle.Manifest) error {
+	if m.Version != f.man.Annotations[bundle.AnnVersion] || strconv.Itoa(m.Revision) != f.man.Annotations[bundle.AnnDocsRev] {
+		return fmt.Errorf("manifest.json says %s revision %d, the annotations %s revision %s", m.Version, m.Revision, f.man.Annotations[bundle.AnnVersion], f.man.Annotations[bundle.AnnDocsRev])
+	}
+	return nil
+}
+
+// verified checks the build desc names is a bundle of project in tag's
+// line, verifies its signature as owner's, and only then fetches its
+// layer. what names the bundle in errors.
+func (p *puller) verified(ctx context.Context, repo *oci.Repo, desc ocispec.Descriptor, project, owner, tag, what string) (*fetched, error) {
+	man, err := p.manifest(ctx, repo, desc)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", what, err)
+	}
+	b, err := checkManifest(man, project, tag)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", what, err)
+	}
+	id, err := p.verify(ctx, repo, desc, verify.Policy{
+		Issuer: p.cfg.Signer.Issuer, Workflow: p.cfg.Signer.Workflow, Refs: p.cfg.Signer.Refs,
+		Repository: "https://github.com/" + owner, Ref: "refs/heads/main",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", what, err)
+	}
+	layer, err := p.layer(ctx, repo, man.Layers[0])
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", what, err)
+	}
+	return &fetched{annotated: b, man: man, id: id, layer: layer}, nil
 }
 
 type annotated struct {
@@ -477,8 +527,8 @@ type annotated struct {
 }
 
 // checkManifest checks the build a tag resolved to: a docs bundle of this
-// project, in the tag's minor (or an edge build for edge), with one layer.
-func checkManifest(man *ocispec.Manifest, project, segment string) (annotated, error) {
+// project, in the tag's line, with one layer.
+func checkManifest(man *ocispec.Manifest, project, tag string) (annotated, error) {
 	var a annotated
 	if man.ArtifactType != bundle.ArtifactType || len(man.Layers) != 1 || man.Layers[0].MediaType != bundle.LayerType {
 		return a, fmt.Errorf("not a docs bundle (artifactType %q, %d layer(s))", man.ArtifactType, len(man.Layers))
@@ -494,11 +544,30 @@ func checkManifest(man *ocispec.Manifest, project, segment string) (annotated, e
 	if err != nil {
 		return a, err
 	}
-	if b.Segment() != segment {
-		return a, fmt.Errorf("tag %s names a build of %s, which is not in %s", segment, b, segment)
+	if !inLine(tag, b) {
+		return a, fmt.Errorf("tag %s names a build of %s, which is not in %s", tag, b, tag)
 	}
 	return annotated{version: man.Annotations[bundle.AnnVersion], revision: rev}, nil
 }
+
+// inLine reports whether build b may be what tag names (C4): an edge build
+// for edge, a build of that MAJOR.MINOR for a minor tag, of that MAJOR for
+// a major tag, and of exactly that version for a release tag.
+func inLine(tag string, b tags.Build) bool {
+	switch {
+	case tag == tags.Edge:
+		return b.Edge
+	case b.Edge:
+		return false
+	case tags.IsMinorTag(tag):
+		return b.Version.MinorTag() == tag
+	case reMajor.MatchString(tag):
+		return b.Version.MajorTag() == tag
+	}
+	return b.Version.String() == tag
+}
+
+var reMajor = regexp.MustCompile(`^(0|[1-9]\d*)$`)
 
 // manifest fetches a manifest by digest, through the cache.
 func (p *puller) manifest(ctx context.Context, repo *oci.Repo, desc ocispec.Descriptor) (*ocispec.Manifest, error) {
@@ -589,14 +658,15 @@ func (p *puller) layer(ctx context.Context, repo *oci.Repo, d ocispec.Descriptor
 }
 
 // sweep removes every project or segment directory under out that this run
-// did not write. A project's history.json is left alone.
+// did not write. A project's history.json is left alone, and _versions/ is
+// sweepVersions'.
 func (p *puller) sweep() error {
 	projects, err := os.ReadDir(p.o.Out)
 	if err != nil {
 		return err
 	}
 	for _, pd := range projects {
-		if !pd.IsDir() {
+		if !pd.IsDir() || pd.Name() == VersionsDir {
 			continue
 		}
 		pdir := filepath.Join(p.o.Out, pd.Name())
