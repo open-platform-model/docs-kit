@@ -29,7 +29,7 @@ Status: phase 1 is built: `build`, `check`, `lint`, `push`, `promote`, `pull`, `
 ## Repository Rules
 
 - `DESIGN.md` is the approved design; its Decisions table binds every change. Cite a decision as `DESIGN decision 9`, never a bare `D9`.
-- `docs/contracts.md` fixes every contract another repository reads (C1 to C12, "Commands", "Page renderer", "Doc-comment rules"). Other repositories cite it by number (`docs-kit C5`); a change to it follows Principle II.
+- `docs/contracts.md` fixes every contract another repository reads (C1 to C13, "Commands", "Page renderer", "Doc-comment rules"). Other repositories cite it by number (`docs-kit C5`); a change to it follows Principle II.
 - `openspec/config.yaml` is the constitution (principles, gates, artifact rules). Feature work ships as an OpenSpec change (`spec-driven` schema, specs included), cut into mergeable sections that each end green and close with their own commit.
 - Never push to `main`. Every change lands by PR; the OpenSpec archive commit rides the implementing PR.
 - The bundle format, tag scheme, workflow interface, `docs-kit.cue`, pull config and lock are contracts other repositories read (constitution Principle II). A change to one names every consuming repository.
@@ -44,13 +44,14 @@ Read on entry: `AGENTS.md` (this file), `openspec/config.yaml`, `DESIGN.md`, `RE
 
 ```text
 cmd/opm-docs/                 cobra root and one file per command; flag parsing only
-schema/                       manifest.cue, config.cue, pull.cue, lock.cue, embedded with go:embed
+schema/                       manifest.cue, config.cue, pull.cue, lock.cue, history.cue, embedded with go:embed
 internal/version/             build identity, stamped by -ldflags
 internal/config/              load and validate docs-kit.cue and bundles.cue
 internal/bundle/              the tree model, manifest.json, deterministic pack, guarded unpack
 internal/tags/                SemVer, build order, full and moving tags (pure)
 internal/doctext/             maintainer comments, citations, summary split, wrapping
 internal/mdtext/              Markdown escaping, code spans, cells, YAML strings
+internal/cuetok/              the CUE token scanner (comments skipped) shared by gitsrc and history
 internal/extract/cuecatalog/  the cue-catalog extractor: data/catalog.json
 internal/extract/markdown/    the markdown source
 internal/render/              embedded templates: landing, kind index, member page
@@ -60,7 +61,8 @@ internal/build/               build and check
 internal/oci/                 oras-go: push, tag, list, resolve, fetch by digest
 internal/verify/              sigstore-go: find and verify signatures under the signing policy
 internal/publish/             push and promote
-internal/pull/                tab resolution, cache, unpack layout, lock
+internal/pull/                tab resolution, cache, unpack layout, history.json, lock
+internal/history/             a tab's version history across its segments (pure)
 internal/revise/              docs revisions: read the newest revision's fixes, apply them and the new fix, build
 internal/gittest/, internal/ocitest/, internal/verify/sigtest/   test helpers
 docs/contracts.md             the contracts other repositories read
@@ -83,6 +85,7 @@ Taskfile.yml                  build and gate tasks
 
 - release-please (as the release App) opens a release PR from `feat` and `fix` commits on `main`; merging it creates the tag `vX.Y.Z` and a draft release, and `release.yml` runs goreleaser (pinned), which attaches `opm-docs_X.Y.Z_<os>_<arch>.tar.gz` for linux and darwin on amd64 and arm64 plus `checksums.txt`, then publishes the release. Never publish a release by hand, never re-tag; a bad release is fixed by the next patch.
 - `publish.yml` carries no version: it installs the release named by the caller's `.opm-docs-version`, which callers move together with their `publish.yml@vX.Y.Z` ref (`docs/contracts.md` C5). Never add a version literal to it.
+- A dependency bump that can change how CUE constraints are formatted, `cuelang.org/go` above all, releases as a minor, never a patch: commit it as `feat(deps): ...` (pre-1.0, release-please makes `feat` a minor), never `fix` or `chore`, and say so in the PR body. The version history compares `type` and `default` strings only within one docs-kit minor (`docs/contracts.md` C10, C13), so a patch must never change them.
 - The archive names, `checksums.txt` and the `linux_amd64` archive are a contract (`docs/contracts.md` C12): consumers pin them by name and SHA-256.
 - `goreleaser release --snapshot --clean` builds the four archives locally into `dist/` (gitignored); `goreleaser check` validates `.goreleaser.yml`.
 

@@ -124,7 +124,8 @@ func newPullCmd() *cobra.Command {
 		Use:   "pull",
 		Short: "Resolve, verify, unpack and lint the bundles the site shows, and write the lock",
 		Long: "Read the pull config, list each tab's tags, verify each bundle's signature before fetching its\n" +
-			"layer, unpack it under <out>/<project>/<segment>/, lint it in bundle mode, and write the lock.",
+			"layer, unpack it under <out>/<project>/<segment>/, lint it in bundle mode, write each tab's version\n" +
+			"history to <out>/<project>/history.json, and write the lock.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			for _, s := range locals {
