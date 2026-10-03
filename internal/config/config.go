@@ -8,7 +8,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	slashpath "path"
+	"slices"
 	"sort"
+	"strings"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/ast"
@@ -17,18 +20,34 @@ import (
 	"github.com/open-platform-model/docs-kit/schema"
 )
 
-// Placement is where the site mounts a bundle's content.
+// Placement is where the site mounts a bundle's content. Owns, for a docs
+// bundle, lists the content paths it owns exclusively.
 type Placement struct {
-	Kind string `json:"kind"`
-	Root string `json:"root"`
+	Kind string   `json:"kind"`
+	Root string   `json:"root"`
+	Owns []string `json:"owns,omitempty"`
 }
 
-// Source is one input of a bundle: a CUE catalog module or a directory of
-// authored pages.
+// Source is one input of a bundle. Kind names the extractor or the
+// markdown source; Value is the source's whole entry, validated, which an
+// extractor decodes for its own options. Dir, Include and Exclude are the
+// markdown source's.
 type Source struct {
-	Kind   string `json:"kind"`
-	Module string `json:"module,omitempty"`
-	Dir    string `json:"dir,omitempty"`
+	Kind string `json:"kind"`
+	Dir  string `json:"dir,omitempty"`
+	// Citations is an extractor source's citation policy, "strip" or
+	// "link"; "" for markdown, which copies text as written.
+	Citations string    `json:"citations,omitempty"`
+	Include   []string  `json:"include,omitempty"`
+	Exclude   []string  `json:"exclude,omitempty"`
+	Value     cue.Value `json:"-"`
+}
+
+// Pins names the command that prints a build's pins and the projects it
+// must pin.
+type Pins struct {
+	Command  []string `json:"command"`
+	Projects []string `json:"projects"`
 }
 
 // VersionRule says where a release version comes from.
@@ -42,6 +61,7 @@ type Bundle struct {
 	Placement Placement   `json:"placement"`
 	Version   VersionRule `json:"version"`
 	Sources   []Source    `json:"sources"`
+	Pins      *Pins       `json:"pins,omitempty"`
 }
 
 // Config is a validated docs-kit.cue.
@@ -63,7 +83,14 @@ func (c *Config) Projects() []string {
 // Load reads docs-kit.cue from path and validates it against #Config. A
 // package clause is optional and ignored: the file is read as one CUE file.
 func Load(path string) (*Config, error) {
-	v, _, err := loadFile(path, "#Config")
+	raw, _, err := parseFile(path)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkKinds(path, raw); err != nil {
+		return nil, err
+	}
+	v, err := schema.Unify("#Config", raw)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +101,88 @@ func Load(path string) (*Config, error) {
 	if len(c.Bundles) == 0 {
 		return nil, fmt.Errorf("%s: no bundles: add bundles: {\"<project>\": {...}}", path)
 	}
+	for _, p := range c.Projects() {
+		b := c.Bundles[p]
+		list := v.LookupPath(cue.MakePath(cue.Str("bundles"), cue.Str(p), cue.Str("sources")))
+		for i := range b.Sources {
+			b.Sources[i].Value = list.LookupPath(cue.MakePath(cue.Index(i)))
+		}
+		if err := checkBundle(p, b); err != nil {
+			return nil, fmt.Errorf("%s: %w", path, err)
+		}
+	}
 	return c, nil
+}
+
+// checkBundle applies the rules the schema cannot state: owned paths that
+// do not nest, a docs bundle without a catalog, and well-formed patterns.
+func checkBundle(project string, b Bundle) error {
+	owns := b.Placement.Owns
+	for i, a := range owns {
+		for _, o := range owns[i+1:] {
+			if Nests(a, o) || Nests(o, a) {
+				return fmt.Errorf("bundles.%q.placement.owns: %s and %s nest; list the outer path alone", project, a, o)
+			}
+		}
+	}
+	for i, src := range b.Sources {
+		if b.Placement.Kind == "docs" && src.Kind == "cue-catalog" {
+			return fmt.Errorf("bundles.%q.sources[%d]: a docs bundle carries no cue-catalog source; a catalog is a tab bundle of its own", project, i)
+		}
+		for _, l := range []struct {
+			name string
+			pats []string
+		}{{"include", src.Include}, {"exclude", src.Exclude}} {
+			for _, pat := range l.pats {
+				if _, err := slashpath.Match(strings.TrimSuffix(pat, "/"), ""); err != nil {
+					return fmt.Errorf("bundles.%q.sources[%d].%s: %q is not a glob: %w", project, i, l.name, pat, err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// Nests reports whether the owned path inner lies under, or is, outer: a
+// directory ("reference/") holds every path under it; a page
+// ("reference/operator-resources.md") holds only itself.
+func Nests(outer, inner string) bool {
+	if strings.HasSuffix(outer, "/") {
+		return strings.HasPrefix(inner, outer)
+	}
+	return outer == inner
+}
+
+// checkKinds refuses a source kind the schema does not admit before the
+// schema is applied, so the message names the kind and the kinds this
+// opm-docs builds instead of every branch of the #Source disjunction.
+func checkKinds(path string, v cue.Value) error {
+	known, err := schema.SourceKinds()
+	if err != nil {
+		return err
+	}
+	bv := v.LookupPath(cue.ParsePath("bundles"))
+	if bv.IncompleteKind() != cue.StructKind {
+		return nil // the schema reports a malformed bundles
+	}
+	bundles, err := bv.Fields()
+	if err != nil {
+		return schema.Format(err)
+	}
+	for bundles.Next() {
+		srcs, err := bundles.Value().LookupPath(cue.ParsePath("sources")).List()
+		if err != nil {
+			continue
+		}
+		for i := 0; srcs.Next(); i++ {
+			k, err := srcs.Value().LookupPath(cue.ParsePath("kind")).String()
+			if err != nil || slices.Contains(known, k) {
+				continue
+			}
+			return fmt.Errorf("%s: bundles.%q.sources[%d]: source kind %q is not one this opm-docs builds; it builds %s", path, bundles.Selector().Unquoted(), i, k, strings.Join(known, ", "))
+		}
+	}
+	return nil
 }
 
 // Tab is one tab the site shows, and who may sign its bundles.
@@ -126,6 +234,20 @@ func LoadPull(path string) (*Pull, error) {
 }
 
 func loadFile(path, def string) (cue.Value, []byte, error) {
+	v, raw, err := parseFile(path)
+	if err != nil {
+		return cue.Value{}, nil, err
+	}
+	u, err := schema.Unify(def, v)
+	if err != nil {
+		return cue.Value{}, nil, err
+	}
+	return u, raw, nil
+}
+
+// parseFile reads one CUE file, drops its package clause and builds it in
+// the schema's context, without applying a schema.
+func parseFile(path string) (cue.Value, []byte, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return cue.Value{}, nil, fmt.Errorf("reading %s: %w", path, err)
@@ -150,9 +272,5 @@ func loadFile(path, def string) (cue.Value, []byte, error) {
 	if err := v.Err(); err != nil {
 		return cue.Value{}, nil, schema.Format(err)
 	}
-	u, err := schema.Unify(def, v)
-	if err != nil {
-		return cue.Value{}, nil, err
-	}
-	return u, raw, nil
+	return v, raw, nil
 }

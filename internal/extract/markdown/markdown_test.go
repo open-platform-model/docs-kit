@@ -89,3 +89,68 @@ func TestMissingDir(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestIncludeExclude(t *testing.T) {
+	r := gittest.New(t, "")
+	page := "---\ntitle: \"x\"\ndescription: \"x\"\ntype: reference\n---\n"
+	r.Write(map[string]string{
+		"docs/site/_index.md":                       page,
+		"docs/site/reference/operator-resources.md": page,
+		"docs/site/reference/cli/opm.md":            page,
+		"docs/site/reference/cli/opm-module.md":     page,
+		"docs/site/guide/start.md":                  page,
+	})
+	r.Commit("pages")
+	paths := func(o Options) ([]string, error) {
+		o.Root, o.Dir = r.Dir, "docs/site"
+		pages, err := Copy(context.Background(), o)
+		out := make([]string, 0, len(pages))
+		for _, p := range pages {
+			out = append(out, p.Path)
+		}
+		return out, err
+	}
+	for _, c := range []struct {
+		name string
+		o    Options
+		want string
+		err  string
+	}{
+		{name: "one page", o: Options{Include: []string{"reference/operator-resources.md"}}, want: "reference/operator-resources.md"},
+		{name: "glob", o: Options{Include: []string{"reference/cli/opm-*.md"}}, want: "reference/cli/opm-module.md"},
+		{name: "directory exclude", o: Options{Exclude: []string{"reference/cli/"}},
+			want: "_index.md guide/start.md reference/operator-resources.md"},
+		{name: "exclude wins over include", o: Options{Include: []string{"reference/"}, Exclude: []string{"reference/cli/opm.md"}},
+			want: "reference/cli/opm-module.md reference/operator-resources.md"},
+		{name: "no match", o: Options{Exclude: []string{"reference/defintions/"}}, err: `exclude "reference/defintions/" matches no file`},
+		{name: "no match in a backfill", o: Options{Exclude: []string{"reference/defintions/"}, Optional: true},
+			want: "_index.md guide/start.md reference/cli/opm-module.md reference/cli/opm.md reference/operator-resources.md"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := paths(c.o)
+			if c.err != "" {
+				if err == nil || !strings.Contains(err.Error(), c.err) || !strings.Contains(err.Error(), "docs/site") {
+					t.Fatalf("err = %v, want %q", err, c.err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Join(got, " ") != c.want {
+				t.Fatalf("copied %v, want %s", got, c.want)
+			}
+		})
+	}
+}
+
+func TestDocsBundleCopiesAsWritten(t *testing.T) {
+	r, _ := repo(t)
+	pages, err := Copy(context.Background(), Options{Root: r.Dir, Dir: "docs/catalogs/opm"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pages[0].Body != landing {
+		t.Fatalf("a page without a catalog root was rewritten:\n%s", pages[0].Body)
+	}
+}

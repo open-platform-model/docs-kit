@@ -26,6 +26,10 @@ func (p *pageLint) dest(t string) {
 	case reDocs.MatchString(t):
 		if !reDocsOK.MatchString(t) {
 			p.err(p.nr, `internal link "`+t+`": write /docs/<section>/<page>/ with a trailing slash`)
+			return
+		}
+		if p.opts.docsBundle() {
+			p.ownedLink(t)
 		}
 	case reEnh.MatchString(t):
 		if !reEnhOK.MatchString(t) {
@@ -48,7 +52,7 @@ func (p *pageLint) catalogLink(t string) {
 	}
 	name, segment, path := m[1], m[2], m[3]
 	root := "/catalogs/" + name + "/"
-	if p.opts.Mode == Bundle && root == p.opts.Bundle.Root {
+	if p.opts.Mode == Bundle && !p.opts.docsBundle() && root == p.opts.Bundle.Root {
 		p.ownLink(t, segment, path)
 		return
 	}
@@ -59,7 +63,7 @@ func (p *pageLint) catalogLink(t string) {
 	if segment != edgeSegment {
 		major, _, _ = strings.Cut(segment, ".")
 	}
-	if p.opts.Mode == Bundle {
+	if !p.opts.docsLinkRules() {
 		p.err(p.nr, `catalog link "`+t+`": link another catalog through `+root+major+`/`)
 		return
 	}
@@ -71,7 +75,7 @@ func (p *pageLint) catalogLink(t string) {
 // even without the trailing slash, so the message matches the site's
 // shell lint; anything else is told to take the trailing-slash form.
 func (p *pageLint) malformedCatalogLink(t string) {
-	if p.opts.Mode != Bundle {
+	if p.opts.docsLinkRules() {
 		seg := strings.Split(strings.TrimPrefix(t, "/catalogs/"), "/")
 		if len(seg) > 1 {
 			switch {
@@ -103,6 +107,31 @@ func (p *pageLint) ownLink(t, segment, path string) {
 		return
 	}
 	stem := strings.TrimSuffix(path, "/")
+	if !p.pages[stem+".md"] && !p.pages[stem+"/_index.md"] {
+		p.err(p.nr, `link "`+t+`": no page `+path+` in this bundle`)
+	}
+}
+
+// ownedLink checks a /docs/ link of a docs bundle: one into a path the
+// bundle owns names a page of the bundle. A link elsewhere points into
+// another bundle or a site page, which the site's own link check covers.
+func (p *pageLint) ownedLink(t string) {
+	path := strings.TrimPrefix(t, "/docs/")
+	if i := strings.IndexByte(path, '#'); i >= 0 {
+		path = path[:i]
+	}
+	stem := strings.TrimSuffix(path, "/")
+	owned := false
+	for _, o := range p.opts.Bundle.Owns {
+		if strings.HasSuffix(o, "/") {
+			owned = owned || strings.HasPrefix(path, o)
+		} else {
+			owned = owned || stem+".md" == o
+		}
+	}
+	if !owned {
+		return
+	}
 	if !p.pages[stem+".md"] && !p.pages[stem+"/_index.md"] {
 		p.err(p.nr, `link "`+t+`": no page `+path+` in this bundle`)
 	}

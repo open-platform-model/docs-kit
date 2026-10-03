@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -27,9 +28,17 @@ type Dates func(ctx context.Context, repoRelPath string) string
 
 // Options configures one copy.
 type Options struct {
-	Root    string // the source tree
-	Dir     string // repository-relative directory, from docs-kit.cue
-	Catalog string // the bundle's placement root, "/catalogs/opm/"
+	Root string // the source tree
+	Dir  string // repository-relative directory, from docs-kit.cue
+	// Include and Exclude select the files copied: patterns relative to
+	// Dir, each a path.Match glob or a directory ending "/". A file is
+	// copied when it matches some include (or Include is empty) and no
+	// exclude.
+	Include []string
+	Exclude []string
+	// Catalog is a tab bundle's placement root, "/catalogs/opm/", whose
+	// links Pin rewrites; "" (a docs bundle) copies pages as written.
+	Catalog string
 	Segment string // the build's segment, "4.4" or "edge"
 	Major   string // the build version's major, "4"; "" for edge
 	// Optional: a missing Dir yields no pages instead of an error (the
@@ -59,6 +68,7 @@ func Copy(ctx context.Context, opts Options) ([]Page, error) {
 	if !st.IsDir() {
 		return nil, fmt.Errorf("markdown dir %s is not a directory", opts.Dir)
 	}
+	sel := newSelector(opts.Include, opts.Exclude)
 	var pages []Page
 	err = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
@@ -68,23 +78,105 @@ func Copy(ctx context.Context, opts Options) ([]Page, error) {
 		if err != nil {
 			return err
 		}
+		if !sel.selects(filepath.ToSlash(rel)) {
+			return nil
+		}
 		if !d.Type().IsRegular() {
 			return fmt.Errorf("%s: not a regular file; a page must be a regular file", filepath.Join(opts.Dir, rel))
 		}
-		body, err := os.ReadFile(p) //nolint:gosec // under the configured directory
+		pg, err := readPage(ctx, opts, p, filepath.ToSlash(rel))
 		if err != nil {
 			return err
-		}
-		src := filepath.ToSlash(filepath.Join(opts.Dir, rel))
-		pg := Page{Path: filepath.ToSlash(rel), Body: Pin(string(body), opts.Catalog, opts.Major, opts.Segment), Source: src}
-		if opts.Dates != nil {
-			pg.Lastmod = opts.Dates(ctx, src)
 		}
 		pages = append(pages, pg)
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
+	// A pattern that matches nothing is a mistake, except in a config from
+	// outside the source tree, which may predate the files it names.
+	if unused := sel.unused(); len(unused) > 0 && !opts.Optional {
+		return nil, fmt.Errorf("markdown dir %s: %s matches no file; fix or remove the pattern", opts.Dir, unused[0])
+	}
 	sort.Slice(pages, func(i, j int) bool { return pages[i].Path < pages[j].Path })
-	return pages, err
+	return pages, nil
+}
+
+// readPage reads the file at full, rel under the directory: pinned in a
+// tab bundle, dated when Dates is set.
+func readPage(ctx context.Context, opts Options, full, rel string) (Page, error) {
+	body, err := os.ReadFile(full)
+	if err != nil {
+		return Page{}, err
+	}
+	src := path.Join(opts.Dir, rel)
+	text := string(body)
+	if opts.Catalog != "" {
+		text = Pin(text, opts.Catalog, opts.Major, opts.Segment)
+	}
+	pg := Page{Path: rel, Body: text, Source: src}
+	if opts.Dates != nil {
+		pg.Lastmod = opts.Dates(ctx, src)
+	}
+	return pg, nil
+}
+
+// selector applies include and exclude patterns and remembers which of
+// them matched a file.
+type selector struct {
+	include, exclude []string
+	used             map[string]bool // "include <pattern>" -> matched a file
+}
+
+func newSelector(include, exclude []string) *selector {
+	return &selector{include: include, exclude: exclude, used: map[string]bool{}}
+}
+
+// selects reports whether the file at rel (slash-separated, relative to
+// the directory) is copied.
+func (s *selector) selects(rel string) bool {
+	in := len(s.include) == 0
+	for _, p := range s.include {
+		if match(p, rel) {
+			s.used["include "+p] = true
+			in = true
+		}
+	}
+	out := false
+	for _, p := range s.exclude {
+		if match(p, rel) {
+			s.used["exclude "+p] = true
+			out = true
+		}
+	}
+	return in && !out
+}
+
+// unused lists the patterns that matched no file, as `include "<p>"`.
+func (s *selector) unused() []string {
+	var out []string
+	for _, l := range []struct {
+		name string
+		pats []string
+	}{{"include", s.include}, {"exclude", s.exclude}} {
+		for _, p := range l.pats {
+			if !s.used[l.name+" "+p] {
+				out = append(out, fmt.Sprintf("%s %q", l.name, p))
+			}
+		}
+	}
+	return out
+}
+
+// match matches one pattern: a directory ending "/" holds every file under
+// it; anything else is a path.Match glob over the whole relative path.
+func match(pattern, rel string) bool {
+	if strings.HasSuffix(pattern, "/") {
+		return strings.HasPrefix(rel, pattern)
+	}
+	ok, err := path.Match(pattern, rel)
+	return err == nil && ok
 }
 
 // A link destination into a catalog through its major alias, inline

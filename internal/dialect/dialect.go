@@ -33,8 +33,13 @@ const (
 
 // BundleInfo describes the bundle a content tree belongs to.
 type BundleInfo struct {
-	Root    string   // placement root, "/catalogs/opm/"
-	Segment string   // "4.4" or "edge"
+	// Kind is the placement kind: "tab" (also when empty) or "docs". A
+	// docs bundle's pages follow the docs-mode /catalogs/ rules, and a
+	// /docs/ link into a path the bundle owns names one of its pages.
+	Kind    string
+	Root    string   // placement root, "/catalogs/opm/" or "/docs/"
+	Segment string   // a tab's "4.4" or "edge"
+	Owns    []string // a docs bundle's owned paths, "reference/cli/", "reference/operator-resources.md"
 	Pages   []string // content-relative page paths, "traits/backup.md", "_index.md"
 }
 
@@ -43,6 +48,13 @@ type Options struct {
 	Mode   Mode
 	Bundle BundleInfo // used only in Bundle mode
 }
+
+// docsBundle reports a bundle-mode lint of a docs-placed bundle.
+func (o Options) docsBundle() bool { return o.Mode == Bundle && o.Bundle.Kind == "docs" }
+
+// docsLinkRules reports whether /catalogs/ links follow the docs-mode
+// rules: in docs mode, and in a docs bundle.
+func (o Options) docsLinkRules() bool { return o.Mode == Docs || o.docsBundle() }
 
 // Violation is one rule a page breaks.
 type Violation struct {

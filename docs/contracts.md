@@ -2,7 +2,7 @@
 
 Everything here is read by another repository: the bundle format, the tag scheme, the reusable workflow, `docs-kit.cue`, the site's pull config and lock, the URL and link forms, the signing identity, the doc model, the page dialect and how the tool is distributed. A change to any of it follows constitution Principle II (`openspec/config.yaml`): prefer additive changes, bump the schema identifier for a breaking one, and name every consuming repository and what it must do.
 
-The numbers (C1 to C13) are stable; other repositories cite them as `docs-kit C5`. The approved design and its decisions are in [DESIGN.md](../DESIGN.md). These contracts were fixed by the OpenSpec change `build-opm-docs-phase-1` (archived under `openspec/changes/archive/`), which holds the reasoning behind each.
+The numbers (C1 onward) are stable; other repositories cite them as `docs-kit C5`. The approved design and its decisions are in [DESIGN.md](../DESIGN.md). These contracts were fixed by the OpenSpec change `build-opm-docs-phase-1` and extended by later changes (archived under `openspec/changes/archive/`), which hold the reasoning behind each. `docs/orchestration.md` lists which change adds which number.
 
 ## Doc-comment rules
 
@@ -10,6 +10,7 @@ How every extractor turns source comments into reader-facing text (`internal/doc
 
 - **Maintainer comments.** Inside a definition, a comment group whose first line (after `//` and trimming) starts with `WHY` or with `//` (a `////` banner) is dropped. A `WHY` line inside a doc comment is dropped on its own (core's rule, adopted now).
 - **Citations.** Removed from prose and from comments in spec blocks. The pattern accepts `0010:D28`, `0010 D28`, `OQ` numbers, `:R2` and `/R1/R2` requirement suffixes, `/D9` continuations, lists joined by `,`, `;` or `and`, an optional `(see|per|enhancement)` lead and the parenthesised form; then refgen's six clean-up rewrites (empty parens, comma before paren, space after paren, space before punctuation, double spaces, trim). Also removed: `See SPEC.md § N.` sentences, inline `SPEC.md § N`, `NNNN experiment N` and `enhancements/NNNN/experiments/...` (core's rules, adopted now). A changed comment paragraph in a spec block is re-wrapped to `80 - indent - 3` columns, minimum 40; an unchanged one keeps its breaks; a trailing comment that becomes empty is removed.
+- **Citation policy.** Every extractor source takes `citations` (C6): `"strip"`, the default, applies the rule above; `"link"` turns each enhancement decision citation outside a code span (`0010:D28`, `0010:D28:R2`, `0010:D28/D29`, each entry of a list) into a Markdown link, `[0010:D28](/enhancements/0010/decisions/)`, its text as written, and still removes every other form (`OQ` numbers, `0010 D28`, a citation that runs on into an `OQ`, `SPEC.md § N`, experiments). A citation inside a code span or a spec block's comment is removed under both policies: a link cannot live there. A lead-in word or parenthesis around a linked citation stays as written. `cue-catalog` takes only `"strip"`: its doc model holds plain prose that its renderer escapes, so a link needs a doc model that carries one. A `markdown` source takes no `citations`; authored text is copied as written.
 - **Summary.** A member's doc comment opens with `metadata.description` plus `.` (whitespace collapsed), or the build refuses the member naming both texts. The summary is the page's front-matter `description` and is not repeated in the body. The remaining paragraphs are the notes.
 - **Escaping.** Outside backtick code spans: `\ < > * _ [ ] |` are backslash-escaped and `{{` becomes `{\{`. A table cell escapes every `|`, inside code spans too. A code span lengthens its fence past any backtick it holds. A YAML front-matter string escapes `\` and `"`. A rendered page that still holds `{{<` or `{{%` fails the build.
 - **Doc-note links.** `docs/<name>.md` in prose becomes a link to that file on the source repository at the bundle's commit, only when the file exists and the text is outside a code span.
@@ -22,11 +23,20 @@ How every extractor turns source comments into reader-facing text (`internal/doc
 ghcr.io/open-platform-model/docs/<project>
 ```
 
-| Project | Source | Release tag prefix | Placement |
-|---|---|---|---|
-| `catalog-opm` | catalog_opm `opm/` (`opmodel.dev/catalogs/opm@v4`) | `opm-v` | tab, `/catalogs/opm/` |
+Every project, planned ones included, so changes built in parallel need not edit this table:
 
-A project name matches `^[a-z0-9]+(-[a-z0-9]+)*$`. Phases 2 and 3 add `core`, `cli`, `opm-operator`, `library` and `opm` under the same path.
+| Project | Repository | Release tag prefix | Placement | Phase |
+|---|---|---|---|---|
+| `catalog-opm` | catalog_opm (`opmodel.dev/catalogs/opm@v4`) | `opm-v` | tab, `/catalogs/opm/` | 1 |
+| `core` | core | `v` | docs, owns `reference/definitions/` | 2 |
+| `opm-operator` | opm-operator | `v` | docs, owns `reference/operator-resources.md` | 2 |
+| `cli` | cli | `v` | docs, owns `reference/cli/`, carries `pins` | 2 |
+| `library` | library | `v` | docs, owns `reference/go-api/` | 2 |
+| `catalog-opm-docs` | catalog_opm | `opm-v` | docs (its `docs/site/`) | 3 |
+| `opm` | opm | `v` | docs (its `docs/site/`) | 3 |
+| `enhancements` | enhancements | none (edge only) | section `/enhancements/` | 3 |
+
+A project name matches `^[a-z0-9]+(-[a-z0-9]+)*$`. **Naming rule**: a repository's docs-placed bundle is named after the repository, `_` becoming `-`; when that name is already a tab project of the same repository, it takes the suffix `-docs` (hence `catalog-opm-docs` beside `catalog-opm`).
 
 ## C2. Media types and annotations
 
@@ -112,6 +122,9 @@ import (
 	placement: #Placement
 	pages: list.MinItems(1) & [...#Page]
 	data: [...#DataFile]
+	// The exact versions of other projects this build documents against
+	// (DESIGN decision 10), from the config's pins command.
+	pins?: [#Project]: #SemVer
 }
 
 #Project: =~"^[a-z0-9]+(-[a-z0-9]+)*$"
@@ -121,11 +134,19 @@ import (
 
 #Placement: {
 	// "tab": its own section with its own versions, /catalogs/<name>/<MAJOR.MINOR>/.
-	// "docs": merged into a site version's /docs/ tree (phase 2; refused by phase-1 pull).
+	// "docs": merged into a site version's /docs/ tree (refused by a pull that predates it).
 	kind: "tab" | "docs"
 	if kind == "tab" {root: =~"^/catalogs/[a-z0-9]+(-[a-z0-9]+)*/$"}
-	if kind == "docs" {root: "/docs/"}
+	if kind == "docs" {
+		root: "/docs/"
+		// Paths under content/ this bundle owns exclusively: a directory
+		// ending "/" or a page ending ".md". Every generated page of the
+		// bundle lies under one; two of them never nest.
+		owns: *[] | [...#Owned]
+	}
 }
+
+#Owned: =~"^([a-z0-9]+(-[a-z0-9]+)*/)+$|^([a-z0-9]+(-[a-z0-9]+)*/)*[a-z0-9]+(-[a-z0-9]+)*\\.md$"
 
 #Page: {
 	path:      =~"^([a-z0-9]+(-[a-z0-9]+)*/)*(_index|[a-z0-9]+(-[a-z0-9]+)*)\\.md$" // under content/
@@ -141,6 +162,13 @@ import (
 ```
 
 Tightened from DESIGN.md: closed structs, the SHA and SemVer patterns, `revision: 0` for edge, `patches`, typed `data` entries, and a placement root bound to its kind. The schemas rely on definition closedness rather than `close()` (implementation finding): a struct passed to `close()` is evaluated on its own, so its `if kind == "tab"` guard never sees the data's `kind`, and `close()` does not close a nested pattern map such as `bundles: [#Project]: #Bundle`, which then accepted any project name. A definition closes every struct inside it, so the shipped files drop `close()` with the same meaning. `created` (optional; implementation finding) records the source commit's time: the bundle-format spec requires every annotation to equal a `manifest.json` field and `push` takes only `--dir`, so the time `push` stamps on the tar entries and on `org.opencontainers.image.created` has to travel in the manifest. `build` always writes it and `push` refuses a manifest without it; `pull` accepts one without it, so a fixture tree written to the original shape still validates. `pages` lists every file under `content/`, and only those; `data` lists every file under `data/`, and only those. `lastmod` is set when the checkout has the file's history (the workflow checks out with full history) and omitted otherwise.
+
+Added by the change `generalize-build-assembly`, both optional and additive:
+
+- `placement.owns`, on a docs placement only: the paths under `content/` the bundle owns exclusively, each a directory ending `/` or a page ending `.md` (`#Owned`). Build rules: C15.
+- `pins`: the exact versions of other projects the build documents against (DESIGN decision 10), written from the config's pins command (C6, C15). A build without `pins` in its config writes none.
+
+`#Manifest` is closed, so an `opm-docs` older than a field refuses a bundle that carries it; C12 orders the bumps so that never happens on the site.
 
 ## C4. Tags
 
@@ -204,23 +232,40 @@ on:
         description: CUE_REGISTRY for the extractors
         type: string
         default: "opmodel.dev=ghcr.io/open-platform-model,registry.cue.works"
+      setup-go:
+        description: Install Go (actions/setup-go, pinned by SHA) from the source tree's go.mod, for repository commands that run Go (docs-kit C14)
+        type: boolean
+        default: false
     outputs:
       digest:
         description: The pushed manifest digest (empty in check mode)
-        value: ${{ jobs.docs.outputs.digest }}
+        value: ${{ jobs.publish.outputs.digest }}
       tag:
         description: The full tag written (empty in check and edge modes)
-        value: ${{ jobs.docs.outputs.tag }}
+        value: ${{ jobs.publish.outputs.tag }}
 ```
 
-No secrets are declared: the workflow uses `github.token`. `publish.yml` declares no `permissions` of its own, so every job in it runs with the grant of the caller's job (a called workflow cannot raise it, and a job that asked for more than a check-only caller grants would fail that caller at start-up). The caller's job MUST grant:
+`setup-go` (added by `generalize-build-assembly`): when `true`, the build job installs Go with a SHA-pinned `actions/setup-go`, its cache off (a cache restored where the caller's code runs is an input another run's code could have written), before building, for a repository command (C14) that runs `go`. The Go version comes from `src/go.mod` (the release tree) in `release` mode and from the checkout of `main`'s `go.mod` otherwise, `revision` included: its patched release tree exists only inside `revise`, and Go builds an older module with a newer toolchain.
+
+**Two jobs** (since `generalize-build-assembly`; inputs, outputs and the caller's grant unchanged). A repository command runs the caller's own code during its build, so the job that builds is not the job that signs:
+
+| Job | Runs | Permissions it declares | Caller's code |
+|---|---|---|---|
+| `build` | the mode check; checkout(s) with `persist-credentials: false`; install `opm-docs`; `setup-go` when asked; `check`, `build` or `revise`; upload `out/<project>/` as the workflow artifact `docs-bundle-<project>-<run id>-<run attempt>` (retention 1 day; not in `check` mode) | `contents: read`, `packages: read` | yes |
+| `publish` | `needs: build`, skipped in `check` mode; install the `opm-docs` release the build job installed (its tag passed as a job output); download the artifact into `out/<project>/` and recreate `content/` and `data/` (an artifact drops an empty directory); the identity check below; GHCR login; `push`; `cosign sign`; `promote` | none (inherits the caller's `packages: write`, `id-token: write`) | none: no checkout of the caller |
+
+The build job can never request an OIDC token, so a compromised dependency of the caller cannot sign a bundle, and it holds no credential a repository command could read (C14): its checkouts persist none and it never logs in to a registry. `push` packs deterministically from the tree in whichever job runs it.
+
+**Identity check.** The tree comes from a job that ran the caller's code, so before `push` the publish job refuses it unless `manifest.json` has `project` equal to `inputs.project`, `source.repo` equal to `github.repository`, and `source.ref` equal to `inputs.tag` (`release`, `revision`) or `version` equal to `edge` (`edge`). Each refusal names the value found and the one expected; nothing is pushed or signed.
+
+No secrets are declared: the workflow uses `github.token`. The `publish` job declares no `permissions`, so it runs with the grant of the caller's job (a called workflow cannot raise it, and a job that asked for more than a check-only caller grants would fail that caller at start-up); the `build` job declares only the read grant every caller gives. The caller's job MUST grant:
 
 | Mode | `contents` | `packages` | `id-token` |
 |---|---|---|---|
 | `check` | `read` | `read` | none |
 | `edge`, `release`, `revision` | `read` | `write` | `write` |
 
-**Registry read login.** Before `build` or `check` in every mode, the job logs in to `ghcr.io` with `github.token` (`docker login ghcr.io -u ${{ github.actor }} --password-stdin`), so the extractor's CUE dependency resolution (`opmodel.dev/core@v2` and the catalog's other dependencies on GHCR) is authenticated and not rate-limited. `check` needs only `packages: read` for this; the publishing modes' `packages: write` includes it. The same login is the credential `push` and `promote` use later.
+**Registry login.** Only the publish job logs in to `ghcr.io`, with `github.token` (`docker login ghcr.io -u ${{ github.actor }} --password-stdin`); that login, under the caller's `packages: write`, is the credential `push` and `promote` use. The build job does not log in (since `generalize-build-assembly`; before it, it logged in for reads): a credential file there would be readable by a repository command. The extractor's CUE dependency resolution (`opmodel.dev/core@v2` and the catalog's other dependencies) and `revise`'s registry reads go to public GHCR packages anonymously. A caller whose CUE dependencies are private cannot build with this workflow.
 
 What each mode does (all but `check` refuse unless `github.ref` is `refs/heads/main`):
 
@@ -236,7 +281,7 @@ The `revision` mode came with docs-kit `v0.2.0` (change `add-docs-revisions`), w
 
 Signing: `sigstore/cosign-installer` pinned by SHA with a pinned cosign v3 release, then `cosign sign --yes --new-bundle-format=true ghcr.io/open-platform-model/docs/<project>@<digest>`. Never a tag. Every action is pinned by commit SHA with its version in a comment, like the sibling repositories' workflows.
 
-**Concurrency**. GitHub keeps at most one running and one pending run per concurrency group, and a new pending run cancels the older pending one whatever `cancel-in-progress` says. One shared group per project would therefore let a burst of `main` pushes cancel a queued release publish. The job uses separate groups:
+**Concurrency**. GitHub keeps at most one running and one pending run per concurrency group, and a new pending run cancels the older pending one whatever `cancel-in-progress` says. One shared group per project would therefore let a burst of `main` pushes cancel a queued release publish. The groups are declared at the **workflow level** of `publish.yml` (top-level `concurrency:`), so one group covers both jobs of a run: in `revision` mode `revise` picks the next revision number in the build job, and a group on the publish job alone would let two revisions of one release pick the same number (since `generalize-build-assembly`; before it, the groups sat on the one job). The groups:
 
 | Mode | Group | `cancel-in-progress` | Why |
 |---|---|---|---|
@@ -266,22 +311,62 @@ package schema
 		prefix: string & !="" // "opm-v": tag "opm-v4.4.5" is version "4.4.5"
 	}
 	sources: [#Source, ...#Source]
+	// The exact versions of other projects this build documents against
+	// (DESIGN decision 10). The command prints a pins document
+	// ({"schema": "docs.opmodel.dev/pins/v1", "pins": {<project>: <version>}})
+	// whose keys are exactly projects; build writes them to manifest.json pins.
+	pins?: {
+		command: #Command
+		projects: [#Project, ...#Project]
+	}
 }
+
+// A repository command (docs-kit C14): argv[0] is looked up on PATH; no
+// shell, no globbing. It runs in the source tree and prints one JSON document.
+#Command: [string & !="", ...string]
+
+// What an extractor source's citations become: "strip" removes them;
+// "link" links each enhancement decision citation to its decisions page.
+#Citations: *"strip" | "link"
 
 #Source: #CueCatalog | #Markdown
 
 #CueCatalog: {
 	kind:   "cue-catalog"
 	module: =~"^\\./[^/]" // the CUE module root, repo-relative: "./opm"
+	// The catalog doc model holds plain prose its renderer escapes, so a
+	// catalog strips citations; "link" needs a doc model that carries links.
+	citations: "strip"
 }
 
 #Markdown: {
 	kind: "markdown"
 	dir:  =~"^[^/.][^.]*$" // repo-relative directory, copied to content/ as it is
+	// Patterns relative to dir, matched against each file's slash path: a
+	// path.Match glob ("**" is not special), or a directory ending "/",
+	// which matches every file under it. A file is copied when it matches
+	// some include (or include is absent) and no exclude.
+	include?: [string, ...string]
+	exclude?: [string, ...string]
 }
 ```
 
-`bundles` is keyed by project because one repository can publish several, as core and cli will in phase 2 and catalog_opm would with a second catalog. Phase 1 has one entry. A `layout` choice for catalogs is left out until a second layout has a consumer. The `markdown` kind in phase 1 copies one directory of authored pages, lints them and records their git dates; phase 3 extends it, it does not replace it. A path in content/ written by two sources fails the build, except a root `_index.md` from a `markdown` source: it does not replace the generated landing, the renderer appends its generated block to it (C8).
+`bundles` is keyed by project because one repository can publish several, as core and cli will in phase 2 and catalog_opm would with a second catalog. A `layout` choice for catalogs is left out until a second layout has a consumer. A path in content/ written by two sources fails the build, except an authored page at the path of a completable generated page (the catalog landing is one): it does not replace the generated page, the generated body is appended to it (C15).
+
+**Source kinds.** `#Source` is the union of the kinds this `opm-docs` registers; a kind it does not admit exits `1` naming the kind and the kinds it builds. Each extractor kind writes one data file, `data/<kind>.json` with its own schema id (`cue-catalog` keeps `data/catalog.json`, C10), and the renderer registered for that schema turns it into pages, reading the data file as written. A bundle holds at most one source of each extractor kind (a second exits `1` naming both entries). Sources run in config order, then the renderers in the same order.
+
+| Kind | Writes | Options |
+|---|---|---|
+| `cue-catalog` | `data/catalog.json` (C10); a tab bundle only | `module`; `citations` only `"strip"` |
+| `markdown` | authored pages, copied | `dir`, `include`, `exclude` |
+
+**Adding an extractor** (one OpenSpec change per kind): an `Extractor` in `internal/build` (`Kind`, `Extract(ctx, Input) (Data, error)`), registered in its `extractors` table; a `Renderer` in `internal/render` (`Schema`, `Render(data, Target) ([]Page, error)`), registered by its data schema; its kind added to `#Source` with `citations?: #Citations` and its own options; its data file documented as a contract of its own. A renderer page may set `Completable` with its `Heading` and `Tail` (C15).
+
+**`markdown`** copies one directory of authored pages, lints them and records their git dates. `include` and `exclude` are patterns relative to `dir`, matched against each file's slash path: a `path.Match` glob (`**` is not special) or a directory ending `/`, which matches every file under it. A file is copied when it matches some `include` (or `include` is absent) and no `exclude`. A pattern that matches no file fails the build (exit `2`, "markdown dir docs/site: exclude "reference/defintions/" matches no file"), except when the config came from outside the source tree (a backfill, C5), where a missing `dir` is likewise no error. A pattern that is not a valid glob exits `1`. Link pinning (C8) applies only in a tab bundle; a docs bundle's pages are copied as written.
+
+**`citations`** (`#Citations`) is an extractor source's citation policy ("Doc-comment rules").
+
+**`pins`** names a repository command (C14) that prints `{"schema": "docs.opmodel.dev/pins/v1", "pins": {"<project>": "<version>"}}` and the projects it must pin; build rules in C15.
 
 catalog_opm's file, as the sibling change writes it:
 
@@ -493,6 +578,8 @@ Links the renderer writes, and the forms the dialect lint (C11) allows:
 
 An authored page in a bundle (a `markdown` source) links into its own catalog through the major alias, `/catalogs/<name>/<MAJOR>/<path>/`, the form that also reads correctly on GitHub and in docs mode. When `<MAJOR>` is the build's major (or the build is edge), the `markdown` source rewrites that link to the build's own segment, `/catalogs/<name>/<segment>/<path>/`, before bundle-mode lint checks that it names a page of the bundle. A link inside a fenced code block is an example and is left as written (added in review, 2026-10-02).
 
+A docs bundle's `content/<path>` publishes at `/docs/<page URL>` under the site version that pulls it (C15): `content/reference/cli/opm-module.md` is `/docs/reference/cli/opm-module/` in every site version that holds it. Its segment (`MAJOR.MINOR` or `edge`) is not part of any URL. Its pages link other docs pages as `/docs/<section>/<page>/` and catalogs as a docs page does (the bare root or a major), and no link of a docs bundle is rewritten.
+
 Aliases the site serves: `/catalogs/<name>/` and `/catalogs/<name>/<MAJOR>/` go to the newest minor (of that major), and `/catalogs/<name>/<MAJOR>/<path>/` to the same path in that minor, so docs pages can deep-link through the alias. For `catalog-opm` the contract page is the landing, so `/catalogs/opm/4/` replaces `/docs/reference/catalog-contract/`.
 
 ## C9. Signing identity
@@ -604,7 +691,7 @@ Written by `cue-catalog` (schema id `docs.opmodel.dev/data/cue-catalog/v1`). Pha
 - Every code fence carries a language tag.
 - An alert marker is exactly `> [!NOTE]` (or `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`) alone on its line.
 - Every link destination (inline and reference definitions) is `http:`, `https:`, `mailto:` or `#...`, or one of: `/docs/(<seg>/)*` with an optional fragment; `/enhancements/`, `/enhancements/<NNNN>/` or `/enhancements/<NNNN>/<document>/` with `<document>` one of `problem`, `design`, `decisions`, `graduation`, `risks`, `operational`, `questions`; `/catalogs/<name>/` or `/catalogs/<name>/<segment>/(<seg>/)*` with `<segment>` a major (`4`), a minor (`4.4`) or `edge`, with an optional fragment.
-- Bundle mode (`lint --bundle <dir>`, run by `build` and `pull`) adds: a link into the bundle's own root uses the bundle's own segment and names a page in the bundle; and `manifest.json` lists exactly the pages present; and a link to another catalog uses its bare root or a major segment, as C8's table requires (implementation decision, accepted 2026-10-02).
+- Bundle mode (`lint --bundle <dir>`, run by `build` and `pull`) adds: a link into the bundle's own root uses the bundle's own segment and names a page in the bundle; and `manifest.json` lists exactly the pages present; and a link to another catalog uses its bare root or a major segment, as C8's table requires (implementation decision, accepted 2026-10-02). A docs bundle's bundle mode is C15's instead: the docs-mode `/catalogs/` rules, and `/docs/` links into its owned paths name a page of it.
 - Docs mode (the default) adds: a `/catalogs/` link is the bare tab root (`/catalogs/opm/`) or uses a major segment (`/catalogs/opm/4/...`); a minor or `edge` segment is a violation. A malformed link is reported by its second segment, as the shell lint does: a minor (`/catalogs/opm/4.4/traits/backup`) or `edge` (`/catalogs/opm/edge`) gets `docs pages link catalogs through /catalogs/opm/4/` (or `.../<MAJOR>/`) even without its trailing slash; anything else, the slashless root `/catalogs/opm` included, gets the trailing-slash message. Bundle mode gives every malformed link the trailing-slash message.
 
 **Agreement with the site's shell lint until phase 3**. Until phase 3 retires `opmodel.dev/site/scripts/lint-sources.sh`, the site lints `docs/site/` trees with the shell script and every bundle with `opm-docs lint`, so the two must agree. They are kept in agreement by one conformance fixture set, `internal/dialect/testdata/conformance/`, each fixture paired with its expected `<file>:<line>` output, which both linters must pass:
@@ -622,6 +709,7 @@ Callers and the site never `go run` or `go install` `opm-docs`: every consumer r
 - **Assets.** Every docs-kit release `vX.Y.Z` carries `opm-docs_X.Y.Z_<os>_<arch>.tar.gz` for `linux_amd64`, `linux_arm64`, `darwin_arm64` and `darwin_amd64` (each holding the `opm-docs` binary and `LICENSE`, the Apache-2.0 text at docs-kit's root; the org adopted Apache-2.0 on 2026-10-02), and `checksums.txt` (SHA-256, `sha256sum` format, one line per archive). Built by goreleaser in a draft-first release workflow, the pattern cli already uses. URL: `https://github.com/open-platform-model/docs-kit/releases/download/vX.Y.Z/<asset>`.
 - **Pinned in a build image**. A consumer may instead pin the `linux_amd64` archive by its SHA-256 in its own build image (opmodel.dev does this in `site/Dockerfile`, as it pins Hugo and Pagefind) and run `opm-docs` inside that image, with network on for the `pull` step only. The SHA-256 it pins is the archive's line in that release's `checksums.txt`. docs-kit therefore keeps shipping the `linux_amd64` archive and `checksums.txt` in every release, under the names above.
 - **Pin file.** A caller of `publish.yml`, and any consumer that runs the tool on the host (catalog_opm for its local `docs:bundle` tasks; opmodel.dev only if it does not use the image pattern), pins it in a repo-root file `.opm-docs-version`: one line, the release tag (`v0.1.0`), matching `^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$`. `publish.yml` reads the same file (C5), so every caller of `publish.yml` has one; its tag and the `publish.yml@` ref name the same release and move in one PR.
+- **The site bumps first** (since `generalize-build-assembly`). `#Manifest` is closed, so an `opm-docs` older than a manifest field refuses a bundle that carries it (`placement.owns` and `pins` came with `generalize-build-assembly`; later changes add more). **opmodel.dev's pinned `opm-docs` is never older than any producer's `.opm-docs-version`.** A docs-kit release reaches the site first (its `site/Dockerfile` bump); only then may a producer move its `.opm-docs-version` and `publish.yml@` ref to it. `docs/orchestration.md` orders every bump that way.
 - **Verification.** Download the archive and `checksums.txt` for the host's os and arch, check with `grep ' <archive>$' checksums.txt | sha256sum -c -` (refusing an archive with no line), then extract only `opm-docs`. A failed check stops the task; nothing falls back to building from source. The install target is a gitignored repo-local directory (`.bin/` or `site/.bin/`), never a global path.
 
 ## C13. Version history, `history.json`
@@ -735,6 +823,43 @@ What the site derives, so both sides agree:
 
 No side-by-side diff (DESIGN decision 12).
 
+## C14. Repository commands
+
+A config value of type `#Command` (C6) names a program of the repository: an argv list, `argv[0]` looked up on `PATH`, no shell and no globbing. The `pins` command (C15) and the extractors that need repository code use it.
+
+| Aspect | Rule |
+|---|---|
+| Runs in | `build`, `check` and `revise` only; never `push`, `promote` or `pull` |
+| Directory | the source tree (`--source`; a revision's patched worktree) |
+| Environment | an allowlist of the build's own: `PATH`, `HOME`, `TMPDIR`, `USER`, `LANG`, `LC_*`, `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` (either case), Go's variables (`GO` then capitals and digits only: `GOPATH`, `GOFLAGS`, `GOPROXY`, `GOTOOLCHAIN`; never `GOOGLE_*`), `CGO_*`, `CUE_*`, `OPM_DOCS*`; plus `OPM_DOCS=1`, `OPM_DOCS_PROJECT=<project>`, `OPM_DOCS_VERSION=<version or edge>`. Nothing else passes: no `GITHUB_TOKEN`, no `ACTIONS_*`, no `DOCKER_CONFIG` |
+| Credentials | none: besides the environment rule, a command never runs where a registry or git credential is on disk (in `publish.yml` the build job persists no checkout credential and never logs in, C5) |
+| stdin | empty |
+| stdout | exactly one JSON document, at most 16 MiB, whose `schema` field names a schema its consumer reads; anything after the document is an error |
+| stderr | passed through to the build's stderr |
+| Timeout | 10 minutes; then the command's whole process group is killed (it runs in a group of its own on Unix, so a program `go run` compiled dies with it); a canceled build (an interrupt) kills it the same way and names the cause |
+| Failure | a non-zero exit, a timeout, an output over the cap, trailing output or an unknown schema exits `2` naming the project and the argv (``cli: command `go run ./hack/docskit-dump`: exited with status 1``) |
+| Determinism | `check` runs every command twice and exits `2`, naming the argv, when the outputs differ ("two runs printed different output; a docs build must be deterministic"); `build` and `revise` run it once |
+
+In `publish.yml` a command runs in the build job, which holds no signing credential (C5); the `setup-go` input installs Go for a command that needs it.
+
+## C15. Docs placement
+
+A bundle with `placement: {kind: "docs", root: "/docs/", owns: [...]}` merges into a site version's `/docs/` tree; its segment means nothing for URLs (C8), and `--release` derives its version from the tag prefix as for a tab. The rules `build` applies:
+
+| Rule | Exit |
+|---|---|
+| two owned paths nest (`reference/` and `reference/cli/`), naming both | `1` |
+| the bundle holds a `cue-catalog` source (a catalog is a tab, C1) | `1` |
+| a page a renderer writes lies outside every owned path, a completed page included ("`docs-kit.cue: content/reference/commands/opm.md is generated, but cli owns only reference/cli/; add it to placement.owns`") | `2` |
+
+**Bundle-mode lint of a docs bundle** (`lint --bundle`, run by `build`, `push` and `pull`): the docs-mode `/catalogs/` link rules (C11: the bare root or a major segment, "docs pages link catalogs through /catalogs/opm/4/"), plus: a `/docs/` link whose path lies under an owned path names a page of the bundle (`/docs/reference/cli/opm-module/` is `reference/cli/opm-module.md` or `reference/cli/opm-module/_index.md`); fragments are not checked. A `/docs/` link outside the owned paths points into another bundle or a site page and is not checked by the bundle: the site's post-build link check covers it. The dialect version stays `1`.
+
+**Generated paths** (every bundle, tab or docs). Before anything is written, `build` refuses (exit `2`, naming the extractor kind and the path) a page path a renderer returns that does not match `#Page.path` (C3), a data file an extractor returns that does not match `#DataFile.path`, a page path rendered twice (by two renderers, or by one twice; two completable pages at one path name both extractor kinds), and a data file written by two extractors. Neither pattern admits `..`, an absolute path or upper case.
+
+**Completable pages.** A renderer may mark a page completable, with the heading its generated body opens with. When a `markdown` source of the same bundle supplies a page at that path, the bundle's page is the authored front matter and body, unchanged, then one blank line, then the generated body without front matter, recorded as `generated: false` with the authored file as `source`. An authored body that already holds the heading exits `2` naming the file. Without an authored page, the generated page stands alone with its own front matter, `generated: true`. The catalog landing is the first completable page (heading `## Catalog members`; output unchanged).
+
+**Pins** (DESIGN decision 10). When a bundle's config has `pins: {command, projects}`, `build` runs the command (C14) and requires a `docs.opmodel.dev/pins/v1` document whose `pins` keys are exactly `projects` and whose values are SemVer versions without `v` (C3's `#SemVer`); it writes them to `manifest.json` `pins`. A missing or extra project, or a malformed version, exits `2` naming it and the command. A backfilled release (config from outside the tree) whose tree cannot run the command fails: pins are a contract, never guessed.
+
 ## Site decisions
 
 These are the opmodel.dev change's to build, recorded here so docs-kit's pull output and the sibling plan agree:
@@ -749,9 +874,9 @@ Syntax `opm-docs <command> [args] [flags]`. Exit codes: `0` success, `1` usage e
 
 | Command | Flags (type, default) | Does |
 |---|---|---|
-| `build` | `--config` (path, `docs-kit.cue`), `--project` (string, repeatable; default every project), `--out` (path, `out`), `--source` (path, `.`), one of `--edge` (default) or `--release <tag>` | Extract, render, lint; write `out/<project>/`. With `--release`, a `cue-catalog` source must declare the tag's version (prefix removed) as its `metadata.version`, else exit `2` naming both (a docs revision, built through `--release`, likewise). A dirty work tree is allowed for a local preview and recorded as `source.dirty: true`, which `push` refuses. |
+| `build` | `--config` (path, `docs-kit.cue`), `--project` (string, repeatable; default every project), `--out` (path, `out`), `--source` (path, `.`), one of `--edge` (default) or `--release <tag>` | Extract, render, lint; write `out/<project>/`. With `--release`, a `cue-catalog` source must declare the tag's version (prefix removed) as its `metadata.version`, else exit `2` naming both (a docs revision, built through `--release`, likewise). A dirty work tree is allowed for a local preview and recorded as `source.dirty: true`, which `push` refuses. Repository commands (C14) run once. A config error (an unknown source kind, owned paths that nest, a `pins.projects` that is empty) exits `1`; a command failure, an output that does not validate, a generated page outside `owns` or a completable heading collision exits `2`. |
 | `lint` | `--bundle` (bool, false), `--dialect` (int, 1) | Lint one or more page directories (or bundle directories) against the dialect. |
-| `check` | `--config`, `--project` | `build` into a temporary directory; exit 2 on any failure. The PR gate. |
+| `check` | `--config`, `--project` | `build` into a temporary directory, running every repository command twice (C14); exit 2 on any failure. The PR gate. |
 | `push` | `--dir` (path, required), `--registry` (string, `ghcr.io/open-platform-model/docs`) | Validate, pack deterministically, push; write the full tag for a release build; print `{"digest": ..., "tag": ...}` as JSON on stdout. |
 | `promote` | `--project` (required), `--digest` (required), `--registry` | Verify the signature of the digest (C9), then move the moving tags of its line to it (C4 rule 5). |
 | `pull` | see C7; `--config` (path, `bundles.cue`), `--out` (path, `.bundles`), `--lock` (path, `<out>/lock.json`) | Resolve, verify, unpack, lint, write each tab's `history.json` (C13), lock. |
@@ -822,7 +947,7 @@ with `%s` "a component that attaches it still renders, and the render warns that
 - [Traits](/catalogs/opm/4.4/traits/): 28
 ```
 
-For edge the second line reads "`<module path>` at `main` (commit `<12 hex>`), unreleased." When a `markdown` source supplies a root `_index.md`, its front matter and body come first, unchanged except for C8's alias pinning, then one blank line and the block; the authored body must not already hold a `## Catalog members` heading (the build refuses it, naming the file). The page is recorded in `manifest.json` with `generated: false` and `source` the authored file. Without an authored landing, the renderer writes front matter (`title` "<catalog name> catalog", `description` "Every member of `<module path>`, by kind.") and the block alone, `generated: true`.
+For edge the second line reads "`<module path>` at `main` (commit `<12 hex>`), unreleased." The landing is a completable page (C15): when a `markdown` source supplies a root `_index.md`, its front matter and body come first, unchanged except for C8's alias pinning, then one blank line and the block; the authored body must not already hold a `## Catalog members` heading (the build refuses it, naming the file). The page is recorded in `manifest.json` with `generated: false` and `source` the authored file. Without an authored landing, the renderer writes front matter (`title` "<catalog name> catalog", `description` "Every member of `<module path>`, by kind.") and the block alone, `generated: true`.
 
 No page carries a generator marker comment: a bundle's pages are wholly generated and never committed, so there is no authored text to keep apart.
 

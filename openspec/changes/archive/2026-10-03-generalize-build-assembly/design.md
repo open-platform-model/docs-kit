@@ -95,11 +95,11 @@ type Target struct {
 #Owned: =~"^([a-z0-9]+(-[a-z0-9]+)*/)+$|^([a-z0-9]+(-[a-z0-9]+)*/)*[a-z0-9]+(-[a-z0-9]+)*\\.md$"
 ```
 
-Rules for a docs bundle (build exits 2 on each, naming the page and the config):
+Rules for a docs bundle (each refusal names the page or field and the config):
 
-- every page a renderer writes (`generated: true`) lies under an owned path ("`reference/cli/opm-module.md` is generated but `cli` owns only `reference/definitions/`; add it to `placement.owns`");
-- two owned paths of one bundle do not nest;
-- a docs bundle carries no `cue-catalog` source (a catalog is a tab, C1).
+- every page a renderer writes (`generated: true`) lies under an owned path ("`reference/cli/opm-module.md` is generated but `cli` owns only `reference/definitions/`; add it to `placement.owns`"); exit 2;
+- two owned paths of one bundle do not nest; exit 1 (a config error);
+- a docs bundle carries no `cue-catalog` source (a catalog is a tab, C1); exit 1 (a config error, decided in implementation).
 
 `--release` on a docs bundle derives the version from the tag prefix as for a tab; the `metadata.version` check applies only to `cue-catalog`. A docs bundle's segment (`MAJOR.MINOR` or `edge`) means nothing for URLs: its pages publish under the site version that pulls it (C16).
 

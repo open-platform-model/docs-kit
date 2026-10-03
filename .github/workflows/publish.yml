@@ -18,7 +18,15 @@
 #            published release (input tag), build <version>.<next>, push, sign,
 #            move the moving tags.
 #
-# The caller's job grants the permissions (this file declares none, so a
+# Two jobs. build checks out the caller and runs opm-docs check, build or
+# revise, which may run the caller's own code (repository commands,
+# docs-kit C14); it declares contents: read and packages: read, so it can
+# never request an OIDC token, and it holds no credential a command could
+# read: the checkouts persist none and it never logs in to a registry (CUE
+# modules and bundles resolve anonymously from public GHCR packages). publish takes the bundle tree from a workflow
+# artifact, checks out nothing of the caller, and pushes, signs and promotes.
+#
+# The caller's job grants the permissions (publish declares none, so a
 # check-only caller needs no write grant):
 #   check                      contents: read, packages: read
 #   edge, release, revision    contents: read, packages: write, id-token: write
@@ -47,34 +55,41 @@ on:
         description: CUE_REGISTRY for the extractors
         type: string
         default: "opmodel.dev=ghcr.io/open-platform-model,registry.cue.works"
+      setup-go:
+        description: Install Go (actions/setup-go, pinned by SHA) from the source tree's go.mod, for repository commands that run Go (docs-kit C14)
+        type: boolean
+        default: false
     outputs:
       digest:
         description: The pushed manifest digest (empty in check mode)
-        value: ${{ jobs.docs.outputs.digest }}
+        value: ${{ jobs.publish.outputs.digest }}
       tag:
         description: The full tag written (empty in check and edge modes)
-        value: ${{ jobs.docs.outputs.tag }}
+        value: ${{ jobs.publish.outputs.tag }}
 
 env:
   CUE_REGISTRY: ${{ inputs.cue-registry }}
   PROJECT: ${{ inputs.project }}
   MODE: ${{ inputs.mode }}
 
+# The concurrency group covers both jobs of a run, and depends on the mode:
+# edge runs share one group and cancel each other (only the newest main
+# matters); a release and its revisions share one group per tag that
+# nothing cancels, so two revisions never build at once and never pick the
+# same revision number; a check is alone in its run's group.
+concurrency:
+  group: ${{ inputs.mode == 'edge' && format('docs-edge-{0}', inputs.project) || (inputs.mode == 'release' || inputs.mode == 'revision') && format('docs-release-{0}-{1}', inputs.project, inputs.tag) || format('docs-check-{0}-{1}', inputs.project, github.run_id) }}
+  cancel-in-progress: ${{ inputs.mode == 'edge' }}
+
 jobs:
-  # One job for every mode, so the install, login and publish steps are
-  # written once. Its concurrency group depends on the mode: edge runs share
-  # one group and cancel each other (only the newest main matters); a
-  # release and its revisions share one group per tag that nothing cancels,
-  # so revision numbers never race; a check is alone in its run's group.
-  docs:
-    name: Docs ${{ inputs.mode }} (${{ inputs.project }})
+  build:
+    name: Docs ${{ inputs.mode }} build (${{ inputs.project }})
     runs-on: ubuntu-latest
-    concurrency:
-      group: ${{ inputs.mode == 'edge' && format('docs-edge-{0}', inputs.project) || (inputs.mode == 'release' || inputs.mode == 'revision') && format('docs-release-{0}-{1}', inputs.project, inputs.tag) || format('docs-check-{0}-{1}', inputs.project, github.run_id) }}
-      cancel-in-progress: ${{ inputs.mode == 'edge' }}
+    permissions:
+      contents: read
+      packages: read
     outputs:
-      digest: ${{ steps.push.outputs.digest }}
-      tag: ${{ steps.push.outputs.tag }}
+      opm-docs: ${{ steps.install.outputs.tag }}
     steps:
       - name: Refuse an unknown mode or a publish outside main
         env:
@@ -109,6 +124,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       # Release mode: every source resolves against the release tree at src/.
       - if: inputs.mode == 'release'
@@ -117,8 +133,10 @@ jobs:
           ref: refs/tags/${{ inputs.tag }}
           path: src
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Install the opm-docs release .opm-docs-version names
+        id: install
         run: |
           set -euo pipefail
           if [ ! -f .opm-docs-version ]; then
@@ -140,12 +158,18 @@ jobs:
           grep " ${archive}\$" checksums.txt | sha256sum -c -
           mkdir -p bin && tar -xzf "$archive" -C bin opm-docs
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
-      - name: Log in to GHCR
-        env:
-          TOKEN: ${{ github.token }}
-          ACTOR: ${{ github.actor }}
-        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+      # Go from the release tree in release mode; from the checkout of main
+      # otherwise, revision mode included (its patched release tree is a
+      # temporary worktree that exists only inside revise). No cache: a
+      # cache restored in a job that runs the caller's code is an input
+      # another run's code could have written.
+      - if: inputs.setup-go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: ${{ inputs.mode == 'release' && 'src/go.mod' || 'go.mod' }}
+          cache: false
 
       - name: opm-docs check
         if: inputs.mode == 'check'
@@ -170,30 +194,102 @@ jobs:
           FIX: ${{ inputs.fix }}
         run: opm-docs revise --project "$PROJECT" --tag "$TAG" --fix "$FIX"
 
+      # The bundle tree goes to the publish job; content/ and data/ are
+      # recreated there, since an artifact drops an empty directory.
+      - name: Hand the bundle to the publish job
+        if: inputs.mode != 'check'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: docs-bundle-${{ inputs.project }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: out/${{ inputs.project }}/
+          if-no-files-found: error
+          retention-days: 1
+
+  # Runs no code of the caller: no checkout, only the opm-docs release the
+  # build job installed, the bundle tree it built, and cosign. It declares
+  # no permissions and inherits the caller's packages: write and
+  # id-token: write.
+  publish:
+    name: Docs ${{ inputs.mode }} publish (${{ inputs.project }})
+    needs: build
+    if: inputs.mode != 'check'
+    runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+      tag: ${{ steps.push.outputs.tag }}
+    steps:
+      - name: Install opm-docs
+        env:
+          TAG: ${{ needs.build.outputs.opm-docs }}
+        run: |
+          set -euo pipefail
+          version=${TAG#v}
+          archive="opm-docs_${version}_linux_amd64.tar.gz"
+          base="https://github.com/open-platform-model/docs-kit/releases/download/${TAG}"
+          cd "$RUNNER_TEMP"
+          curl -fsSLO "$base/$archive"
+          curl -fsSLO "$base/checksums.txt"
+          grep -q " ${archive}\$" checksums.txt || { echo "::error::checksums.txt of ${TAG} has no line for $archive"; exit 1; }
+          grep " ${archive}\$" checksums.txt | sha256sum -c -
+          mkdir -p bin && tar -xzf "$archive" -C bin opm-docs
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: docs-bundle-${{ inputs.project }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: out/${{ inputs.project }}
+
+      - name: Restore the bundle's empty directories
+        run: mkdir -p "out/$PROJECT/content" "out/$PROJECT/data"
+
+      # The tree came from a job that ran the caller's code: sign only a
+      # bundle of this project, of this repository, of the ref this run was
+      # asked to publish.
+      - name: Check the bundle is the one this run publishes
+        env:
+          TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          m="out/$PROJECT/manifest.json"
+          got_project=$(jq -r .project "$m")
+          got_repo=$(jq -r .source.repo "$m")
+          got_ref=$(jq -r .source.ref "$m")
+          got_version=$(jq -r .version "$m")
+          fail() { echo "::error::$1"; exit 1; }
+          [ "$got_project" = "$PROJECT" ] || fail "the bundle is of project \"$got_project\", not $PROJECT"
+          [ "$got_repo" = "$REPO" ] || fail "the bundle is of repository \"$got_repo\", not $REPO"
+          case "$MODE" in
+            edge) [ "$got_version" = edge ] || fail "an edge run built version \"$got_version\", not edge" ;;
+            release|revision) [ "$got_ref" = "$TAG" ] || fail "the bundle is of ref \"$got_ref\", not the tag $TAG" ;;
+          esac
+
+      - name: Log in to GHCR
+        env:
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+
       - name: Push
         id: push
-        if: inputs.mode != 'check'
         run: |
           set -euo pipefail
           opm-docs push --dir "out/$PROJECT" | tee "$RUNNER_TEMP/push.json"
           echo "digest=$(jq -r .digest "$RUNNER_TEMP/push.json")" >> "$GITHUB_OUTPUT"
           echo "tag=$(jq -r .tag "$RUNNER_TEMP/push.json")" >> "$GITHUB_OUTPUT"
 
-      - if: inputs.mode != 'check'
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
         with:
           cosign-release: v3.1.3
 
       # Sign the digest, never a tag; promote moves no tag to an unsigned
       # digest.
       - name: Sign the digest
-        if: inputs.mode != 'check'
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
         run: cosign sign --yes --new-bundle-format=true "ghcr.io/open-platform-model/docs/${PROJECT}@${DIGEST}"
 
       - name: Promote
-        if: inputs.mode != 'check'
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
         run: opm-docs promote --project "$PROJECT" --digest "$DIGEST"

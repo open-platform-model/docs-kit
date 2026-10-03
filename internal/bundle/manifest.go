@@ -48,10 +48,12 @@ type Source struct {
 	Patches []string `json:"patches,omitempty"`
 }
 
-// Placement is where the site mounts content/.
+// Placement is where the site mounts content/. Owns, for a docs bundle,
+// lists the content paths it owns exclusively.
 type Placement struct {
-	Kind string `json:"kind"`
-	Root string `json:"root"`
+	Kind string   `json:"kind"`
+	Root string   `json:"root"`
+	Owns []string `json:"owns,omitempty"`
 }
 
 // Page is one file under content/.
@@ -81,6 +83,9 @@ type Manifest struct {
 	Placement Placement  `json:"placement"`
 	Pages     []Page     `json:"pages"`
 	Data      []DataFile `json:"data"`
+	// Pins maps a project to the exact version this build documents
+	// against (DESIGN decision 10); absent when the config has no pins.
+	Pins map[string]string `json:"pins,omitempty"`
 }
 
 // Segment is the URL segment the bundle is shown under: "MAJOR.MINOR" of
