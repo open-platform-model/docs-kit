@@ -50,11 +50,11 @@ func editConfig(kind string) *config.Config {
 	b := config.Bundle{
 		Placement: config.Placement{Kind: "docs", Root: "/docs/", Owns: []string{"reference/"}},
 		Version:   config.VersionRule{From: "tag", Prefix: "v"},
-		Sources:   []config.Source{{Kind: "fake"}, {Kind: "markdown", Dir: "docs/site"}},
+		Sources:   []config.Source{{Kind: "fake"}, {Kind: config.KindMarkdown, Markdown: &config.Markdown{Dir: "docs/site"}}},
 	}
 	if kind == "tab" {
 		b.Placement = config.Placement{Kind: "tab", Root: "/catalogs/demo/"}
-		b.Sources = []config.Source{{Kind: "markdown", Dir: "docs/catalogs/demo"}}
+		b.Sources = []config.Source{{Kind: config.KindMarkdown, Markdown: &config.Markdown{Dir: "docs/catalogs/demo"}}}
 	}
 	return &config.Config{Path: "docs-kit.cue", Bundles: map[string]config.Bundle{"cli": b}}
 }
