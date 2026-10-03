@@ -23,6 +23,6 @@ One PR closing docs-kit#27 and docs-kit#37; its `feat` commits release `v0.6.0`.
 
 ## 4. Contracts and published bundles
 
-- [ ] 4.1 `docs/contracts.md`: C11 (bundle mode), C21 (the check and its two rule sets), "Doc-comment rules" (Escaping, the guarantee), C17 (a heading attribute block fails the build), "Commands" (`build`, `lint`, `pull`); `README.md` and `AGENTS.md` where they describe the check.
-- [ ] 4.2 Verify the published bundles: `task build`, then `bin/opm-docs pull` anonymously with a config naming catalog-opm (from 4.5, edge), and core, opm-operator and cli at every published tag (edge and the backfill releases). Verify: the pull exits 0 and the lock lists every bundle.
-- [ ] 4.3 `task check` green, then commit `docs: state the markup check as the guarantee for every bundle`.
+- [x] 4.1 `docs/contracts.md`: C11 (bundle mode), C21 (the check and its two rule sets), "Doc-comment rules" (Escaping, the guarantee), C17 (a heading attribute block fails the build), "Commands" (`build`, `lint`, `pull`); `README.md` and `AGENTS.md` where they describe the check.
+- [x] 4.2 Verify the published bundles: `task build`, then `bin/opm-docs pull` anonymously with a config naming catalog-opm (from 4.5, edge), and core, opm-operator and cli at every published tag (edge and the backfill releases). Verify: the pull exits 0 and the lock lists every bundle.
+- [x] 4.3 `task check` green, then commit `docs: state the markup check as the guarantee for every bundle`.
