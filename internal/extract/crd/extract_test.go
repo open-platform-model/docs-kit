@@ -296,6 +296,24 @@ func TestRefusesSymlinkedDirs(t *testing.T) {
 	}
 }
 
+// A directory under a linked parent that leaves the source tree is
+// refused, though no path element of its own is a link.
+func TestRefusesDirsOutsideTheTree(t *testing.T) {
+	outside := writeTree(t, map[string]string{"c/x.yaml": crdYAML("Widget", "")})
+	root := writeTree(t, map[string]string{"real/x.yaml": crdYAML("Widget", "")})
+	if err := os.Symlink(outside, filepath.Join(root, "elsewhere")); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Extract(Options{Root: root, Dir: "./elsewhere/c", Doc: doctext.Strip})
+	if err == nil || !strings.Contains(err.Error(), "dir ./elsewhere/c resolves outside the source tree") {
+		t.Errorf("dir: %v", err)
+	}
+	_, err = Extract(Options{Root: root, Dir: "./real", Samples: "./elsewhere/s", Doc: doctext.Strip})
+	if err == nil || !strings.Contains(err.Error(), "samples ./elsewhere/s resolves outside the source tree") {
+		t.Errorf("samples: %v", err)
+	}
+}
+
 func TestSampleKeepsLargeIntegers(t *testing.T) {
 	root := writeTree(t, map[string]string{
 		"c/x.yaml":                     crdYAML("Widget", ""),
