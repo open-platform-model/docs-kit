@@ -87,6 +87,15 @@ The workflow builds in one job, which declares only `contents: read` and `packag
 
 Every publishing mode runs only on `refs/heads/main`. A new package on GHCR is linked to the calling repository through `org.opencontainers.image.source`; check that it is public before the site pulls it.
 
+## Shipping authored docs
+
+A repository's authored pages (`docs/site/`) ship in its one docs-placed bundle, so the site reads no source repository for them (docs/contracts.md C15, "Authored docs"):
+
+1. Add `{kind: "markdown", dir: "docs/site"}` to the repository's docs bundle in `docs-kit.cue`, beside its extractor sources; a repository with only authored pages (opm) or a tab already (catalog_opm, as `catalog-opm-docs`) gets a bundle with `placement: {kind: "docs", root: "/docs/"}` holding that source alone. While committed generated pages still sit under `docs/site/`, `exclude` them (`exclude: ["reference/definitions/"]`), or the build fails naming the page and both sources.
+2. Run `opm-docs build` and read its lint output: pages are copied as written, and their `/catalogs/` links must use the bare root or a major (C8). `manifest.json` records each page's `source`, `lastmod` and, for a file `main` has, `edit`: the site's "Edit this page" links that path on `main`, whatever version the page shows.
+3. Move `.opm-docs-version` and the `publish.yml@` ref to a docs-kit release that writes `edit` only after opmodel.dev's pinned `opm-docs` is at least that release (C12): an older `opm-docs` refuses a manifest carrying it.
+4. Publish as for any bundle (above). Backfill only a tag whose `docs/site/` holds no page the site serves from elsewhere: a backfill takes `main`'s config and the tag's pages.
+
 ## Fixing a release's docs
 
 A published release's pages change only through a docs revision: its full tag (`4.4.5.0`) is never overwritten, so a documentation fix is published as `4.4.5.1`, `4.4.5.2` and so on, and `4.4.5`, `4.4` and `4` move to it. A fix that changes code needs a patch release instead.
