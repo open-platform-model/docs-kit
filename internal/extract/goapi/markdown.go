@@ -321,3 +321,10 @@ func Fence(code string) string {
 	}
 	return strings.Repeat("`", max(3, longest+1))
 }
+
+// Prose escapes one line of plain source text for Markdown as a doc
+// comment's prose is escaped, code spans kept: a package synopsis on the
+// section index.
+func Prose(s string) string {
+	return (&mdPrinter{policy: doctext.Strip}).inline(s, nil, false)
+}

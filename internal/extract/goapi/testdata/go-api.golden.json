@@ -15,7 +15,15 @@
       "doc": "Package gadget holds widgets.",
       "consts": [],
       "vars": [],
-      "funcs": [],
+      "funcs": [
+        {
+          "name": "Size",
+          "recv": null,
+          "anchor": "size",
+          "decl": "func Size() int",
+          "doc": "Size names [widget.Fast](/docs/reference/go-api/widget/#slow), a constant of a group, and [widget.Widget.Name](/docs/reference/go-api/widget/#widget), a field."
+        }
+      ],
       "types": [
         {
           "name": "Gadget",

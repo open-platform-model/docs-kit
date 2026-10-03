@@ -1,0 +1,15 @@
+---
+title: {{yaml .Title}}
+description: {{yaml .Description}}
+type: reference
+---
+
+{{.Import}}
+{{- if .Doc}}
+
+{{.Doc}}
+{{- end}}
+{{- range .Sections}}
+
+{{.}}
+{{- end}}

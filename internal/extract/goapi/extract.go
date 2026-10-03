@@ -557,7 +557,8 @@ func dropWhyLines(s string) string {
 }
 
 // linkURL resolves a doc link: a package or symbol documented in this
-// bundle links its page and anchor; anything else links pkg.go.dev.
+// bundle links its page and anchor (a name of a value group its group's,
+// a field its type's); anything else links pkg.go.dev.
 func (x *extraction) linkURL(from *pkgState) func(*comment.DocLink) string {
 	return func(l *comment.DocLink) string {
 		ip := l.ImportPath
@@ -576,6 +577,11 @@ func (x *extraction) linkURL(from *pkgState) func(*comment.DocLink) string {
 			if a, ok := st.anchors[key]; ok {
 				return page + "#" + a
 			}
+			// A field (no heading of its own) links its type, whose
+			// declaration shows it.
+			if a, ok := st.anchors[l.Recv]; ok && l.Recv != "" && isType(st.pkg, l.Recv) {
+				return page + "#" + a
+			}
 		}
 		u := "https://pkg.go.dev/" + ip
 		if key != "" {
@@ -583,6 +589,16 @@ func (x *extraction) linkURL(from *pkgState) func(*comment.DocLink) string {
 		}
 		return u
 	}
+}
+
+// isType reports an exported type of the package.
+func isType(p *doc.Package, name string) bool {
+	for _, t := range p.Types {
+		if t.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 // decl prints a declaration as gofmt does, without its doc comment, with
@@ -669,6 +685,20 @@ func assignAnchors(p *Package) map[string]string {
 		for _, e := range s.Entries {
 			sym(e.Key, e.Heading, e.Doc)
 		}
+	}
+	// Every name of a value group links its group's heading.
+	group := func(vs []Value) {
+		for _, v := range vs {
+			for _, n := range v.Names[1:] {
+				out[n] = out[v.Names[0]]
+			}
+		}
+	}
+	group(p.Consts)
+	group(p.Vars)
+	for i := range p.Types {
+		group(p.Types[i].Consts)
+		group(p.Types[i].Vars)
 	}
 	return out
 }

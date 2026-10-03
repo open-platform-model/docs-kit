@@ -10,9 +10,9 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`. One PR, titled `
 
 ## 2. The renderer
 
-- [ ] 2.1 `internal/render`: index and package pages (D4), anchors, doc-link resolution, heading shift. Verify: golden pages; the bundle passes docs bundle-mode lint.
-- [ ] 2.2 A trial build of the library at its newest tag with the planned config (D1), outside the test suite. Verify: lint passes; record the page count, the undocumented symbols and any page-dialect problem in design.md (the library sibling fixes its doc comments, not docs-kit).
-- [ ] 2.3 `task check` green, then commit `feat(render): render Go API reference pages`.
+- [x] 2.1 `internal/render`: index and package pages (D4), anchors, doc-link resolution, heading shift. Verify: golden pages; the bundle passes docs bundle-mode lint.
+- [x] 2.2 A trial build of the library at its newest tag with the planned config (D1), outside the test suite. Verify: lint passes; record the page count, the undocumented symbols and any page-dialect problem in design.md (the library sibling fixes its doc comments, not docs-kit).
+- [x] 2.3 `task check` green, then commit `feat(render): render Go API reference pages`.
 
 ## 3. Contract and archive
 

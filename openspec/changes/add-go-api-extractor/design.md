@@ -110,3 +110,17 @@ No new command or flag. A pattern that matches nothing: "`packages` `./opm/nope/
 
 - C20 (new): config (D1), model (D3), pages, anchors and links (D4).
 - C6: the source-kind table gains `go-api`.
+
+## Implementation notes
+
+- **Markdown printer.** `go/doc/comment`'s own `Printer.Markdown` writes `{#hdr-...}` heading IDs the dialect does not know, indents code instead of fencing it and leaves `{{` alone, so the extractor prints the same parsed tree with a printer of its own under docs-kit's rules: prose escaped (`\ ` * _ [ ] < > | !`, `{{` as `{\{`, a block marker at the start of a line), backtick code spans kept and resized, code blocks in `text` fences one backtick longer than their longest run, link text escaped, and a link whose scheme is not `http` or `https` refused (the comment parser makes links of `file`, `ftp`, `gopher`, `mailto`, `nntp`, `http` and `https` URLs only; any other text stays escaped prose). Doc links resolve as D4 says; in addition a name of a constant or variable group links its group's heading, and a field (`[T.Field]`) of a documented type links the type's heading, whose declaration shows it.
+- **Anchors.** The extractor walks a package page's headings in the order the renderer writes them (`goapi.PageSections`), the package doc's and every symbol doc's headings included, and makes repeats unique as Hugo does (`-1`, `-2`): a function `WidgetSpin` and a method `Widget.Spin` get `widgetspin` and `widgetspin-1`.
+- **Pages.** A package page opens with its import line in a `go` fence. A type's constants and variables are `####` entries headed by their first name, before its constructors and methods. A command (`package main`) is not documented.
+
+## Trial build (task 2.2, 2026-10-03)
+
+`opm-docs build --release v1.0.0-beta.1` over a clone of the library at `v1.0.0-beta.1` (`02344e5`) with D1's config (from outside the tree, as the backfill runs it, and again from inside with `opm-docs check`): green, bundle-mode lint clean, two builds byte-identical. 18 pages: the section index and 9 package pages (`catalog`, `errors`, `helper`, `helper-objectset`, `helper-platformmodule`, `kernel`, `module`, `platform`, `schema`), plus the 8 authored pages of `docs/site`. 119 exported entries.
+
+- **Undocumented at the tag** (13): `opm/errors` `ContractCollisionsError.Error`, `NotRoutableError.Error`, `OverSubscribedContractsError.Error`, `PlatformCoreTooOldError.Error`, `SkewError.Error`, `TransformError.Error`, `TransformError.Unwrap`, `UnmatchedComponentsError.Error`, `UnresolvedDemandsError.Error`; `opm/kernel` `RenderError.Error`, `RenderError.Unwrap`, the `SkewWarn`/`SkewRefuse` group (no group comment; each constant has its own); `opm/helper/platformmodule` the `CorePath`/`LanguageVersion`/`ModuleFileName`/`PlatformFileName` group (likewise).
+- **Garbled at the tag**: `opm/kernel/doc.go`'s "Surface" list and its three code examples ("One-Kernel-per-process example", the advisory-facts loop and the replacements loop) are re-wrapped into running text at `v1.0.0-beta.1`, so they render as paragraphs. No page-dialect problem otherwise.
+- **Library `main`** (`cd31684`): the same build is green with every exported symbol documented, the list a list and the examples `text` fences; so the fix is already on `main` and reaches the backfilled bundle as a docs revision or with the next library release (docs/orchestration.md step 4b).
