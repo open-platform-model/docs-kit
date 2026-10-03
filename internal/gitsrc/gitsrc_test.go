@@ -86,3 +86,57 @@ func TestDirty(t *testing.T) {
 		t.Fatal("a modified file did not make the tree dirty")
 	}
 }
+
+func TestHasFile(t *testing.T) {
+	ctx := context.Background()
+	r := newRepo(t)
+	write := func(name, body string) {
+		p := filepath.Join(r.Dir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("docs/site/start/install.md", "x")
+	write("docs/site/run.sh", "x")
+	if err := os.Chmod(filepath.Join(r.Dir, "docs", "site", "run.sh"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("start/install.md", filepath.Join(r.Dir, "docs", "site", "link.md")); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"add", "-A"}, {"commit", "-q", "-m", "two"}} {
+		cmd := exec.CommandContext(ctx, "git", append([]string{"-C", r.Dir}, args...)...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	for _, c := range []struct {
+		rev, path string
+		want      bool
+	}{
+		{"HEAD", "docs/site/start/install.md", true},
+		{"HEAD", "docs/site/run.sh", true},
+		{"HEAD", "a.md", true},
+		{"opm-v4.4.5", "docs/site/start/install.md", false}, // not yet in that tree
+		{"HEAD", "docs/site/start", false},                  // a directory
+		{"HEAD", "docs/site/link.md", false},                // a symlink
+		{"HEAD", "docs/site/start/*.md", false},             // a pathspec glob is literal
+		{"HEAD", "missing.md", false},
+		{"no-such-rev", "a.md", false},
+	} {
+		if got := r.HasFile(ctx, c.rev, c.path); got != c.want {
+			t.Errorf("HasFile(%s, %s) = %v, want %v", c.rev, c.path, got, c.want)
+		}
+	}
+	// Paths are relative to the repository root, whatever Dir is.
+	sub := Repo{Dir: filepath.Join(r.Dir, "docs")}
+	if !sub.HasFile(ctx, "HEAD", "docs/site/start/install.md") {
+		t.Error("a root-relative path from a subdirectory Dir was not found")
+	}
+	if sub.HasFile(ctx, "HEAD", "site/start/install.md") {
+		t.Error("a path relative to a subdirectory Dir was found")
+	}
+}
