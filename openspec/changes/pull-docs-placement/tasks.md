@@ -4,9 +4,9 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`. One PR, titled `
 
 ## 1. Config and lock schemas
 
-- [ ] 1.1 `schema/pull.cue` (design.md D1) and `internal/config` (`Pull.Docs`, `Pull.Versions`, the pre-network checks). Verify: tests for opmodel.dev's planned file, an undeclared project, a project twice in one version, a project both tab and docs.
-- [ ] 1.2 `schema/lock.cue` and `internal/pull/lock.go`: the `docs` key, entry forms, key order and sort (D5). Verify: a lock without `docs` still validates; encode/decode round trip; sort order test.
-- [ ] 1.3 `task check` green, then commit `feat(pull): accept site versions in the pull config and lock`.
+- [x] 1.1 `schema/pull.cue` (design.md D1) and `internal/config` (`Pull.Docs`, `Pull.Versions`, the pre-network checks). Verify: tests for opmodel.dev's planned file, an undeclared project, a project twice in one version, a project both tab and docs.
+- [x] 1.2 `schema/lock.cue` and `internal/pull/lock.go`: the `docs` key, entry forms, key order and sort (D5). Verify: a lock without `docs` still validates; encode/decode round trip; sort order test.
+- [x] 1.3 `task check` green, then commit `feat(pull): accept site versions in the pull config and lock`.
 
 ## 2. Resolution and layout
 
