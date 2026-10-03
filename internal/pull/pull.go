@@ -32,17 +32,29 @@ import (
 	"github.com/open-platform-model/docs-kit/internal/verify"
 )
 
-// Local takes one segment of a project from a local bundle tree.
+// Local takes one segment of a tab, or one docs project of a site
+// version, from a local bundle tree. Segment is the tab's segment
+// ("MAJOR.MINOR" or "edge") or a site version ("v1.0").
 type Local struct {
 	Project, Segment, Dir string
 }
 
-// ParseLocal parses "<project>@<segment>=<dir>".
+// Site reports whether the tree is a docs project of a site version.
+func (l Local) Site() bool { return reSiteVersion.MatchString(l.Segment) }
+
+var reSiteVersion = regexp.MustCompile(`^v(0|[1-9]\d*)\.(0|[1-9]\d*)$`)
+
+// ParseLocal parses "<project>@<segment>=<dir>", where a segment
+// "v<MAJOR>.<MINOR>" names a site version and "<MAJOR>.<MINOR>" or "edge"
+// a tab's segment.
 func ParseLocal(s string) (Local, error) {
 	ps, dir, ok := strings.Cut(s, "=")
 	p, seg, ok2 := strings.Cut(ps, "@")
+	if ok && ok2 && p != "" && dir != "" && reSiteVersion.MatchString(seg) {
+		return Local{Project: p, Segment: seg, Dir: dir}, nil
+	}
 	if !ok || !ok2 || p == "" || dir == "" || (seg != tags.Edge && !tags.IsMinorTag(seg)) {
-		return Local{}, fmt.Errorf("--local %s: write <project>@<segment>=<dir>, the segment MAJOR.MINOR or edge", s)
+		return Local{}, fmt.Errorf("--local %s: write <project>@<segment>=<dir>, the segment MAJOR.MINOR or edge for a tab, v<MAJOR>.<MINOR> for a site version", s)
 	}
 	return Local{Project: p, Segment: seg, Dir: dir}, nil
 }
@@ -85,6 +97,8 @@ type puller struct {
 	versionOrder   []string
 	versionWritten map[string]bool
 	docs           []DocsEntry
+	docsLocals     map[string]Local // "<v>/<project>"
+	frozenLock     *Lock
 }
 
 // Run pulls every tab and every site version, writes each tab's
@@ -101,7 +115,7 @@ func Run(ctx context.Context, o Options) (*Lock, error) {
 		o.Warn = func(string) {}
 	}
 	p := &puller{o: o, cfg: cfg, written: map[string]bool{}, staged: map[string]string{},
-		versionStaged: map[string]string{}, versionWritten: map[string]bool{}}
+		versionStaged: map[string]string{}, versionWritten: map[string]bool{}, docsLocals: map[string]Local{}}
 	// A staged tree left behind by a failure is removed; a swapped one is
 	// already gone from its staging path.
 	defer p.discard()
@@ -109,6 +123,7 @@ func Run(ctx context.Context, o Options) (*Lock, error) {
 	if err != nil {
 		return nil, err
 	}
+	p.frozenLock = frozen
 	if err := p.stageAll(ctx, locals, frozen); err != nil {
 		return nil, err
 	}
@@ -186,6 +201,12 @@ func (p *puller) commit(histories []pendingHistory, lock []byte) error {
 func (p *puller) prepare() (map[string][]Local, *Lock, error) {
 	locals := map[string][]Local{}
 	for _, l := range p.o.Locals {
+		if l.Site() {
+			if err := p.docsLocal(l); err != nil {
+				return nil, nil, err
+			}
+			continue
+		}
 		if _, ok := p.cfg.Tabs[l.Project]; !ok {
 			return nil, nil, usagef("--local %s@%s: %s is not a tab in %s", l.Project, l.Segment, l.Project, p.o.Config)
 		}
@@ -199,6 +220,28 @@ func (p *puller) prepare() (map[string][]Local, *Lock, error) {
 		}
 	}
 	return locals, frozen, os.MkdirAll(p.o.Out, 0o750)
+}
+
+// docsLocal records a --local tree for a docs project of a site version.
+func (p *puller) docsLocal(l Local) error {
+	sv := l.Segment
+	v, ok := p.cfg.Versions[sv]
+	if !ok {
+		return usagef("--local %s@%s: %s is not a site version in %s", l.Project, sv, sv, p.o.Config)
+	}
+	if v.Role(l.Project) == "" {
+		return usagef("--local %s@%s: %s does not pull %s; it pulls %s", l.Project, sv, sv, l.Project, strings.Join(versionProjects(v), ", "))
+	}
+	key := sv + "/" + l.Project
+	if _, dup := p.docsLocals[key]; dup {
+		return usagef("--local %s@%s is given twice", l.Project, sv)
+	}
+	p.docsLocals[key] = l
+	return nil
+}
+
+func versionProjects(v config.SiteVersion) []string {
+	return append(append([]string{v.Anchor.Project}, v.Pinned...), v.TagProjects()...)
 }
 
 func (p *puller) readFrozen() (*Lock, error) {
@@ -215,7 +258,82 @@ func (p *puller) readFrozen() (*Lock, error) {
 			return nil, usagef("--frozen %s holds the local entry %s@%s; pass it again with --local", p.o.Frozen, e.Project, e.Segment)
 		}
 	}
+	if err := p.checkFrozenDocs(l); err != nil {
+		return nil, err
+	}
 	return l, nil
+}
+
+// checkFrozenDocs refuses a frozen lock's docs entry the config would not
+// pull as it is written: a site version or project the config does not
+// name, another role, another repository or tag, a local entry, or a
+// pinned entry off the locked anchor's pin.
+func (p *puller) checkFrozenDocs(l *Lock) error {
+	anchors := map[string]*DocsEntry{}
+	seen := map[string]bool{}
+	for i := range l.Docs {
+		e := &l.Docs[i]
+		if seen[e.Site+"/"+e.Project] {
+			return usagef("--frozen %s locks %s %s twice", p.o.Frozen, e.Site, e.Project)
+		}
+		seen[e.Site+"/"+e.Project] = true
+		if err := p.checkFrozenEntry(e); err != nil {
+			return err
+		}
+		if e.Role == RoleAnchor {
+			anchors[e.Site] = e
+		}
+	}
+	for i := range l.Docs {
+		e := &l.Docs[i]
+		if e.Role != RolePinned {
+			continue
+		}
+		pin := ""
+		if a := anchors[e.Site]; a != nil {
+			pin = a.Pins[e.Project]
+		}
+		if pin == "" || e.Version != pin || e.Tag != pin {
+			if pin == "" {
+				pin = "no version of it"
+			}
+			return usagef("--frozen %s: %s %s is locked at version %s, tag %s, and the locked anchor pins %s", p.o.Frozen, e.Site, e.Project, e.Version, e.Tag, pin)
+		}
+	}
+	return nil
+}
+
+// checkFrozenEntry checks one docs entry against the config; a pinned
+// entry's tag is checked against the anchor's pin by the caller.
+func (p *puller) checkFrozenEntry(e *DocsEntry) error {
+	name := e.Site + " " + e.Project
+	if e.Local {
+		return usagef("--frozen %s holds the local entry %s@%s; pass it again with --local", p.o.Frozen, e.Project, e.Site)
+	}
+	v, ok := p.cfg.Versions[e.Site]
+	if !ok {
+		return usagef("--frozen %s: %s is not a site version in %s", p.o.Frozen, e.Site, p.o.Config)
+	}
+	if role := v.Role(e.Project); role != e.Role {
+		if role == "" {
+			role = "nothing; the version does not pull it"
+		}
+		return usagef("--frozen %s: %s is locked as %s, and the config pulls it as %s", p.o.Frozen, name, e.Role, role)
+	}
+	if want := p.cfg.Registry + "/" + e.Project; e.Repository != want {
+		return usagef("--frozen %s: %s names the repository %s; the config pulls %s from %s", p.o.Frozen, name, e.Repository, e.Project, want)
+	}
+	want := v.Tags[e.Project]
+	switch e.Role {
+	case RolePinned:
+		return nil
+	case RoleAnchor:
+		want = v.Anchor.Tag
+	}
+	if e.Tag != want {
+		return usagef("--frozen %s: %s is locked at tag %s, and the config resolves it at %s", p.o.Frozen, name, e.Tag, want)
+	}
+	return nil
 }
 
 // segmentDir is where a segment unpacks, and the lock's dir for it.

@@ -7,9 +7,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+
+	"github.com/opencontainers/go-digest"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/open-platform-model/docs-kit/internal/build"
 	"github.com/open-platform-model/docs-kit/internal/bundle"
+	"github.com/open-platform-model/docs-kit/internal/config"
 	"github.com/open-platform-model/docs-kit/internal/oci"
 )
 
@@ -51,7 +56,7 @@ func (p *puller) stageVersion(ctx context.Context, sv string) error {
 	if err := os.MkdirAll(incoming, 0o750); err != nil {
 		return err
 	}
-	anchor, err := p.docsBundle(ctx, sv, v.Anchor.Project, RoleAnchor, v.Anchor.Tag)
+	anchor, err := p.docsBundle(ctx, sv, v.Anchor.Project, RoleAnchor, v.Anchor.Tag, nil)
 	if err != nil {
 		return err
 	}
@@ -62,20 +67,89 @@ func (p *puller) stageVersion(ctx context.Context, sv string) error {
 			return fmt.Errorf("%s: %s (%s) pins no version of %s; a pinned project needs a pin in the anchor's manifest.json, so list it in the anchor's pins.projects, or pull it by its own tag under tags",
 				sv, anchor.what, anchor.ref, project)
 		}
-		b, err := p.docsBundle(ctx, sv, project, RolePinned, pin)
+		b, err := p.docsBundle(ctx, sv, project, RolePinned, pin, anchor)
 		if err != nil {
 			return pinError(err, sv, anchor, project, pin)
+		}
+		if b.m.Version != pin {
+			return fmt.Errorf("%s: %s (%s) is version %s, and %s pins %s; pull it at its pin", sv, b.what, b.ref, b.m.Version, anchor.what, pin)
 		}
 		set = append(set, b)
 	}
 	for _, project := range v.TagProjects() {
-		b, err := p.docsBundle(ctx, sv, project, RoleTag, v.Tags[project])
+		b, err := p.docsBundle(ctx, sv, project, RoleTag, v.Tags[project], nil)
 		if err != nil {
 			return err
 		}
 		set = append(set, b)
 	}
+	return checkOverlap(sv, set)
+}
+
+// checkOverlap refuses a site version whose docs bundles overlap: two
+// owned paths that nest, a page under a path another bundle owns, or one
+// content path in two bundles.
+func checkOverlap(sv string, set []*docsBundle) error {
+	for _, check := range []func([]*docsBundle) string{nestedOwns, pageUnderOwned, pageTwice} {
+		if msg := check(set); msg != "" {
+			return fmt.Errorf("%s: %s", sv, msg)
+		}
+	}
 	return nil
+}
+
+func nestedOwns(set []*docsBundle) string {
+	for i, a := range set {
+		for _, b := range set[i+1:] {
+			for _, oa := range a.m.Placement.Owns {
+				for _, ob := range b.m.Placement.Owns {
+					if config.Nests(oa, ob) || config.Nests(ob, oa) {
+						return fmt.Sprintf("%s owns %s and %s owns %s; owned paths of one site version never nest, so narrow one of them", a.what, oa, b.what, ob)
+					}
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func pageUnderOwned(set []*docsBundle) string {
+	for _, a := range set {
+		for _, b := range set {
+			if a == b {
+				continue
+			}
+			for _, page := range a.m.Pages {
+				if o, ok := ownedBy(b, page.Path); ok {
+					return fmt.Sprintf("%s has %s, under %s, which %s owns; a page under an owned path belongs to its owner, so move it or drop it", a.what, page.Path, o, b.what)
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// ownedBy returns the path of b's owns that holds page.
+func ownedBy(b *docsBundle, page string) (string, bool) {
+	for _, o := range b.m.Placement.Owns {
+		if config.Nests(o, page) {
+			return o, true
+		}
+	}
+	return "", false
+}
+
+func pageTwice(set []*docsBundle) string {
+	seen := map[string]*docsBundle{}
+	for _, b := range set {
+		for _, page := range b.m.Pages {
+			if first, ok := seen[page.Path]; ok {
+				return fmt.Sprintf("%s is in both %s and %s; a page of a site version comes from one bundle, so drop it from one of them", page.Path, first.what, b.what)
+			}
+			seen[page.Path] = b
+		}
+	}
+	return ""
 }
 
 // missingTagError is a tag the registry does not have.
@@ -101,9 +175,16 @@ func pinError(err error, sv string, anchor *docsBundle, project, pin string) err
 		sv, anchor.what, project, pin, mt.repo, project, pin)
 }
 
-// docsBundle stages one project of a site version at tag, from the
-// registry, and records its lock entry.
-func (p *puller) docsBundle(ctx context.Context, sv, project, role, tag string) (*docsBundle, error) {
+// docsBundle stages one project of a site version and records its lock
+// entry: from a --local tree, else from a frozen lock, else from the
+// registry at tag. anchor is the staged anchor when the project is pinned.
+func (p *puller) docsBundle(ctx context.Context, sv, project, role, tag string, anchor *docsBundle) (*docsBundle, error) {
+	if l, ok := p.docsLocals[sv+"/"+project]; ok {
+		return p.localDocs(sv, project, role, l, tag, anchor)
+	}
+	if p.frozenLock != nil {
+		return p.frozenDocs(ctx, sv, project, role)
+	}
 	repo, err := p.o.Client.Repository(p.cfg.Registry + "/" + project)
 	if err != nil {
 		return nil, err
@@ -115,6 +196,31 @@ func (p *puller) docsBundle(ctx context.Context, sv, project, role, tag string) 
 		}
 		return nil, fmt.Errorf("%s %s %s: %w", sv, project, tag, err)
 	}
+	return p.fetchDocs(ctx, sv, project, role, tag, repo, desc)
+}
+
+// frozenDocs fetches the digest a frozen lock names for a project of a
+// site version.
+func (p *puller) frozenDocs(ctx context.Context, sv, project, role string) (*docsBundle, error) {
+	i := slices.IndexFunc(p.frozenLock.Docs, func(e DocsEntry) bool { return e.Site == sv && e.Project == project })
+	if i < 0 {
+		return nil, usagef("--frozen %s has no entry for %s %s, which the config pulls as %s; pull again without --frozen", p.o.Frozen, sv, project, role)
+	}
+	e := p.frozenLock.Docs[i]
+	repo, err := p.o.Client.Repository(e.Repository)
+	if err != nil {
+		return nil, err
+	}
+	d, err := digest.Parse(e.Digest)
+	if err != nil {
+		return nil, err
+	}
+	return p.fetchDocs(ctx, sv, project, role, e.Tag, repo, ocispec.Descriptor{MediaType: ocispec.MediaTypeImageManifest, Digest: d, Size: -1})
+}
+
+// fetchDocs verifies one docs bundle as its project's, and only then
+// fetches, unpacks and lints it into the staged version.
+func (p *puller) fetchDocs(ctx context.Context, sv, project, role, tag string, repo *oci.Repo, desc ocispec.Descriptor) (*docsBundle, error) {
 	what := fmt.Sprintf("%s %s %s (%s@%s)", sv, project, tag, repo.Name, desc.Digest)
 	f, err := p.verified(ctx, repo, desc, project, p.cfg.Docs[project].Repo, tag, what)
 	if err != nil {
@@ -136,6 +242,37 @@ func (p *puller) docsBundle(ctx context.Context, sv, project, role, tag string) 
 		Signer: &Signer{Workflow: f.id.Workflow, Repository: f.id.Repository, Ref: f.id.Ref}, Pins: anchorPins(role, m), Dir: rel,
 	})
 	return &docsBundle{project: project, role: role, m: m, what: project + " " + m.Version, ref: desc.Digest.String()}, nil
+}
+
+// localDocs takes a project of a site version from a local tree, with no
+// registry and no signature. A pinned tree must be the pinned release.
+func (p *puller) localDocs(sv, project, role string, l Local, pin string, anchor *docsBundle) (*docsBundle, error) {
+	flag := fmt.Sprintf("--local %s@%s=%s", project, sv, l.Dir)
+	m, err := bundle.Read(l.Dir)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkDocsBundle(m, project); err != nil {
+		return nil, fmt.Errorf("%s: %w", flag, err)
+	}
+	if role == RolePinned && m.Version != pin {
+		return nil, usagef("%s: the tree is %s %s, and %s pins %s %s; build the pinned release, or drop --local to pull it", flag, project, m.Version, anchor.what, project, pin)
+	}
+	// A round trip through the layer applies the same guards and limits a
+	// pulled bundle gets.
+	layer, err := bundle.Pack(l.Dir, parseCreated(m.Created))
+	if err != nil {
+		return nil, err
+	}
+	m, rel, err := p.unpackDocs(sv, project, layer, fmt.Sprintf("--local %s@%s", project, sv))
+	if err != nil {
+		return nil, err
+	}
+	p.docs = append(p.docs, DocsEntry{
+		Site: sv, Project: project, Role: role, Local: true,
+		Version: m.Version, Revision: m.Revision, Commit: m.Source.Commit, Dialect: m.Dialect, BuiltBy: m.Tool, Pins: anchorPins(role, m), Dir: rel,
+	})
+	return &docsBundle{project: project, role: role, m: m, what: project + " " + m.Version, ref: "local"}, nil
 }
 
 // anchorPins is what the lock records of a bundle's pins: the anchor's,

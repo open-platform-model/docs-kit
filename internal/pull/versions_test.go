@@ -3,12 +3,14 @@ package pull
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/open-platform-model/docs-kit/internal/bundle"
+	"github.com/open-platform-model/docs-kit/internal/verify"
 )
 
 // docsSpec describes a docs bundle tree for a test.
@@ -314,5 +316,204 @@ func (e *env) retag(project, from, to string) {
 	}
 	if err := repo.Tag(ctx, d, raw, to); err != nil {
 		e.t.Fatal(err)
+	}
+}
+
+// offline makes a pull fail if it touches the registry or the trusted root.
+func (e *env) offline(o *Options) {
+	e.stop()
+	o.Verifier = func() (*verify.Verifier, error) { return nil, errors.New("a local pull fetched the trusted root") }
+}
+
+func TestSiteVersionAllLocal(t *testing.T) {
+	e := newEnv(t)
+	o := e.options(e.docsConfig(v10))
+	e.offline(&o)
+	pins := map[string]string{"core": "2.0.0-beta.1", "opm-operator": "1.0.0-beta.4"}
+	o.Locals = []Local{
+		{"cli", "v1.0", docsTree(t, cliSpec("edge", pins))}, // an author's tree: edge is not checked against the anchor's tag
+		{"core", "v1.0", docsTree(t, coreSpec("2.0.0-beta.1"))},
+		{"opm-operator", "v1.0", docsTree(t, operatorSpec())},
+	}
+	l, err := Run(context.Background(), o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range l.Docs {
+		if !d.Local || d.Digest != "" || d.Signer != nil || d.Tag != "" {
+			t.Fatalf("entry %+v", d)
+		}
+	}
+	data, _ := os.ReadFile(o.Lock)
+	if !strings.Contains(string(data), "\"role\": \"anchor\",\n      \"local\": true,") || !strings.Contains(string(data), "\"dir\": \"_versions/v1.0/opm-operator\"") {
+		t.Fatalf("lock:\n%s", data)
+	}
+}
+
+func TestSiteVersionLocalRefusals(t *testing.T) {
+	e := newEnv(t)
+	o := e.options(e.docsConfig(v10))
+	e.offline(&o)
+	pins := map[string]string{"core": "2.0.0-beta.1", "opm-operator": "1.0.0-beta.4"}
+	o.Locals = []Local{
+		{"cli", "v1.0", docsTree(t, cliSpec("edge", pins))},
+		{"core", "v1.0", docsTree(t, coreSpec("2.0.0-beta.1"))},
+		{"opm-operator", "v1.0", docsTree(t, operatorSpec())},
+	}
+	if _, err := Run(context.Background(), o); err != nil {
+		t.Fatal(err)
+	}
+	// A pinned tree off its pin is a usage error, and so is a project the
+	// version does not pull.
+	o.Locals[1] = Local{"core", "v1.0", docsTree(t, coreSpec("2.0.0-beta.2"))}
+	if _, err := Run(context.Background(), o); !IsUsage(err) || !strings.Contains(err.Error(), "the tree is core 2.0.0-beta.2, and cli edge pins core 2.0.0-beta.1") {
+		t.Fatalf("off its pin: %v", err)
+	}
+	o.Locals[1] = Local{"library", "v1.0", docsTree(t, docsSpec{project: "library", version: "1.0.0", pages: []string{"embedding/kernel.md"}})}
+	if _, err := Run(context.Background(), o); !IsUsage(err) || !strings.Contains(err.Error(), "v1.0 does not pull library") {
+		t.Fatalf("not in the version: %v", err)
+	}
+	// An anchor without a pin for a pinned project fails the pull, not the
+	// invocation.
+	o.Locals = []Local{
+		{"cli", "v1.0", docsTree(t, cliSpec("1.0.0", map[string]string{"core": "2.0.0-beta.1"}))},
+		{"core", "v1.0", docsTree(t, coreSpec("2.0.0-beta.1"))},
+		{"opm-operator", "v1.0", docsTree(t, operatorSpec())},
+	}
+	if _, err := Run(context.Background(), o); err == nil || IsUsage(err) || !strings.Contains(err.Error(), "cli 1.0.0 (local) pins no version of opm-operator") {
+		t.Fatalf("pin missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(o.Out, VersionsDir, "v1.0", "cli", "manifest.json")); err != nil {
+		t.Fatal("the refused pull removed the previous version")
+	}
+}
+
+// An author previews the cli reference: the local anchor's pins choose the
+// pulled projects.
+func TestSiteVersionLocalAnchorPinsPulledProjects(t *testing.T) {
+	e := newEnv(t)
+	e.publishV10()
+	o := e.options(e.docsConfig(v10))
+	o.Locals = []Local{{"cli", "v1.0", docsTree(t, cliSpec("1.0.0-beta.7", map[string]string{"core": "2.0.0-beta.2", "opm-operator": "1.0.0-beta.4"}))}}
+	l, err := Run(context.Background(), o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := docsOrder(l); got != "v1.0/anchor/cli@=1.0.0-beta.7,v1.0/pinned/core@2.0.0-beta.2=2.0.0-beta.2,v1.0/pinned/opm-operator@1.0.0-beta.4=1.0.0-beta.4" {
+		t.Fatalf("docs %s", got)
+	}
+	if !l.Docs[0].Local || l.Docs[1].Local || l.Docs[0].Pins["core"] != "2.0.0-beta.2" {
+		t.Fatalf("entries %+v", l.Docs)
+	}
+}
+
+func TestSiteVersionOverlaps(t *testing.T) {
+	pins := map[string]string{"core": "2.0.0"}
+	cfg := `versions: "v1.0": {anchor: {project: "cli", tag: "1.0"}, pinned: ["core"]}`
+	for _, c := range []struct {
+		name string
+		core docsSpec
+		want string
+	}{
+		{"one path in two bundles", docsSpec{project: "core", version: "2.0.0", owns: []string{"reference/definitions/"}, pages: []string{"reference/definitions/_index.md", "reference/cli/_index.md"}},
+			"v1.0: core 2.0.0 has reference/cli/_index.md, under reference/cli/, which cli 1.0.0 owns"},
+		{"a page in two bundles, owned by neither", docsSpec{project: "core", version: "2.0.0", pages: []string{"start/_index.md"}},
+			"v1.0: start/_index.md is in both cli 1.0.0 and core 2.0.0"},
+		{"owned paths that nest", docsSpec{project: "core", version: "2.0.0", owns: []string{"reference/"}, pages: []string{"reference/definitions.md"}},
+			"v1.0: cli 1.0.0 owns reference/cli/ and core 2.0.0 owns reference/"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			e := newEnv(t)
+			o := e.options(e.docsConfig(cfg))
+			e.offline(&o)
+			cli := cliSpec("1.0.0", pins)
+			cli.pages = append(cli.pages, "start/_index.md")
+			o.Locals = []Local{{"cli", "v1.0", docsTree(t, cli)}, {"core", "v1.0", docsTree(t, c.core)}}
+			_, err := Run(context.Background(), o)
+			if err == nil || IsUsage(err) || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("err = %v, want %q", err, c.want)
+			}
+			if _, err := os.Stat(filepath.Join(o.Out, VersionsDir)); err == nil {
+				if left, _ := os.ReadDir(filepath.Join(o.Out, VersionsDir)); len(left) != 0 {
+					t.Fatalf("a refused version left %v", left)
+				}
+			}
+		})
+	}
+}
+
+func TestSiteVersionFrozenOffline(t *testing.T) {
+	e := newEnv(t)
+	e.publishV10()
+	o := e.options(e.docsConfig(v10))
+	if _, err := Run(context.Background(), o); err != nil {
+		t.Fatal(err)
+	}
+	saved := filepath.Join(e.work, "saved.lock")
+	want, _ := os.ReadFile(o.Lock)
+	_ = os.WriteFile(saved, want, 0o600)
+	// A tag moved since: the frozen pull ignores it.
+	e.publishDocs(cliSpec("1.0.0-beta.7", map[string]string{"core": "2.0.0-beta.2", "opm-operator": "1.0.0-beta.4"}))
+	_ = os.RemoveAll(o.Out)
+	o.Frozen, o.Offline = saved, true
+	e.stop()
+	if _, err := Run(context.Background(), o); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(o.Lock); !bytes.Equal(got, want) {
+		t.Fatalf("offline lock differs:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// A frozen lock may only name what the config pulls, in the role it pulls
+// it.
+func TestSiteVersionFrozenOutsideTheConfig(t *testing.T) {
+	e := newEnv(t)
+	e.publishV10()
+	o := e.options(e.docsConfig(v10))
+	if _, err := Run(context.Background(), o); err != nil {
+		t.Fatal(err)
+	}
+	good, _ := os.ReadFile(o.Lock)
+	for _, c := range []struct{ name, from, to, want string }{
+		{"a changed role", `"role": "pinned",
+      "tag": "2.0.0-beta.1"`, `"role": "tag",
+      "tag": "2.0.0-beta.1"`, "v1.0 core is locked as tag, and the config pulls it as pinned"},
+		{"another site version", `"site": "v1.0",
+      "project": "core"`, `"site": "v0.9",
+      "project": "core"`, "v0.9 is not a site version"},
+		{"another repository", `"repository": "` + e.registry + `/core"`, `"repository": "ghcr.io/evil/core"`, "names the repository ghcr.io/evil/core"},
+		{"a pinned entry off the anchor's pin", `"version": "2.0.0-beta.1",
+      "revision"`, `"version": "2.0.0-beta.2",
+      "revision"`, "v1.0 core is locked at version 2.0.0-beta.2, tag 2.0.0-beta.1, and the locked anchor pins 2.0.0-beta.1"},
+		{"another anchor tag", `"tag": "1.0"`, `"tag": "1"`, "v1.0 cli is locked at tag 1, and the config resolves it at 1.0"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			bad := strings.Replace(string(good), c.from, c.to, 1)
+			if bad == string(good) {
+				t.Fatal("replacement did not apply")
+			}
+			p := filepath.Join(t.TempDir(), "lock.json")
+			_ = os.WriteFile(p, []byte(bad), 0o600)
+			oo := o
+			oo.Frozen = p
+			if _, err := Run(context.Background(), oo); !IsUsage(err) || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+func TestParseLocalSiteVersion(t *testing.T) {
+	if l, err := ParseLocal("cli@v1.0=out/cli"); err != nil || !l.Site() || l.Segment != "v1.0" || l.Dir != "out/cli" {
+		t.Fatalf("%+v %v", l, err)
+	}
+	if l, _ := ParseLocal("catalog-opm@4.4=x"); l.Site() {
+		t.Fatal("a tab segment parsed as a site version")
+	}
+	for _, bad := range []string{"cli@v1=dir", "cli@v1.0.0=dir", "cli@V1.0=dir", "cli@v01.0=dir"} {
+		if _, err := ParseLocal(bad); err == nil {
+			t.Errorf("%s parsed", bad)
+		}
 	}
 }

@@ -15,9 +15,9 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`. One PR, titled `
 
 ## 3. Cross-bundle checks, local and frozen
 
-- [ ] 3.1 The D4 checks over the staged version. Verify: tests for a duplicate path, a page under another bundle's owned path, overlapping owned paths.
-- [ ] 3.2 `--local <project>@v<M>.<m>=<dir>` parsing and behavior, `--frozen` and `--offline` for docs entries (D6). Verify: an all-local version with no network; a local anchor pinning a pulled project; a local pinned tree off its pin (exit 1); a frozen lock with a changed role (exit 1); a frozen offline rebuild writing the same lock.
-- [ ] 3.3 `task check` green, then commit `feat(pull): check site versions for overlapping bundles`.
+- [x] 3.1 The D4 checks over the staged version. Verify: tests for a duplicate path, a page under another bundle's owned path, overlapping owned paths.
+- [x] 3.2 `--local <project>@v<M>.<m>=<dir>` parsing and behavior, `--frozen` and `--offline` for docs entries (D6). Verify: an all-local version with no network; a local anchor pinning a pulled project; a local pinned tree off its pin (exit 1); a frozen lock with a changed role (exit 1); a frozen offline rebuild writing the same lock.
+- [x] 3.3 `task check` green, then commit `feat(pull): check site versions for overlapping bundles`.
 
 ## 4. Contracts and archive
 
