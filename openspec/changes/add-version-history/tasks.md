@@ -17,8 +17,8 @@ Gate: none in docs-kit (starts on `main` at `v0.2.1` or later). One PR, titled `
 
 ## 3. Contracts and docs
 
-- [ ] 3.1 `docs/contracts.md`: C13 "Version history" (D3 table, D4 schema, example and the site's derivations); C7 gains the lock's `history` key and drops "phase 1 never writes it"; "Site decisions" points at C13. `README.md`: `pull` writes `history.json`. Verify: every link resolves; the C13 schema text equals `schema/history.cue`.
-- [ ] 3.2 `task check` green, then commit `docs(pull): document the version history contract`.
+- [x] 3.1 `docs/contracts.md`: C13 "Version history" (D3 table, D4 schema, example and the site's derivations); C7 gains the lock's `history` key and drops "phase 1 never writes it"; "Site decisions" points at C13. `README.md`: `pull` writes `history.json`. Verify: every link resolves; the C13 schema text equals `schema/history.cue`.
+- [x] 3.2 `task check` green, then commit `docs(pull): document the version history contract`.
 
 ## 4. Archive (rides this PR)
 

@@ -29,7 +29,7 @@ Status: phase 1 is built: `build`, `check`, `lint`, `push`, `promote`, `pull`, `
 ## Repository Rules
 
 - `DESIGN.md` is the approved design; its Decisions table binds every change. Cite a decision as `DESIGN decision 9`, never a bare `D9`.
-- `docs/contracts.md` fixes every contract another repository reads (C1 to C12, "Commands", "Page renderer", "Doc-comment rules"). Other repositories cite it by number (`docs-kit C5`); a change to it follows Principle II.
+- `docs/contracts.md` fixes every contract another repository reads (C1 to C13, "Commands", "Page renderer", "Doc-comment rules"). Other repositories cite it by number (`docs-kit C5`); a change to it follows Principle II.
 - `openspec/config.yaml` is the constitution (principles, gates, artifact rules). Feature work ships as an OpenSpec change (`spec-driven` schema, specs included), cut into mergeable sections that each end green and close with their own commit.
 - Never push to `main`. Every change lands by PR; the OpenSpec archive commit rides the implementing PR.
 - The bundle format, tag scheme, workflow interface, `docs-kit.cue`, pull config and lock are contracts other repositories read (constitution Principle II). A change to one names every consuming repository.
@@ -44,13 +44,14 @@ Read on entry: `AGENTS.md` (this file), `openspec/config.yaml`, `DESIGN.md`, `RE
 
 ```text
 cmd/opm-docs/                 cobra root and one file per command; flag parsing only
-schema/                       manifest.cue, config.cue, pull.cue, lock.cue, embedded with go:embed
+schema/                       manifest.cue, config.cue, pull.cue, lock.cue, history.cue, embedded with go:embed
 internal/version/             build identity, stamped by -ldflags
 internal/config/              load and validate docs-kit.cue and bundles.cue
 internal/bundle/              the tree model, manifest.json, deterministic pack, guarded unpack
 internal/tags/                SemVer, build order, full and moving tags (pure)
 internal/doctext/             maintainer comments, citations, summary split, wrapping
 internal/mdtext/              Markdown escaping, code spans, cells, YAML strings
+internal/cuetok/              the CUE token scanner (comments skipped) shared by gitsrc and history
 internal/extract/cuecatalog/  the cue-catalog extractor: data/catalog.json
 internal/extract/markdown/    the markdown source
 internal/render/              embedded templates: landing, kind index, member page
@@ -60,7 +61,8 @@ internal/build/               build and check
 internal/oci/                 oras-go: push, tag, list, resolve, fetch by digest
 internal/verify/              sigstore-go: find and verify signatures under the signing policy
 internal/publish/             push and promote
-internal/pull/                tab resolution, cache, unpack layout, lock
+internal/pull/                tab resolution, cache, unpack layout, history.json, lock
+internal/history/             a tab's version history across its segments (pure)
 internal/revise/              docs revisions: read the newest revision's fixes, apply them and the new fix, build
 internal/gittest/, internal/ocitest/, internal/verify/sigtest/   test helpers
 docs/contracts.md             the contracts other repositories read

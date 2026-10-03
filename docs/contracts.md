@@ -2,7 +2,7 @@
 
 Everything here is read by another repository: the bundle format, the tag scheme, the reusable workflow, `docs-kit.cue`, the site's pull config and lock, the URL and link forms, the signing identity, the doc model, the page dialect and how the tool is distributed. A change to any of it follows constitution Principle II (`openspec/config.yaml`): prefer additive changes, bump the schema identifier for a breaking one, and name every consuming repository and what it must do.
 
-The numbers (C1 to C12) are stable; other repositories cite them as `docs-kit C5`. The approved design and its decisions are in [DESIGN.md](../DESIGN.md). These contracts were fixed by the OpenSpec change `build-opm-docs-phase-1` (archived under `openspec/changes/archive/`), which holds the reasoning behind each.
+The numbers (C1 to C13) are stable; other repositories cite them as `docs-kit C5`. The approved design and its decisions are in [DESIGN.md](../DESIGN.md). These contracts were fixed by the OpenSpec change `build-opm-docs-phase-1` (archived under `openspec/changes/archive/`), which holds the reasoning behind each.
 
 ## Doc-comment rules
 
@@ -358,12 +358,13 @@ Unpack layout, owned entirely by `pull` (it removes any project or segment direc
 site/.bundles/
   lock.json
   catalog-opm/
+    history.json
     4.4/      manifest.json  content/  data/
     4.5/      ...
     edge/     ...
 ```
 
-`<out>/<project>/history.json` is reserved for phase 1b's version history (see "Site decisions" below); phase 1 never writes it.
+`<out>/<project>/history.json` is the tab's version history (C13), written after the sweep and before the lock for every tab with two or more segments holding `data/catalog.json`, and removed from a tab with fewer. The sweep never removes it.
 
 The segment directory is the URL segment: `<MAJOR>.<MINOR>` of the build's version, or `edge`. Unpacking refuses an absolute path, `..`, a symlink, a hard link, a device or FIFO, a duplicate path, a top-level entry other than `manifest.json`, `content/` and `data/`, more than 10,000 entries, or more than 64 MiB uncompressed; and checks every file is listed in `manifest.json` and every listed file exists.
 
@@ -377,6 +378,7 @@ package schema
 	tool:   #SemVer                   // the opm-docs that wrote the lock
 	config: =~"^sha256:[0-9a-f]{64}$" // SHA-256 of the bundles.cue bytes
 	bundles: [...#Locked]
+	history?: [...{project: #Project, digest: =~"^sha256:[0-9a-f]{64}$", path: string & !=""}] // path relative to the lock's directory
 }
 
 #Locked: #Pulled | #Local
@@ -417,7 +419,7 @@ package schema
 #Segment: =~"^((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)|edge)$"
 ```
 
-Serialization (so two pulls of one resolution compare byte for byte): JSON, two-space indent, a trailing newline, no timestamps; entries sorted by `project`, then `segment` (minors by numeric MAJOR then MINOR, ascending, `edge` last); keys in exactly the order the schema lists them (top level `schema`, `tool`, `config`, `bundles`; a pulled entry `project`, `root`, `segment`, `tag`, `repository`, `digest`, `version`, `revision`, `commit`, `dialect`, `builtBy`, `signer` with `workflow`, `repository`, `ref`, then `dir`; a local entry `project`, `root`, `segment`, `local`, `version`, `revision`, `commit`, `dialect`, `builtBy`, `dir`). A local entry omits `tag`, `repository`, `digest` and `signer`. Example:
+Serialization (so two pulls of one resolution compare byte for byte): JSON, two-space indent, a trailing newline, no timestamps; entries sorted by `project`, then `segment` (minors by numeric MAJOR then MINOR, ascending, `edge` last); keys in exactly the order the schema lists them (top level `schema`, `tool`, `config`, `bundles`, then `history` when present; a pulled entry `project`, `root`, `segment`, `tag`, `repository`, `digest`, `version`, `revision`, `commit`, `dialect`, `builtBy`, `signer` with `workflow`, `repository`, `ref`, then `dir`; a local entry `project`, `root`, `segment`, `local`, `version`, `revision`, `commit`, `dialect`, `builtBy`, `dir`). A local entry omits `tag`, `repository`, `digest` and `signer`. Example:
 
 ```json
 {
@@ -461,6 +463,8 @@ Serialization (so two pulls of one resolution compare byte for byte): JSON, two-
 ```
 
 Every entry carries `root`, the tab's placement root, so a consumer maps a `dir` to its URLs without reading `bundles.cue`.
+
+`history` (added with C13; optional, so the schema id stays `lock/v1` and every lock without it still validates) records each `history.json` this pull wrote: `project`, `digest` (`sha256:` and the file's SHA-256) and `path` relative to the lock's directory (`catalog-opm/history.json`), one entry per project sorted by project, keys in that order. The key is left out when no history file was written. The site checks the file it mounts against it. `--frozen` does not compare the frozen lock's history digest, since history is a function of the trees and the tool and the tool may have moved; it records the file it wrote. `#Lock` is closed, so an `opm-docs` older than 0.3.0 refuses a lock that carries `history` under `--frozen`: the site bumps its `opm-docs` and receives its first lock with `history` together.
 
 ## C8. URLs and links
 
@@ -620,13 +624,107 @@ Callers and the site never `go run` or `go install` `opm-docs`: every consumer r
 - **Pin file.** A caller of `publish.yml`, and any consumer that runs the tool on the host (catalog_opm for its local `docs:bundle` tasks; opmodel.dev only if it does not use the image pattern), pins it in a repo-root file `.opm-docs-version`: one line, the release tag (`v0.1.0`), matching `^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$`. `publish.yml` reads the same file (C5), so every caller of `publish.yml` has one; its tag and the `publish.yml@` ref name the same release and move in one PR.
 - **Verification.** Download the archive and `checksums.txt` for the host's os and arch, check with `grep ' <archive>$' checksums.txt | sha256sum -c -` (refusing an archive with no line), then extract only `opm-docs`. A failed check stops the task; nothing falls back to building from source. The install target is a gitignored repo-local directory (`.bin/` or `site/.bin/`), never a global path.
 
+## C13. Version history, `history.json`
+
+`opm-docs pull` writes `<out>/<project>/history.json` for every tab project with two or more segments holding `data/catalog.json` (C10, schema `docs.opmodel.dev/data/cue-catalog/v1`), in every mode (registry, `--frozen`, `--offline`, `--local`; a `--local` segment counts like a pulled one), and removes it from a tab with fewer. A segment whose `manifest.json` lists no such data file takes no part. The history is recomputed on every run from the trees just unpacked, never cached across digests, since a docs revision changes a segment's data after the fact. Its SHA-256 is recorded in the lock's `history` (C7). Docs-placed bundles get no history: they have no segments of their own.
+
+**Order.** Segments are ordered minors ascending (numeric MAJOR, then MINOR), `edge` last. The **previous** segment of a minor is the next lower minor pulled; the previous of `edge` is the newest minor pulled. The **floor** is the oldest minor pulled.
+
+**Comparison mode per pair.** A pair (previous, current) is compared in mode `full` when both bundles' `manifest.json` `tool` share MAJOR.MINOR, else in mode `paths`, because `type`, `default` and `ref` strings are stable only within one docs-kit minor (C10). In `paths` mode only field paths and `presence` are compared. Each pair and its mode are listed in `compared`, so the site can word a weaker comparison.
+
+**Member changes.** Members match by `fqn` (it includes the apiVersion). For a member in both segments of a pair, its `spec.fields` are matched by `path`, and these changes are recorded, in this order per path (paths in the current segment's field order, then paths only the previous segment has, in its order):
+
+| `op` | When | `from` / `to` | Mode |
+|---|---|---|---|
+| `removed` | path in previous only | previous `type` / `null` | both |
+| `added` | path in current only | `null` / current `type` | both |
+| `presence` | `presence` differs | the two presences | both |
+| `type` | `type` differs | the two types | `full` |
+| `default` | `default` differs (either may be `null`) | the two defaults | `full` |
+| `ref` | `ref` differs (either may be `null`) | the two refs | `full` |
+| `spec` | none of the above for the member, and the spec blocks' CUE tokens differ with comments skipped | `null` / `null`, `path` `""` | `full` |
+
+A field's `doc` is never compared: a doc-comment fix (a docs revision) must not read as a change. The token comparison is the one `revise` uses for `.cue` files ("Docs revisions", step 5): `cue/scanner` with comments skipped, an inserted comma equal to a written one. So a `matchN` or `if`-guard change the field walk cannot express still shows as one `spec` change. A change behind a `ref` (a shared schema) is not reported, since the walk stops at `ref`; the badge then under-claims, the safe direction. `level`, `appliesTo`, `servedBy`, `mark`, `optional` and `fulfilment` are not tracked.
+
+A member present in the previous segment and absent from the current one is listed under `removed[<current>]` with the last segment that had it and its page there. `lineage` maps each `<kind>/<name>` to, per segment, the apiVersions present there, newest first in the order C8 fixes for page paths.
+
+`schema/history.cue`, embedded in the tool, validates the file before `pull` writes it; a file that fails is a tool bug, and `pull` exits 2 naming the project (`history for catalog-opm does not validate: <error>; report it against opm-docs`):
+
+```cue
+package schema
+
+#History: {
+	schema:  "docs.opmodel.dev/history/v1"
+	project: #Project
+	tool:    #SemVer // the opm-docs that computed it
+	floor:   =~"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+	segments: [#Segment, #Segment, ...#Segment] // ordered: minors ascending, edge last
+	compared: [...{from: #Segment, to: #Segment, mode: "full" | "paths"}]
+	members: [string]:                           #MemberHistory // keyed by FQN
+	removed: [#Segment]: [#Removed, ...#Removed] // a segment key only when something was removed in it
+	lineage: [string]: [#Segment]: [string, ...string] // "<kind>/<name>": segment: apiVersions, newest first (C8 order)
+}
+
+#MemberHistory: {
+	kind:         "resource" | "trait" | "blueprint"
+	name:         string
+	apiVersion:   string
+	first:        #Segment // the first segment that has it
+	firstIsFloor: bool     // first == floor: the site writes "in <floor> or earlier", never "added in"
+	in: [#Segment, ...#Segment]
+	changes: [#Segment]: [#Change, ...#Change] // a segment key only when the member changed against its previous segment
+}
+
+#Change: {
+	op:   "added" | "removed" | "presence" | "type" | "default" | "ref" | "spec"
+	path: string // a spec.fields path; "" for op "spec"
+	from: string | null
+	to:   string | null
+}
+
+#Removed: {
+	fqn:        string
+	kind:       "resource" | "trait" | "blueprint"
+	name:       string
+	apiVersion: string
+	lastIn:     #Segment // the last segment that had it: the site links <root><lastIn>/<page>/
+	page:       string   // its page in lastIn, "traits/backup-v1alpha1"
+}
+```
+
+`#Segment` is the lock's (C7); `#Project` and `#SemVer` are the manifest's (C3).
+
+Serialization: JSON, two-space indent, a trailing newline, struct keys in the order above, map keys sorted (byte order), no timestamps. The same pulled trees and tool write the same bytes. Example for `backup`, first in 4.5 (the floor) and given a required field in 4.6:
+
+```json
+"opmodel.dev/catalogs/opm/traits/backup@v1alpha1": {
+  "kind": "trait", "name": "backup", "apiVersion": "v1alpha1",
+  "first": "4.5", "firstIsFloor": true, "in": ["4.5", "4.6", "edge"],
+  "changes": {"4.6": [{"op": "presence", "path": "retention.daily", "from": "optional", "to": "required"}]}
+}
+```
+
+What the site derives, so both sides agree:
+
+| Badge or list | From |
+|---|---|
+| "Added in X" | `first` is a minor and `firstIsFloor` is false |
+| "In <floor> or earlier" | `firstIsFloor` is true; never "added in" |
+| "Unreleased" | `first` is `edge` |
+| "Changed in X" | every key of the member's `changes` |
+| "Removed in X" | `removed[X]`, on X's kind index, linking `<root><lastIn>/<page>/` |
+| "Newer version" | `lineage` of the page's own segment |
+| "Changes in X" list | the entries of `changes[X]`, one per field, at the page's end, never inline in the spec block (a code fence the bundle publishes as built) |
+
+No side-by-side diff (DESIGN decision 12).
+
 ## Site decisions
 
 These are the opmodel.dev change's to build, recorded here so docs-kit's pull output and the sibling plan agree:
 
 - **Sitemap:** only the newest minor of each major is listed. Older minors and `edge` are left out (and carry `noindex`).
 - **Edge search:** `edge` gets its own Pagefind index, like every minor. It gets no alias stubs: `/catalogs/<name>/edge/` is its only address, and no alias ever resolves to it.
-- **Phase-1b history:** the version-history data is a file written by `opm-docs pull`, at `<out>/<project>/history.json`, computed from the `data/` of every minor it pulled. Phase 1 reserves that path (pull's stale-directory sweep leaves it alone) and does not write it; the site never computes history itself.
+- **Version history:** the data is a file written by `opm-docs pull`, at `<out>/<project>/history.json` (C13), computed from the `data/` of every segment it pulled; the site never computes history itself. What the site derives from it is listed in C13.
 
 ## Commands
 
@@ -639,7 +737,7 @@ Syntax `opm-docs <command> [args] [flags]`. Exit codes: `0` success, `1` usage e
 | `check` | `--config`, `--project` | `build` into a temporary directory; exit 2 on any failure. The PR gate. |
 | `push` | `--dir` (path, required), `--registry` (string, `ghcr.io/open-platform-model/docs`) | Validate, pack deterministically, push; write the full tag for a release build; print `{"digest": ..., "tag": ...}` as JSON on stdout. |
 | `promote` | `--project` (required), `--digest` (required), `--registry` | Verify the signature of the digest (C9), then move the moving tags of its line to it (C4 rule 5). |
-| `pull` | see C7; `--config` (path, `bundles.cue`), `--out` (path, `.bundles`), `--lock` (path, `<out>/lock.json`) | Resolve, verify, unpack, lint, lock. |
+| `pull` | see C7; `--config` (path, `bundles.cue`), `--out` (path, `.bundles`), `--lock` (path, `<out>/lock.json`) | Resolve, verify, unpack, lint, write each tab's `history.json` (C13), lock. |
 | `revise` | `--project`, `--tag`, `--fix` (required), `--out` (path, `out`), `--registry` (string, `ghcr.io/open-platform-model/docs`), `--config` (path; default `docs-kit.cue` in the release tree, else the current directory) | Build the next docs revision of a published release into `out/<project>/` ("Docs revisions" below). Pushes nothing. Exit `1` for a missing flag or an invalid config, `2` when a step refuses. |
 | `version` | none | Print `opm-docs <version>`. |
 
