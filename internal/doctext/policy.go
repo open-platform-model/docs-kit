@@ -26,7 +26,7 @@ var reDecision = regexp.MustCompile(`\b(\d{4}):D\d+(?::R\d+(?:/R\d+)*)?(?:/D\d+(
 // never occurs in source prose and no rule matches it.
 func placeholder(i int) string { return "\x00" + strconv.Itoa(i) + "\x00" }
 
-var rePlaceholder = regexp.MustCompile("\x00([0-9]+)\x00")
+var rePlaceholder = regexp.MustCompile("\x00(\\d+)\x00")
 
 // Clean cleans one paragraph of prose under the policy. Under Link, a
 // decision citation outside a code span becomes

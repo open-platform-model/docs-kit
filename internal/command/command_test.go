@@ -19,7 +19,7 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	echo = filepath.Join(dir, "echo")
-	if out, err := exec.Command("go", "build", "-o", echo, "./testdata/echo").CombinedOutput(); err != nil { //nolint:gosec,noctx // test setup
+	if out, err := exec.Command("go", "build", "-o", echo, "./testdata/echo").CombinedOutput(); err != nil { //nolint:noctx // test setup
 		panic(string(out))
 	}
 	code := m.Run()
