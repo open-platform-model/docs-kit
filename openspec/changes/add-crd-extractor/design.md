@@ -117,6 +117,15 @@ Fields are listed depth-first, properties by name. `rules` come, in that walk, f
 
 One completable page at `page` (C15): per kind, in D3 order, crdref's entry (`## <Kind>`, summary, `### At a glance` table, the columns table, `### Spec` and `### Status` tables, `### Example` with a `yaml` fence, `### Notes`, `### Served by` "The operator's `<controller>` controller watches every <Kind>." only when `reconciledBy` names one, `### Enforcement` table). Its generated body's first heading is `## <first kind>`. Without an authored page it has front matter `title`, `description`, `type: reference` and `weight` when configured (the operator sets 7, the page's weight today). `manifest.json` `pages[].source` is the authored page when completed, else the first CRD file.
 
+The entries are a `text/template` (`internal/render/templates/crd/entries.md.tmpl`, its own template set so the catalog's helpers stay apart) with runs of blank lines folded to one, crdref's rule. Prose is escaped as crdref escapes it: the common set (`\ < > * _ [ ] |`, `{{` as `{\{`) plus `~` and `#`, which schema descriptions use (`#Platform`) and which would otherwise start a strike-through or a heading; an unpaired backtick makes the whole text prose with the backtick escaped; in a table cell a pipe is escaped inside code spans too.
+
+**Parity record (section 2).** `TestOperatorCRDParity` (`internal/render/crd_parity_test.go`, skipped unless `OPM_OPERATOR_CHECKOUT` is set) extracts with opm-operator's planned config (D1) and compares the page's generated body with crdref's block between its markers, line by line. Results, 2026-10-03:
+
+| Operator tree | crdref block | Result |
+|---|---|---|
+| `main` at `bf8d3c5` | committed (`go run ./hack/crdref -check` passes) | equal |
+| `v1.0.0-beta.4` (`0d3532b`) | the tag predates crdref, so `main`'s crdref was run with `-root` over the tag's `config/` and `internal/controller` and `main`'s page | equal |
+
 ### D5. Commands
 
 No new command or flag. Messages name the file: "config/samples/opmodel.dev_v1alpha1_platform.yaml: does not parse as YAML: <error>" (exit 2).

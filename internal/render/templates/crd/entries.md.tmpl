@@ -1,0 +1,88 @@
+{{- range $k := .Kinds}}
+## {{.Kind}}
+
+{{with .Summary}}{{inline .}}{{end}}
+
+### At a glance
+
+| Property | Value |
+| --- | --- |
+| Group | {{code .Group}} |
+| Version | {{code (index .Versions 0).Name}} |
+| Kind | {{code .Kind}} |
+| Scope | {{.Scope}} |
+| Resource | {{code .Plural}} |
+{{- with .ShortNames}}
+| Short names | {{codeList .}} |
+{{- end}}
+{{- with .Categories}}
+| Categories | {{codeList .}} |
+{{- end}}
+{{- with .Subresources}}
+| Subresources | {{codeList .}} |
+{{- end}}
+
+{{with .Columns -}}
+The resource definition declares these `kubectl get` columns. A column with a priority above 0 appears only with `-o wide`.
+
+| Column | Type | Value | Priority |
+| --- | --- | --- | --- |
+{{- range .}}
+| {{cell .Name}} | {{.Type}} | {{code .JSONPath}} | {{.Priority}} |
+{{- end}}
+{{- end}}
+
+{{template "crd-fields" (fields "Spec" .Spec)}}
+
+{{template "crd-fields" (fields "Status" .Status)}}
+
+{{with .Sample -}}
+### Example
+
+```yaml
+{{.YAML}}```
+{{- end}}
+
+{{with .Notes -}}
+### Notes
+{{range .}}
+{{inline .}}
+{{end}}
+{{- end}}
+
+{{with .ReconciledBy -}}
+### Served by
+
+The operator's {{code .}} controller watches every {{$k.Kind}}.
+{{- end}}
+
+{{with .Rules -}}
+### Enforcement
+
+| Field | Rule | Enforced by |
+| --- | --- | --- |
+{{- range .}}
+| {{ruleField .Field}} | {{ruleText .}} | API server |
+{{- end}}
+{{- end}}
+{{end}}
+
+{{- define "crd-fields"}}
+{{- with .Rows}}
+### {{$.Title}}
+
+{{if $.Default -}}
+| Field | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+{{- range .}}
+| {{code .Path}} | {{code .Type}} | {{if .Required}}Yes{{else}}No{{end}} | {{with .Default}}{{code .}}{{end}} | {{cell .Description}} |
+{{- end}}
+{{- else -}}
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+{{- range .}}
+| {{code .Path}} | {{code .Type}} | {{if .Required}}Yes{{else}}No{{end}} | {{cell .Description}} |
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}

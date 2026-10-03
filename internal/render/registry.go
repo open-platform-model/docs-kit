@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/open-platform-model/docs-kit/internal/extract/crd"
 	"github.com/open-platform-model/docs-kit/internal/extract/cuecatalog"
 )
 
@@ -19,6 +20,7 @@ type Renderer interface {
 // schema it reads.
 var renderers = map[string]Renderer{
 	cuecatalog.SchemaID: catalogRenderer{},
+	crd.SchemaID:        crdRenderer{},
 }
 
 // For returns the renderer of a data schema.

@@ -11,9 +11,9 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`. One PR, titled `
 
 ## 2. The renderer and parity
 
-- [ ] 2.1 `internal/render`: the crd page (D4), completable with heading `## <first kind>`. Verify: golden pages with and without an authored page.
-- [ ] 2.2 `TestOperatorCRDParity` (skipped unless `OPM_OPERATOR_CHECKOUT` names a checkout at a tag): compare with crdref's block between its markers. Verify: run against the newest operator tag; record tag and result in design.md.
-- [ ] 2.3 `task check` green, then commit `feat(render): render the operator resource reference`.
+- [x] 2.1 `internal/render`: the crd page (D4), completable with heading `## <first kind>`. Verify: golden pages with and without an authored page.
+- [x] 2.2 `TestOperatorCRDParity` (skipped unless `OPM_OPERATOR_CHECKOUT` names a checkout at a tag): compare with crdref's block between its markers. Verify: run against the newest operator tag; record tag and result in design.md.
+- [x] 2.3 `task check` green, then commit `feat(render): render the operator resource reference`.
 
 ## 3. Contract and archive
 
