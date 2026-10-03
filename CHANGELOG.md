@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/open-platform-model/docs-kit/compare/v0.2.0...v0.2.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* refuse a tag and catalog version mismatch, align the slashless catalog link message ([#11](https://github.com/open-platform-model/docs-kit/issues/11)) ([5106d45](https://github.com/open-platform-model/docs-kit/commit/5106d45e2eb5409118a9fb7fa3a64dc8b6e6206d))
+
 ## [0.2.0](https://github.com/open-platform-model/docs-kit/compare/v0.1.0...v0.2.0) (2026-10-03)
 
 
