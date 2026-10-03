@@ -29,19 +29,34 @@ type Placement struct {
 	Owns []string `json:"owns,omitempty"`
 }
 
+// Source kinds the config itself reads options of.
+const (
+	// KindMarkdown copies authored pages; it is no extractor.
+	KindMarkdown = "markdown"
+	// KindCueDefinitions is checked here for what the schema cannot state.
+	KindCueDefinitions = "cue-definitions"
+)
+
 // Source is one input of a bundle. Kind names the extractor or the
 // markdown source; Value is the source's whole entry, validated, which an
-// extractor decodes for its own options. Dir, Include and Exclude are the
-// markdown source's.
+// extractor decodes for its own options. Each kind decodes its own
+// options, since two kinds may give one name different types (a markdown
+// exclude is a list of globs, a cue-definitions exclude a map).
 type Source struct {
 	Kind string `json:"kind"`
-	Dir  string `json:"dir,omitempty"`
 	// Citations is an extractor source's citation policy, "strip" or
 	// "link"; "" for markdown, which copies text as written.
-	Citations string    `json:"citations,omitempty"`
-	Include   []string  `json:"include,omitempty"`
-	Exclude   []string  `json:"exclude,omitempty"`
-	Value     cue.Value `json:"-"`
+	Citations string `json:"citations,omitempty"`
+	// Markdown is set for a markdown source only.
+	Markdown *Markdown `json:"-"`
+	Value    cue.Value `json:"-"`
+}
+
+// Markdown is a markdown source's options.
+type Markdown struct {
+	Dir     string   `json:"dir"`
+	Include []string `json:"include"`
+	Exclude []string `json:"exclude"`
 }
 
 // Pins names the command that prints a build's pins and the projects it
@@ -106,7 +121,15 @@ func Load(path string) (*Config, error) {
 		b := c.Bundles[p]
 		list := v.LookupPath(cue.MakePath(cue.Str("bundles"), cue.Str(p), cue.Str("sources")))
 		for i := range b.Sources {
-			b.Sources[i].Value = list.LookupPath(cue.MakePath(cue.Index(i)))
+			src := &b.Sources[i]
+			src.Value = list.LookupPath(cue.MakePath(cue.Index(i)))
+			if src.Kind != KindMarkdown {
+				continue
+			}
+			src.Markdown = &Markdown{}
+			if err := src.Value.Decode(src.Markdown); err != nil {
+				return nil, fmt.Errorf("%s: %w", path, err)
+			}
 		}
 		if err := checkBundle(p, b); err != nil {
 			return nil, fmt.Errorf("%s: %w", path, err)
@@ -116,7 +139,8 @@ func Load(path string) (*Config, error) {
 }
 
 // checkBundle applies the rules the schema cannot state: owned paths that
-// do not nest, a docs bundle without a catalog, and well-formed patterns.
+// do not nest, a docs bundle without a catalog, a cue-definitions source
+// in a docs bundle only, and well-formed patterns.
 func checkBundle(project string, b Bundle) error {
 	owns := b.Placement.Owns
 	for i, a := range owns {
@@ -127,17 +151,44 @@ func checkBundle(project string, b Bundle) error {
 		}
 	}
 	for i, src := range b.Sources {
-		if b.Placement.Kind == "docs" && src.Kind == "cue-catalog" {
-			return fmt.Errorf("bundles.%q.sources[%d]: a docs bundle carries no cue-catalog source; a catalog is a tab bundle of its own", project, i)
+		at := fmt.Sprintf("bundles.%q.sources[%d]", project, i)
+		switch {
+		case b.Placement.Kind == "docs" && src.Kind == "cue-catalog":
+			return fmt.Errorf("%s: a docs bundle carries no cue-catalog source; a catalog is a tab bundle of its own", at)
+		case b.Placement.Kind != "docs" && src.Kind == KindCueDefinitions:
+			return fmt.Errorf("%s: a cue-definitions source writes pages under /docs/; give the bundle placement kind \"docs\"", at)
 		}
-		for _, l := range []struct {
-			name string
-			pats []string
-		}{{"include", src.Include}, {"exclude", src.Exclude}} {
-			for _, pat := range l.pats {
-				if _, err := slashpath.Match(strings.TrimSuffix(pat, "/"), ""); err != nil {
-					return fmt.Errorf("bundles.%q.sources[%d].%s: %q is not a glob: %w", project, i, l.name, pat, err)
-				}
+		if err := checkGlobs(at, src); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkGlobs refuses a pattern that is not a glob: a markdown source's
+// include and exclude, a cue-definitions source's skip.
+func checkGlobs(at string, src Source) error {
+	type list struct {
+		name string
+		pats []string
+	}
+	var lists []list
+	switch {
+	case src.Markdown != nil:
+		lists = []list{{"include", src.Markdown.Include}, {"exclude", src.Markdown.Exclude}}
+	case src.Kind == KindCueDefinitions:
+		var opts struct {
+			Skip []string `json:"skip"`
+		}
+		if err := src.Value.Decode(&opts); err != nil {
+			return fmt.Errorf("%s: %w", at, err)
+		}
+		lists = []list{{"skip", opts.Skip}}
+	}
+	for _, l := range lists {
+		for _, pat := range l.pats {
+			if _, err := slashpath.Match(strings.TrimSuffix(pat, "/"), ""); err != nil {
+				return fmt.Errorf("%s.%s: %q is not a glob: %w", at, l.name, pat, err)
 			}
 		}
 	}

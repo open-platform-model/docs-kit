@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/open-platform-model/docs-kit/internal/config"
 	"github.com/open-platform-model/docs-kit/internal/gittest"
 	"github.com/open-platform-model/docs-kit/schema"
 )
@@ -22,7 +23,7 @@ func TestRegistryMatchesSchema(t *testing.T) {
 	for _, e := range extractors {
 		registered = append(registered, e.Kind())
 	}
-	registered = append(registered, markdownKind)
+	registered = append(registered, config.KindMarkdown)
 	slices.Sort(kinds)
 	slices.Sort(registered)
 	if !slices.Equal(kinds, registered) {

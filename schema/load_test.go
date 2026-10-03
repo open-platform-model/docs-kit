@@ -18,7 +18,7 @@ func TestSourceKinds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"cobra", "cue-catalog", "markdown"}
+	want := []string{"cobra", "cue-catalog", "cue-definitions", "markdown"}
 	slices.Sort(kinds)
 	if !slices.Equal(kinds, want) {
 		t.Fatalf("kinds %v", kinds)

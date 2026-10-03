@@ -1,0 +1,197 @@
+{
+  "schema": "docs.opmodel.dev/data/cue-definitions/v1",
+  "modulePath": "example.com/defs@v1",
+  "version": "1.2.3",
+  "section": "reference/definitions/",
+  "title": "Definitions",
+  "description": "Every definition of the fixture.",
+  "weight": 2,
+  "pages": [
+    {
+      "file": "modules",
+      "title": "Modules",
+      "description": "The module and its components.",
+      "weight": 1,
+      "definitions": [
+        "#Module",
+        "#Component",
+        "#Widget"
+      ]
+    },
+    {
+      "file": "types",
+      "title": "Types",
+      "description": "Constraint types.",
+      "weight": 2,
+      "definitions": [
+        "#NameType",
+        "#LabelsType",
+        "#Mode"
+      ]
+    }
+  ],
+  "definitions": [
+    {
+      "name": "#Module",
+      "anchor": "module",
+      "page": "modules",
+      "file": "src/module.cue",
+      "summary": "The unit an author publishes.",
+      "notes": [
+        "It holds components and the values they read.",
+        "",
+        "A module names its components in #components; each is a #Component.",
+        "",
+        "- one list item names #Widget",
+        "- another item",
+        "",
+        "  an indented line"
+      ],
+      "example": [],
+      "shape": "struct, closed, `kind: \"Module\"`",
+      "embeds": [],
+      "cue": "#Module: {\n    apiVersion: \"example.com/v1\"\n    kind:       \"Module\"\n\n    metadata: {\n        // The module's name, unique in its registry.\n        name!:    #NameType\n        version!: string\n\n        labels?: #LabelsType\n    }\n\n    // The components, keyed by id.\n    #components: #ComponentMap\n\n    debug: bool | *false // a trailing comment\n\n    if debug {\n        trace!: string\n    }\n}",
+      "uses": [
+        "#Component",
+        "#LabelsType",
+        "#NameType"
+      ],
+      "usedBy": [],
+      "rules": [
+        {
+          "rule": "A field the definition does not declare is refused: the definition is closed.",
+          "by": "cue"
+        },
+        {
+          "rule": "A value is incomplete until each required field (`!`) is set, and CUE names the missing one when it needs a complete value: `metadata.name`, `metadata.version`, `trace` when `debug`.",
+          "by": "cue"
+        },
+        {
+          "rule": "`_count < 10` must hold (`_ok`).",
+          "by": "cue"
+        }
+      ]
+    },
+    {
+      "name": "#Component",
+      "anchor": "component",
+      "page": "modules",
+      "file": "src/module.cue",
+      "summary": "#Component is one deployable part of a #Module.",
+      "notes": [],
+      "example": [
+        "\"web\"",
+        "\"db\""
+      ],
+      "shape": "struct, closed, `kind: \"Component\"`",
+      "embeds": [
+        "#Widget"
+      ],
+      "cue": "#Component: {\n    kind: \"Component\"\n    #Widget\n\n    spec: {...}\n}",
+      "uses": [
+        "#Widget"
+      ],
+      "usedBy": [
+        "#Module"
+      ],
+      "rules": [
+        {
+          "rule": "A field the definition does not declare is refused: the definition is closed.",
+          "by": "cue"
+        }
+      ]
+    },
+    {
+      "name": "#Widget",
+      "anchor": "widget",
+      "page": "modules",
+      "file": "src/module.cue",
+      "summary": "Shared fields every component embeds.",
+      "notes": [],
+      "example": [],
+      "shape": "struct, open",
+      "embeds": [],
+      "cue": "#Widget: {\n    // The widget's size.\n    size: int & >=0\n    ...\n}",
+      "uses": [],
+      "usedBy": [
+        "#Component"
+      ],
+      "rules": []
+    },
+    {
+      "name": "#NameType",
+      "anchor": "nametype",
+      "page": "types",
+      "file": "src/types.cue",
+      "summary": "An RFC 1123 DNS label.",
+      "notes": [],
+      "example": [
+        "\"web\" // valid"
+      ],
+      "shape": "string constraint",
+      "embeds": [],
+      "cue": "#NameType: string & =~\"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$\" & strings.MinRunes(1) & strings.MaxRunes(63)",
+      "uses": [],
+      "usedBy": [
+        "#Module"
+      ],
+      "rules": [
+        {
+          "rule": "The string must match this regular expression:",
+          "code": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "by": "cue"
+        },
+        {
+          "rule": "The string must be 1 to 63 runes long.",
+          "by": "cue"
+        }
+      ]
+    },
+    {
+      "name": "#LabelsType",
+      "anchor": "labelstype",
+      "page": "types",
+      "file": "src/types.cue",
+      "summary": "#LabelsType is a map of label keys to values.",
+      "notes": [],
+      "example": [],
+      "shape": "map",
+      "embeds": [],
+      "cue": "#LabelsType: [string]: string",
+      "uses": [],
+      "usedBy": [
+        "#Module"
+      ],
+      "rules": []
+    },
+    {
+      "name": "#Mode",
+      "anchor": "mode",
+      "page": "types",
+      "file": "src/types.cue",
+      "summary": "#Mode is either fast or safe.",
+      "notes": [],
+      "example": [],
+      "shape": "disjunction",
+      "embeds": [],
+      "cue": "#Mode: \"fast\" | \"safe\"",
+      "uses": [],
+      "usedBy": [],
+      "rules": []
+    }
+  ],
+  "excluded": [
+    {
+      "name": "#ComponentMap",
+      "reason": "map shorthand"
+    },
+    {
+      "name": "#MODE",
+      "reason": "differs from #Mode only in case"
+    },
+    {
+      "name": "#Unused",
+      "reason": "not documented"
+    }
+  ]
+}

@@ -24,7 +24,7 @@ A PR body you write stays under 250 words of prose (code blocks, URLs and traile
 
 docs-kit builds each Open Platform Model repository's documentation into a versioned, signed OCI artifact (a docs bundle) in that repository's CI, and lets the opmodel.dev site pull and assemble those bundles. It holds one Go program, `opm-docs`, and the reusable workflow that runs it.
 
-Status: phase 1 is built: `build`, `check`, `lint`, `push`, `promote`, `pull`, `revise` (docs revisions), the `cue-catalog` extractor, a `markdown` source, the publish workflow and the release pipeline. Phase 2's shared ground is built: the extractor and renderer registries, docs-placed bundles, repository commands and pins, and pulling site versions.
+Status: phase 1 is built: `build`, `check`, `lint`, `push`, `promote`, `pull`, `revise` (docs revisions), the `cue-catalog` extractor, a `markdown` source, the publish workflow and the release pipeline. Phase 2's shared ground is built: the extractor and renderer registries, docs-placed bundles, repository commands and pins, and pulling site versions; so is the `cue-definitions` extractor.
 
 ## Repository Rules
 
@@ -53,9 +53,10 @@ internal/doctext/             maintainer comments, citations and the citation po
 internal/mdtext/              Markdown escaping, code spans, cells, YAML strings
 internal/cuetok/              the CUE token scanner (comments skipped) shared by gitsrc and history
 internal/extract/cuecatalog/  the cue-catalog extractor: data/catalog.json
+internal/extract/cuedefs/     the cue-definitions extractor: data/cue-definitions.json
 internal/extract/markdown/    the markdown source
 internal/extract/cobra/       the cobra source: a cobradump document to data/cobra.json
-internal/render/              the renderer registry by data schema; embedded templates: landing, kind index, member page, command reference
+internal/render/              the renderer registry by data schema; embedded templates: landing, kind index, member page, definitions index and page, command reference
 internal/render/helptext/     cobra help text (Long, Example, usage) to Markdown
 internal/dialect/             the page-dialect lint, with the conformance fixtures
 internal/command/             repository commands: argv, no shell, timeout, output cap, the check double run

@@ -46,6 +46,30 @@ jobs:
       - name: task check
         run: task check
 
+  # The cue-definitions renderer against core's refgen pages, at the core
+  # commit the parity was measured at (docs/contracts.md C17); pinned so it
+  # stays checkable after core retires refgen.
+  core-definitions-parity:
+    name: core definitions parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: open-platform-model/core
+          ref: c5a6076bdb46c0b637606255b61bec84f4a3a9e5
+          path: .core
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: TestCoreDefinitionsParity
+        env:
+          OPM_CORE_CHECKOUT: ${{ github.workspace }}/.core
+        run: go test -count=1 -run '^TestCoreDefinitionsParity$' -v ./internal/render/
+
   actionlint:
     name: actionlint
     runs-on: ubuntu-latest

@@ -14,6 +14,7 @@ Status: phase 1 is built, and phase 2's shared ground. `opm-docs` builds the opm
 |---|---|---|
 | `cue-catalog` | `data/catalog.json` and the catalog's pages; a tab bundle only | `module` |
 | `markdown` | the authored pages of `dir` | `dir`, `include`, `exclude` (globs, or a directory ending `/`) |
+| `cue-definitions` | `data/cue-definitions.json` and a reference section of a CUE package's exported definitions, grouped into pages by the config (C17); a docs bundle only | `package`, `skip`, `section`, `title`, `description`, `weight`, `intro`, `pages`, `exclude` (definition: reason) |
 | `cobra` | `data/cobra.json` and a command reference: a section index with the global flags, one page per top-level command | `command`, `section`, `title`, `description`, `weight`, `citations` |
 
 A bundle placed in `/docs/` (`placement: {kind: "docs", root: "/docs/", owns: [...]}`) lists the content paths it owns; every generated page lies under one (C15). A bundle's `pins: {command, projects}` runs a repository command (C14) and records the exact versions it documents against in `manifest.json`.
