@@ -228,7 +228,7 @@ Proposal must state: a second bundle, `catalog-opm-docs` (C1 naming rule: the re
 
 ### 3. opm: release-please, then its bundle (no OpenSpec workspace; two PRs)
 
-1. `chore: release with release-please` PR: `release-please-config.json` (one package `.`, `release-type: simple`, `include-v-in-tag: true`, tags `vX.Y.Z`, `draft: false`), `.release-please-manifest.json`, `.github/workflows/release.yml` with the release App token as the other repositories have it, `CHANGELOG.md`. The first version is `1.0.0-beta.1` (DESIGN decision 21; a `Release-As: 1.0.0-beta.1` footer), so the minor tag `1.0` follows the v1.0 site version. **Owner**: install the release App on opm, provide `vars.RELEASE_APP_CLIENT_ID` and `secrets.RELEASE_APP_PRIVATE_KEY`, and cover opm with the `tags-immutable` and `tags-create-app-only` rulesets.
+1. `chore: release with release-please` PR: `release-please-config.json` (one package `.`, `release-type: simple`, `include-v-in-tag: true`, tags `vX.Y.Z`, `draft: false`, `"initial-version": "1.0.0-beta.1"`, and prerelease versioning: `"versioning": "prerelease"`, `"prerelease": true`, `"prerelease-type": "beta"`, so later releases go `1.0.0-beta.2` and onward until the owner drops it for `1.0.0`), `.release-please-manifest.json` without an entry for `.` until the first release (`initial-version` applies only to a package with no release yet, as docs-kit's own `0.1.0` did), `.github/workflows/release.yml` with the release App token as the other repositories have it, `CHANGELOG.md`. The first version is `1.0.0-beta.1` (DESIGN decision 21), so the minor tag `1.0` follows the v1.0 site version. Never a `Release-As:` footer: squash merges use a blank body (workspace `RELEASING.md`), so a footer never reaches `main`; if `initial-version` cannot be used, a temporary `release-as` in the config, removed by the next PR, is the fallback. **Owner**: install the release App on opm, provide `vars.RELEASE_APP_CLIENT_ID` and `secrets.RELEASE_APP_PRIVATE_KEY`, and cover opm with the `tags-immutable` and `tags-create-app-only` rulesets.
 2. `ci(docs): publish the opm docs bundle with docs-kit` PR: `docs-kit.cue` (`add-authored-docs` D2), `docs.yml`, `publish-docs` in `release.yml`, `.opm-docs-version`, Taskfile tasks as in phase 2's common list, `AGENTS.md` paragraph.
 3. **Owner**: merge the first release PR; verify `docs/opm` is public and its tags verify.
 
@@ -257,7 +257,7 @@ A small spec-driven change: REMOVE the `dialect-lint` requirement "The conforman
 - Merge each docs-kit release PR at the gates above, and the `cobradump` release PR.
 - Confirm the tag rulesets cover `cobradump/v*` tags as they cover `v*`.
 - New GHCR packages, each checked public on first publish: `docs/core`, `docs/library`, `docs/opm-operator`, `docs/cli`, `docs/catalog-opm-docs`, `docs/opm`, `docs/enhancements`.
-- opm: release App, secrets, rulesets; first version `1.0.0-beta.1` (DESIGN decision 21).
+- opm: release App, secrets, rulesets; first version `1.0.0-beta.1` (DESIGN decision 21), set by `initial-version` in `release-please-config.json`, never by a commit footer.
 - The release cascade order of phase 2 (core, library, opm-operator, then cli) and the G2-pins check before the cli release PR merges.
 
 ## Decisions made in planning (for the owner to confirm)
