@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/open-platform-model/docs-kit/compare/v0.2.1...v0.2.2) (2026-10-03)
+
+
+### Bug Fixes
+
+* **dialect:** accept the what-opm-models and two-models-one-boundary figures ([#14](https://github.com/open-platform-model/docs-kit/issues/14)) ([d985a90](https://github.com/open-platform-model/docs-kit/commit/d985a90d6667e7f964afb1b33cb50d2bf7942dd9))
+
 ## [0.2.1](https://github.com/open-platform-model/docs-kit/compare/v0.2.0...v0.2.1) (2026-10-03)
 
 
