@@ -172,19 +172,27 @@ func entryDirs(root, dir string) ([]entryDir, error) {
 	return out, nil
 }
 
-// checkDir refuses a directory that is missing, a symlink or not a
-// directory; what names it in the error.
+// checkDir refuses a directory that is missing, not a directory, or
+// reached through a symlink: every component of dir, from Root down, is
+// checked. what names it in the error.
 func checkDir(root, dir, what string) error {
-	fi, err := os.Lstat(filepath.Join(root, filepath.FromSlash(dir)))
-	switch {
-	case os.IsNotExist(err):
-		return fmt.Errorf("%s does not exist", what)
-	case err != nil:
-		return err
-	case fi.Mode()&fs.ModeSymlink != 0:
-		return fmt.Errorf("%s is a symlink; the enhancements source reads only the repository's own directories", what)
-	case !fi.IsDir():
-		return fmt.Errorf("%s is not a directory", what)
+	at := ""
+	for _, c := range strings.Split(dir, "/") {
+		if c == "." || c == "" {
+			continue
+		}
+		at = path.Join(at, c)
+		fi, err := os.Lstat(filepath.Join(root, filepath.FromSlash(at)))
+		switch {
+		case os.IsNotExist(err):
+			return fmt.Errorf("%s does not exist", what)
+		case err != nil:
+			return err
+		case fi.Mode()&fs.ModeSymlink != 0:
+			return fmt.Errorf("%s is reached through the symlink %s; the enhancements source reads only the repository's own directories", what, at)
+		case !fi.IsDir():
+			return fmt.Errorf("%s is not a directory", what)
+		}
 	}
 	return nil
 }

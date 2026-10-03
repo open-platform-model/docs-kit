@@ -210,12 +210,29 @@ func TestSymlinks(t *testing.T) {
 			t.Fatalf("err = %v", err)
 		}
 	})
+	t.Run("entry root component", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(root, "real"), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(filepath.Join(root, "real"), filepath.Join(root, "link")); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(filepath.Join(root, "real", "entries"), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		o := options(t, fixtureRepo)
+		o.Root, o.Dir = root, "link/entries"
+		if _, err := Extract(o); err == nil || !strings.Contains(err.Error(), "reached through the symlink link") {
+			t.Fatalf("err = %v", err)
+		}
+	})
 	t.Run("entry", func(t *testing.T) {
 		root := copyFixture(t)
 		if err := os.Symlink(filepath.Join(root, "0025"), filepath.Join(root, "0026")); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := Extract(options(t, root)); err == nil || !strings.Contains(err.Error(), "entry 0026 is a symlink") {
+		if _, err := Extract(options(t, root)); err == nil || !strings.Contains(err.Error(), "entry 0026 is reached through the symlink 0026") {
 			t.Fatalf("err = %v", err)
 		}
 	})
@@ -252,6 +269,9 @@ func TestClean(t *testing.T) {
 		{"reference definition", "[r]: 03-decisions.md \"t\"\n", "[r]: /enhancements/0025/decisions/ \"t\"\n"},
 		{"html escaped", "a <b>c</b> <!x <?y </z\n", "a \\<b>c\\</b> \\<!x \\<?y \\</z\n"},
 		{"autolink and code kept", "<https://a.example/> <a@b.example> `<x>` a < b\n", "<https://a.example/> <a@b.example> `<x>` a < b\n"},
+		{"escaped bracket", "x \\](javascript:alert(1)) y\n", "x \\](javascript:alert(1)) y\n"},
+		{"escaped backslash before bracket", "[a\\\\](03-decisions.md)\n", "[a\\\\](/enhancements/0025/decisions/)\n"},
+		{"html after an escaped backslash", "a \\\\<img src=x> b\n", "a \\\\\\<img src=x> b\n"},
 		{"title escaped", "[README.md](README.md) <i>\n", "[0025: Self-Describing Modules](/enhancements/0025/) \\<i>\n"},
 	} {
 		t.Run(c.name, func(t *testing.T) {

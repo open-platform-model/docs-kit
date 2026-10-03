@@ -196,7 +196,7 @@ func trimBlank(lines []srcLine) []srcLine {
 func codeMask(l string) []bool {
 	mask := make([]bool, len(l))
 	for i := 0; i < len(l); {
-		if l[i] != '`' || (i > 0 && l[i-1] == '\\') {
+		if l[i] != '`' || escaped(l, i) {
 			i++
 			continue
 		}
@@ -248,7 +248,7 @@ func (x *extraction) line(file, l string) (string, error) {
 	code := codeMask(l)
 	last := 0 // l[:last] is in b
 	for i := 0; i+1 < len(l); i++ {
-		if l[i] != ']' || l[i+1] != '(' || code[i] {
+		if l[i] != ']' || l[i+1] != '(' || code[i] || escaped(l, i) {
 			continue
 		}
 		ds, de := destination(l, i+2)
@@ -304,6 +304,16 @@ func (x *extraction) refDef(file, l string, start, end int) (string, error) {
 	return escapeHTML(l, start+len(u)), nil
 }
 
+// escaped reports a byte preceded by an odd run of backslashes, which
+// Markdown reads as the literal character.
+func escaped(l string, i int) bool {
+	n := 0
+	for j := i - 1; j >= 0 && l[j] == '\\'; j-- {
+		n++
+	}
+	return n%2 == 1
+}
+
 // destination finds a link destination starting at i, after "](": an
 // angle-bracketed one or a run of non-blank characters with balanced
 // parentheses. It returns the destination's bounds (the angle brackets
@@ -344,7 +354,7 @@ func destination(l string, i int) (start, end int) {
 func textStart(l string, end int, code []bool) int {
 	depth := 0
 	for i := end - 1; i >= 0; i-- {
-		if code[i] || (i > 0 && l[i-1] == '\\') {
+		if code[i] || escaped(l, i) {
 			continue
 		}
 		switch l[i] {
@@ -469,7 +479,7 @@ func escapeHTML(l string, from int) string {
 	var b strings.Builder
 	for i := 0; i < len(l); i++ {
 		c := l[i]
-		if c == '<' && i >= from && !code[i] && (i == 0 || l[i-1] != '\\') && i+1 < len(l) && opensHTML(l[i+1]) && !reAutolink.MatchString(l[i:]) {
+		if c == '<' && i >= from && !code[i] && !escaped(l, i) && i+1 < len(l) && opensHTML(l[i+1]) && !reAutolink.MatchString(l[i:]) {
 			b.WriteString(`\<`)
 			continue
 		}
