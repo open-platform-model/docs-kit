@@ -117,7 +117,7 @@ Fields are listed depth-first, properties by name. `rules` come, in that walk, f
 
 One completable page at `page` (C15): per kind, in D3 order, crdref's entry (`## <Kind>`, summary, `### At a glance` table, the columns table, `### Spec` and `### Status` tables, `### Example` with a `yaml` fence, `### Notes`, `### Served by` "The operator's `<controller>` controller watches every <Kind>." only when `reconciledBy` names one, `### Enforcement` table). Its generated body's first heading is `## <first kind>`. Without an authored page it has front matter `title`, `description`, `type: reference` and `weight` when configured (the operator sets 7, the page's weight today). `manifest.json` `pages[].source` is the authored page when completed, else the first CRD file.
 
-The entries are a `text/template` (`internal/render/templates/crd/entries.md.tmpl`, its own template set so the catalog's helpers stay apart) with runs of blank lines folded to one, crdref's rule. Prose is escaped as crdref escapes it: the common set (`\ < > * _ [ ] |`, `{{` as `{\{`) plus `~` and `#`, which schema descriptions use (`#Platform`) and which would otherwise start a strike-through or a heading; an unpaired backtick makes the whole text prose with the backtick escaped; in a table cell a pipe is escaped inside code spans too.
+The entries are a `text/template` (`internal/render/templates/crd/entries.md.tmpl`, its own template set so the catalog's helpers stay apart) with runs of blank lines folded to one, crdref's rule. Prose is escaped with crdref's set, `\ * _ [ ] < > ~ | #` (the common set plus `~` and `#`, which schema descriptions use, as in `#Platform`, and which would otherwise start a strike-through or a heading), and also with `{{` turned into `{\{` until none is left, which crdref did not do; an unpaired backtick makes the whole text prose with the backtick escaped; in a table cell a pipe is escaped inside code spans too.
 
 **Parity record (section 2).** `TestOperatorCRDParity` (`internal/render/crd_parity_test.go`, skipped unless `OPM_OPERATOR_CHECKOUT` is set) extracts with opm-operator's planned config (D1) and compares the page's generated body with crdref's block between its markers, line by line. Results, 2026-10-03:
 
@@ -145,6 +145,16 @@ No new command or flag. Messages name the file: "config/samples/opmodel.dev_v1al
 ### Citation links (decided in planning)
 
 crdref links decision citations; docs-kit strips them by default. The shared `citations: "link"` policy (`generalize-build-assembly` D5) reproduces crdref's form, so no crd-specific rule exists.
+
+### Review hardening (PR 24)
+
+The site renders raw HTML, so the review treated every CRD and sample string as untrusted. Changes after the parity run, none visible on the operator's page (parity re-run and green, now in every test run on a copy of the operator's files at `bf8d3c5`):
+
+- The example's fence is a backtick run longer than any backtick or tilde run in the sample (three when there is none), so a block scalar holding a fence line cannot close it.
+- The kind name (`^[A-Z][A-Za-z0-9]*$`), the scope (`Namespaced` or `Cluster`) and printer-column types (`integer`, `number`, `string`, `boolean`, `date`) are refused otherwise; they reach the page unescaped.
+- Decoding is strict, as crdref's was; constructs the page drops (`multipleOf`, another `format`, `messageExpression`, `x-kubernetes-embedded-resource`, tuple `items`, `metadata` constraints, other top-level properties) are refused.
+- The model keeps prose plain and records `citations`; the renderer links decision citations itself, so a description cannot forge a link. This replaces D3's "carries links" form.
+- An authored page holding any kind's heading is refused (`Page.Headings`); CRD and sample files must be regular files; a set but missing `samples` is refused outside a backfill; the standalone page's lastmod is the newest file read (`Data.Inputs`); sample numbers are kept as written; a `crd` source belongs to a docs bundle.
 
 ## Risks / Trade-offs
 
