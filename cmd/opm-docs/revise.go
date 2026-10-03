@@ -33,6 +33,9 @@ func newReviseCmd() *cobra.Command {
 			if err != nil {
 				return buildError(cmd.OutOrStdout(), err)
 			}
+			if res.Rebuilt {
+				fmt.Fprintf(cmd.ErrOrStderr(), "opm-docs revise: %s.%d already ends with this fix and is not promoted; built it again\n", res.Version, res.Revision)
+			}
 			fmt.Fprintf(cmd.ErrOrStderr(), "opm-docs revise: %s %s.%d (%d pages, %d fix(es))\n", res.Dir, res.Version, res.Revision, res.Pages, len(res.Patches))
 			return nil
 		},

@@ -98,9 +98,29 @@ func (e *env) fix(date string, edit map[string][2]string) string {
 }
 
 // push pushes a built bundle directory, as the workflow does after a build.
-func (e *env) push(dir string) {
+func (e *env) push(dir string) *publish.PushResult {
 	e.t.Helper()
-	if _, err := publish.Push(context.Background(), publish.PushOptions{Dir: dir, Registry: e.registry, Client: e.client}); err != nil {
+	res, err := publish.Push(context.Background(), publish.PushOptions{Dir: dir, Registry: e.registry, Client: e.client})
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	return res
+}
+
+// promoteRelease points the release tag 1.2.3 at a pushed digest, as a
+// promote after signing does.
+func (e *env) promoteRelease(digest string) {
+	e.t.Helper()
+	ctx := context.Background()
+	d, err := e.repo.Resolve(ctx, digest)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	_, raw, err := e.repo.Manifest(ctx, d)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	if err := e.repo.Tag(ctx, d, raw, "1.2.3"); err != nil {
 		e.t.Fatal(err)
 	}
 }
@@ -185,12 +205,18 @@ func (e *env) built(fix string, rev int, patches ...string) (m *bundle.Manifest,
 	return m, dir
 }
 
+// refused revises fix and wants an error containing want.
+func (e *env) refused(fix, want string) {
+	e.t.Helper()
+	if _, _, err := e.revise(fix); err == nil || !strings.Contains(err.Error(), want) {
+		e.t.Fatalf("revise %s: %v, want an error with %q", fix[:12], err, want)
+	}
+}
+
 func TestRevisions(t *testing.T) {
 	e := newEnv(t)
 	fixA := e.fix(fixDateA, map[string][2]string{backup: {"A platform's backup\n// adapter reads it.", "A platform's backup\n// adapter reads it every night."}})
-	if _, _, err := e.revise(fixA); err == nil || !strings.Contains(err.Error(), "publish the release first: dispatch mode: release") {
-		t.Fatalf("no revision 0: %v", err)
-	}
+	e.refused(fixA, "publish the release first: dispatch mode: release")
 	e.publishRelease()
 
 	// The first revision: a comment-only fix in CUE.
@@ -204,12 +230,19 @@ func TestRevisions(t *testing.T) {
 	if got := lastmod(m, "traits/backup.md"); got != gittest.Date {
 		t.Fatalf("an unpatched member's lastmod is %s, want the release's", got)
 	}
-	e.push(dir)
+	first := e.push(dir)
 
-	// The fix again: refused.
-	if _, _, err := e.revise(fixA); err == nil || !strings.Contains(err.Error(), "already applied in 1.2.3.1") {
-		t.Fatalf("a fix applied twice: %v", err)
+	// A re-run after the push failed to sign or promote: 1.2.3.1 ends
+	// with the fix and the release tag does not name it, so it is built
+	// again, to the same digest, and the push writes nothing.
+	_, dir = e.built(fixA, 1, fixA)
+	if again := e.push(dir); !again.Existing || again.Digest != first.Digest {
+		t.Fatalf("the rebuilt revision is %s (existing %v), want %s unchanged", again.Digest, again.Existing, first.Digest)
 	}
+
+	// Once promoted, the fix again is refused.
+	e.promoteRelease(first.Digest)
+	e.refused(fixA, "already applied in 1.2.3.1")
 
 	// The second revision carries the first fix: a Markdown fix.
 	fixB := e.fix(fixDateB, map[string][2]string{landing: {"Every member is listed below.", "Every member of the demo catalog is listed below."}})
@@ -224,6 +257,9 @@ func TestRevisions(t *testing.T) {
 	if ts := e.tags(); !slices.Contains(ts, "1.2.3.2") {
 		t.Fatalf("tags %v", ts)
 	}
+
+	// 1.2.3.2 is not promoted, but fixA is not its last fix: refused.
+	e.refused(fixA, "already applied in 1.2.3.2")
 }
 
 func TestRefusals(t *testing.T) {

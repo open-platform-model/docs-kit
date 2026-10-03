@@ -11,6 +11,14 @@ How a documentation fix reaches a published release as a docs revision, without 
 - **WHEN** F is not an ancestor of `origin/main`
 - **THEN** `revise` exits 2 saying the fix must land on `main` first
 
+#### Scenario: A fix already published
+- **WHEN** F is in the `source.patches` of the newest revision 4.4.5.1, and the tag `4.4.5` names 4.4.5.1
+- **THEN** `revise` exits 2 saying F is already applied in 4.4.5.1
+
+#### Scenario: Re-run of a revision that was pushed but not promoted
+- **WHEN** 4.4.5.1 was pushed with patches `[A]`, the tag `4.4.5` does not name it, and `revise --fix A` runs again
+- **THEN** it builds revision 1 again with patches `[A]`, to the same digest, so `push` writes nothing and signing and promote can complete
+
 #### Scenario: Second revision carries the first fix
 - **WHEN** 4.4.5.1 was built with patches `[A]` and `revise --fix B` runs
 - **THEN** the new build applies A then B and records `source.patches: [A, B]` and revision 2

@@ -9,6 +9,7 @@ package revise
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -48,6 +49,9 @@ type Result struct {
 	Revision int
 	Patches  []string
 	Pages    int
+	// Rebuilt is set when the newest revision already ended with the fix
+	// and was not promoted: it is built again under its own number.
+	Rebuilt bool
 }
 
 // RefusedError lists the changes the documentation-only check refused.
@@ -81,16 +85,24 @@ func Run(ctx context.Context, o Options) (*Result, error) {
 	if repo.IsAncestor(ctx, o.Fix, commit) {
 		return nil, fmt.Errorf("the fix %s is already in the release %s; nothing to revise", o.Fix, o.Tag)
 	}
-	next, prior, err := published(ctx, o, version, commit)
+	newest, err := published(ctx, o, version, commit)
 	if err != nil {
 		return nil, err
 	}
-	if slices.Contains(prior, o.Fix) {
-		return nil, fmt.Errorf("the fix %s is already applied in %s.%d; nothing to revise", o.Fix, version, next-1)
+	next, prior, rebuilt := newest.revision+1, newest.patches, false
+	if i := slices.Index(prior, o.Fix); i >= 0 {
+		// A re-run of a revision that failed after its push: the newest
+		// revision ends with this fix and was never promoted, so it is
+		// built again, to the same digest, and the workflow signs and
+		// promotes it.
+		if i != len(prior)-1 || newest.promoted {
+			return nil, fmt.Errorf("the fix %s is already applied in %s.%d; nothing to revise", o.Fix, version, newest.revision)
+		}
+		next, prior, rebuilt = newest.revision, prior[:i], true
 	}
 	for _, p := range prior {
 		if err := repo.CheckFix(ctx, p, o.Main); err != nil {
-			return nil, fmt.Errorf("%s.%d lists the fix %s, which no longer checks out: %w", version, next-1, p, err)
+			return nil, fmt.Errorf("%s.%d lists the fix %s, which no longer checks out: %w", version, newest.revision, p, err)
 		}
 	}
 	patches := append(slices.Clone(prior), o.Fix)
@@ -115,7 +127,7 @@ func Run(ctx context.Context, o Options) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Result{Dir: results[0].Dir, Version: version, Revision: next, Patches: patches, Pages: results[0].Pages}, nil
+	return &Result{Dir: results[0].Dir, Version: version, Revision: next, Patches: patches, Pages: results[0].Pages, Rebuilt: rebuilt}, nil
 }
 
 // release checks the tag against the project's prefix and returns its
@@ -146,64 +158,78 @@ func release(ctx context.Context, o Options, repo gitsrc.Repo) (version, commit 
 	return version, commit, nil
 }
 
-// published returns the next revision number of version and the fixes the
-// newest published revision applied, oldest first.
-func published(ctx context.Context, o Options, version, commit string) (next int, patches []string, err error) {
+// newestRevision is the newest published revision of a version.
+type newestRevision struct {
+	revision int
+	patches  []string // the fixes it applied, oldest first
+	promoted bool     // the release tag names it
+}
+
+// published reads the newest published revision of version.
+func published(ctx context.Context, o Options, version, commit string) (newestRevision, error) {
+	var none newestRevision
 	r, err := o.Client.Repository(o.Registry + "/" + o.Project)
 	if err != nil {
-		return 0, nil, err
+		return none, err
 	}
 	builds, err := publish.ReleaseBuilds(ctx, r)
 	if err != nil {
-		return 0, nil, err
+		return none, err
 	}
 	v, _ := tags.ParseVersion(version)
-	next, err = tags.NextRevision(v, builds)
+	next, err := tags.NextRevision(v, builds)
 	if err != nil {
-		return 0, nil, fmt.Errorf("%s has no published release in %s (%s.0): publish the release first: dispatch mode: release", o.Tag, r.Name, version)
+		return none, fmt.Errorf("%s has no published release in %s (%s.0): publish the release first: dispatch mode: release", o.Tag, r.Name, version)
 	}
 	newest := fmt.Sprintf("%s.%d", version, next-1)
-	m, err := fetchManifest(ctx, r, newest)
+	m, digest, err := fetchManifest(ctx, r, newest)
 	if err != nil {
-		return 0, nil, err
+		return none, err
 	}
 	if m.Version != version || m.Revision != next-1 || m.Project != o.Project {
-		return 0, nil, fmt.Errorf("%s:%s holds %s %s.%d, not %s %s", r.Name, newest, m.Project, m.Version, m.Revision, o.Project, newest)
+		return none, fmt.Errorf("%s:%s holds %s %s.%d, not %s %s", r.Name, newest, m.Project, m.Version, m.Revision, o.Project, newest)
 	}
 	if m.Source.Commit != commit {
-		return 0, nil, fmt.Errorf("%s:%s was built from %s, but %s is %s; a revision applies fixes to the tree that release was built from", r.Name, newest, m.Source.Commit, o.Tag, commit)
+		return none, fmt.Errorf("%s:%s was built from %s, but %s is %s; a revision applies fixes to the tree that release was built from", r.Name, newest, m.Source.Commit, o.Tag, commit)
 	}
-	return next, m.Source.Patches, nil
+	promoted := false
+	switch cur, err := r.Resolve(ctx, version); {
+	case err == nil:
+		promoted = cur.Digest.String() == digest
+	case !oci.IsNotFound(errors.Unwrap(err)) && !oci.IsNotFound(err):
+		return none, err
+	}
+	return newestRevision{revision: next - 1, patches: m.Source.Patches, promoted: promoted}, nil
 }
 
 // fetchManifest reads manifest.json of a pushed build: the layer is
 // unpacked with every check pull applies, then discarded.
-func fetchManifest(ctx context.Context, r *oci.Repo, tag string) (*bundle.Manifest, error) {
+func fetchManifest(ctx context.Context, r *oci.Repo, tag string) (bm *bundle.Manifest, digest string, err error) {
 	desc, err := r.Resolve(ctx, tag)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	m, _, err := r.Manifest(ctx, desc)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if m.ArtifactType != bundle.ArtifactType || len(m.Layers) != 1 || m.Layers[0].MediaType != bundle.LayerType {
-		return nil, fmt.Errorf("%s:%s is not a docs bundle", r.Name, tag)
+		return nil, "", fmt.Errorf("%s:%s is not a docs bundle", r.Name, tag)
 	}
 	layer, err := r.Blob(ctx, m.Layers[0], bundle.MaxLayerSize)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	tmp, err := os.MkdirTemp("", "opm-docs-revise-bundle-*")
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer os.RemoveAll(tmp)
-	bm, err := bundle.Unpack(bytes.NewReader(layer), filepath.Join(tmp, "bundle"), bundle.DefaultLimits)
+	bm, err = bundle.Unpack(bytes.NewReader(layer), filepath.Join(tmp, "bundle"), bundle.DefaultLimits)
 	if err != nil {
-		return nil, fmt.Errorf("%s:%s: %w", r.Name, tag, err)
+		return nil, "", fmt.Errorf("%s:%s: %w", r.Name, tag, err)
 	}
-	return bm, nil
+	return bm, desc.Digest.String(), nil
 }
 
 // apply picks the patches onto the release tree and refuses anything but

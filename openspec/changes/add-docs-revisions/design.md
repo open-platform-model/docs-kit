@@ -20,12 +20,12 @@ opm-docs revise --project P --tag T --fix F [--out out] [--registry ghcr.io/open
 
 Steps, each failing with exit 2 and a message naming the fix:
 
-1. `F` is 40 hex, a single-parent commit, and an ancestor of `origin/main` ("the fix must land on `main` first").
-2. `T` carries the project's tag prefix; its version `V` has a published revision 0 in the registry ("publish the release first: dispatch `mode: release`").
-3. Read the `source.patches` of the newest published revision of `V` (empty for revision 0); the new list is that list plus `F`. A fix already in the list is refused ("already applied in `V.<n>`").
+1. `F` is 40 hex, a single-parent commit, and an ancestor of `origin/main` ("the fix must land on `main` first"), and not already in `T` ("already in the release"; implementation addition).
+2. `T` carries the project's tag prefix (from `--config`, else the checkout's `docs-kit.cue`); its version `V` has a published revision 0 in the registry ("publish the release first: dispatch `mode: release`").
+3. Read the `source.patches` of the newest published revision `n` of `V` (empty for revision 0), from its layer unpacked with every check `pull` applies; its manifest must name `V`, `n` and `T`'s commit as `source.commit` (implementation addition). The new list is that list plus `F`, and every earlier fix is checked again as in step 1 (implementation addition). A fix already in the list is refused ("already applied in `V.<n>`"), except a re-run: when `F` is the last fix of revision `n` and the release tag `V` does not name revision `n` (it was pushed but never promoted), revision `n` is built again with the same list instead (supervisor decision, 2026-10-03). The build is deterministic, so `push` finds the same digest and writes nothing, and the workflow signs and promotes it.
 4. `git worktree add --detach <tmp> T`; `git cherry-pick --no-commit` each patch in order; a conflict is refused naming the files. The worktree is removed on every path.
 5. The documentation-only check (D2) between `T`'s tree and the worktree.
-6. `build --release T --source <tmp> --revision <n+1> --patches <list>` into `--out`. `source.commit` is `T`'s commit; `lastmod` of a patched file is the committer date of the newest patch that touched it.
+6. `build --release T --source <tmp> --revision <n+1> --patches <list>` into `--out`, with `--config` when given, else the release tree's `docs-kit.cue`, else the checkout's, as a release build picks it (implementation finding; D1 first named only `docs-kit.cue`). `source.commit` is `T`'s commit; `lastmod` of a patched file is the committer date of the newest patch that touched it.
 
 `revise` pushes nothing (decided in planning for phase 1, kept here): the workflow runs `push`, `cosign sign` and `promote` after it, so a tag never points at an unsigned build.
 
@@ -74,6 +74,15 @@ A change to `metadata.description` is a value change and is refused: the member'
 | `revision` | `workflow_dispatch` | checkout `main` with full history; `revise --tag <tag> --fix <sha>`; `push`; `cosign sign`; `promote` |
 
 Permissions as `release` (`contents: read`, `packages: write`, `id-token: write`); the `refs/heads/main` guard and the GHCR read login apply. The job runs in the release's concurrency group, `docs-release-${{ inputs.project }}-${{ inputs.tag }}` with `cancel-in-progress: false` (`docs/contracts.md` C5), so revisions of one release are serialized, never race for a revision number, and never cancel the release publish.
+
+### Re-running a failed revision (review finding)
+
+**Context**: a revision job that fails after `push` (at signing or promote) leaves revision `n` pushed with `F` as its last fix. Re-running the job ran `revise` again, which refused `F` as already applied, so revision `n` could never be signed or promoted.
+**Options considered**:
+1. Always refuse - a failed run strands its revision; recovery needs another fix.
+2. Rebuild revision `n` when `F` is its last fix and the release tag does not name it - same digest, so `push` is a no-op and signing and promote complete the run.
+**Decision**: option 2, accepted by the supervisor 2026-10-03. A promoted revision, or an `F` that is not the last fix, is still refused.
+**Rationale**: the build is deterministic (Principle V), so a rebuild cannot publish anything new; it only lets a failed run finish.
 
 ## Risks / Trade-offs
 

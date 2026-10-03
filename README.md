@@ -77,7 +77,7 @@ Every publishing mode runs only on `refs/heads/main`. A new package on GHCR is l
 A published release's pages change only through a docs revision: its full tag (`4.4.5.0`) is never overwritten, so a documentation fix is published as `4.4.5.1`, `4.4.5.2` and so on, and `4.4.5`, `4.4` and `4` move to it. A fix that changes code needs a patch release instead.
 
 1. Land the fix on `main` as one single-parent commit that changes only Markdown files, or only comments in `.cue` and `.go` files. `edge` shows it on the next push.
-2. Dispatch the `revision` mode with the release tag and the fix's full 40-hex hash. The workflow applies every fix the newest revision of that release already carries, then this one, to the release tree; it refuses a fix that is not on `main`, one already applied, a conflict, and any change other than documentation, naming each file. Then it pushes `<version>.<next>`, signs it and moves the moving tags.
+2. Dispatch the `revision` mode with the release tag and the fix's full 40-hex hash. The workflow applies every fix the newest revision of that release already carries, then this one, to the release tree; it refuses a fix that is not on `main`, one already applied, a conflict, and any change other than documentation, naming each file. Then it pushes `<version>.<next>`, signs it and moves the moving tags. A run that failed after its push can simply be re-run: the unpromoted revision is built again to the same digest and finished.
 
 The steps and the documentation-only rules are in [docs/contracts.md, "Docs revisions"](docs/contracts.md#docs-revisions). catalog_opm's dispatch, beside its other `docs.yml` jobs:
 
