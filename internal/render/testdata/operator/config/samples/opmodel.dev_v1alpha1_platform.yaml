@@ -1,0 +1,22 @@
+apiVersion: opmodel.dev/v1alpha1
+kind: Platform
+metadata:
+  labels:
+    app.kubernetes.io/name: opm-operator
+    app.kubernetes.io/managed-by: kustomize
+  # Platform is a cluster singleton; the only permitted name is "cluster".
+  name: cluster
+spec:
+  type: kubernetes
+  registry:
+    # Subscription keys carry the catalog's major (0010:D14);
+    # `version` names exactly one published build of that major — the
+    # platform file IS the resolution, there is no range/allow/deny filter.
+    opmodel.dev/catalogs/opm@v4:
+      # Load-bearing pin: applied verbatim by the e2e specs, and kept aligned
+      # with the CLI's DefaultPlatformTemplate seed and the library's
+      # opm_platform fixture. This file is NOT part of dist/install.yaml
+      # (`opm operator install` resolves the catalog version live), so bump
+      # it as `test(fixtures)`: no operator release. The mirrored CLI seed
+      # is shipped and bumps as `fix(deps)`.
+      version: "4.4.4"

@@ -39,8 +39,8 @@ The resource definition declares these `kubectl get` columns. A column with a pr
 {{with .Sample -}}
 ### Example
 
-```yaml
-{{.YAML}}```
+{{fence .YAML}}yaml
+{{.YAML}}{{fence .YAML}}
 {{- end}}
 
 {{with .Notes -}}

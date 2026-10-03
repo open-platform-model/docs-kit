@@ -43,6 +43,13 @@ const authoredWidgets = "---\ntitle: \"Widgets\"\ndescription: \"What widgets ar
 // a docs bundle through docs-kit.cue.
 func crdBuild(t *testing.T, files map[string]string) (m *bundle.Manifest, dir string) {
 	t.Helper()
+	return crdBuildThen(t, files, nil)
+}
+
+// crdBuildThen is crdBuild with more commits made by then before the
+// build.
+func crdBuildThen(t *testing.T, files map[string]string, then func(*gittest.Repo)) (m *bundle.Manifest, dir string) {
+	t.Helper()
 	t.Setenv("GITHUB_REPOSITORY", "")
 	tree := filepath.Join("..", "extract", "crd", "testdata", "tree")
 	err := filepath.WalkDir(tree, func(p string, d fs.DirEntry, err error) error {
@@ -65,6 +72,9 @@ func crdBuild(t *testing.T, files map[string]string) (m *bundle.Manifest, dir st
 	r := gittest.New(t, "https://github.com/example/widgets.git")
 	r.Write(files)
 	r.Commit("docs")
+	if then != nil {
+		then(r)
+	}
 	cfg, err := config.Load(filepath.Join(r.Dir, "docs-kit.cue"))
 	if err != nil {
 		t.Fatal(err)
@@ -90,7 +100,7 @@ func TestCRDBundleCompleted(t *testing.T) {
 	if !strings.HasPrefix(string(body), authoredWidgets+"\n## Widget\n") {
 		t.Fatalf("completed page:\n%s", body)
 	}
-	if p := pageEntry(m, "reference/widgets.md"); p.Generated || p.Source != "docs/site/reference/widgets.md" {
+	if p := pageEntry(m, "reference/widgets.md"); p.Generated || p.Source != "docs/site/reference/widgets.md" || p.Edit != "docs/site/reference/widgets.md" {
 		t.Fatalf("entry %+v", p)
 	}
 	if len(m.Data) != 1 || m.Data[0].Path != "crd.json" || m.Data[0].Schema != "docs.opmodel.dev/data/crd/v1" {
@@ -111,7 +121,19 @@ func TestCRDBundleAlone(t *testing.T) {
 		t.Errorf("citations: \"link\" did not link the decision citation")
 	}
 	p := pageEntry(m, "reference/widgets.md")
-	if !p.Generated || p.Source != "config/crd/bases/example.dev_widgets.yaml" || p.Lastmod == "" {
-		t.Fatalf("entry %+v", p)
+	if !p.Generated || p.Source != "config/crd/bases/example.dev_widgets.yaml" || p.Lastmod == "" || p.Edit != "" {
+		t.Fatalf("entry %+v: a generated page has a source and lastmod, and no edit", p)
+	}
+}
+
+// The standalone page's lastmod is the newest date of every file read: a
+// sample changed after the CRDs moves it.
+func TestCRDBundleLastmodNewest(t *testing.T) {
+	m, _ := crdBuildThen(t, map[string]string{}, func(r *gittest.Repo) {
+		r.Write(map[string]string{"config/samples/example.dev_v1_gadget.yaml": "apiVersion: example.dev/v1\nkind: Gadget\nmetadata:\n  name: g\n"})
+		r.CommitAt("2030-01-02T03:04:05Z", "sample")
+	})
+	if p := pageEntry(m, "reference/widgets.md"); p.Lastmod != "2030-01-02T03:04:05Z" {
+		t.Fatalf("lastmod %q, want the sample's commit date", p.Lastmod)
 	}
 }

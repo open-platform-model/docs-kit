@@ -52,6 +52,10 @@ type Data struct {
 	// Sources maps a page path the renderer will write to the repository
 	// file it documents, for manifest.json pages[].source and lastmod.
 	Sources map[string]string
+	// Inputs maps a page path to every repository file it was built from,
+	// when more than its Sources file; a standalone page's lastmod is then
+	// the newest of their dates.
+	Inputs map[string][]string
 }
 
 // markdownKind is the source kind that copies authored pages. It is no

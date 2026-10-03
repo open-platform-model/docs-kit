@@ -307,6 +307,18 @@ func (s *assembly) lastmod(path string) string {
 	return s.repo.LastMod(s.ctx, s.id.commit, path)
 }
 
+// newest is the latest lastmod of paths; RFC 3339 UTC dates order as
+// strings.
+func (s *assembly) newest(paths []string) string {
+	latest := ""
+	for _, p := range paths {
+		if d := s.lastmod(p); d > latest {
+			latest = d
+		}
+	}
+	return latest
+}
+
 // mainTree is the work tree whose HEAD is main: Options.Main when set,
 // else the current directory when it is a work tree of the repository
 // built (publish.yml runs every mode in the caller's checkout of main;
@@ -513,6 +525,9 @@ func (s *assembly) writeGenerated(e *extracted, completing map[string]markdown.P
 		if f, ok := e.data.Sources[p.Path]; ok {
 			pg.Source = f
 			pg.Lastmod = s.lastmod(f)
+		}
+		if in, ok := e.data.Inputs[p.Path]; ok {
+			pg.Lastmod = s.newest(in)
 		}
 		if err := s.write(p.Path, p.Body, e.kind, pg); err != nil {
 			return err

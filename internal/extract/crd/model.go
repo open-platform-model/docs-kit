@@ -16,20 +16,33 @@ const SchemaID = "docs.opmodel.dev/data/crd/v1"
 // DataFile is the doc model's file name under data/.
 const DataFile = "crd.json"
 
+// The citation policies a model records.
+const (
+	CitationsStrip = "strip"
+	CitationsLink  = "link"
+)
+
 // EnforcedBy is the only enforcer a CRD proves for its rules.
 const EnforcedBy = "api-server"
 
 // Model is data/crd.json.
 //
-// Prose (summary, notes, field descriptions, rule messages) is the source
-// text with its whitespace folded and the citation policy applied: code
-// spans stay in backticks, a linked decision citation is a Markdown link
-// "[0015:D3](/enhancements/0015/decisions/)", and nothing else is escaped.
-// The renderer escapes the rest.
+// Prose (summary, notes, field descriptions, rule messages) is plain
+// source text with its whitespace folded and the citation policy applied:
+// under "strip" no citation is left; under "link" decision citations
+// ("0015:D3") stay as written and every other form is removed. Code spans
+// stay in backticks. The renderer escapes the text and, under "link",
+// links each decision citation.
 type Model struct {
 	Schema string `json:"schema"`
-	Page   Page   `json:"page"`
-	Kinds  []Kind `json:"kinds"`
+	// Citations is the source's citation policy: under "link" the renderer
+	// links each decision citation left in the prose.
+	Citations string `json:"citations"`
+	Page      Page   `json:"page"`
+	Kinds     []Kind `json:"kinds"`
+	// Read lists every file the extraction read, repository-relative, for
+	// the standalone page's lastmod; it is not written to the data file.
+	Read []string `json:"-"`
 }
 
 // Page is the one page the kinds render to.

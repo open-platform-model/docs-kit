@@ -33,7 +33,7 @@ func (crdExtractor) Extract(_ context.Context, in Input) (Data, error) {
 		Root: in.Source, Dir: cfg.Dir, Samples: cfg.Samples,
 		HideSamplesMatching: cfg.HideSamplesMatching, StripLabels: cfg.StripLabels,
 		Page:  crd.Page{Path: cfg.Page, Title: cfg.Title, Description: cfg.Description, Weight: cfg.Weight},
-		Order: cfg.Order, ReconciledBy: cfg.ReconciledBy, Doc: in.Doc,
+		Order: cfg.Order, ReconciledBy: cfg.ReconciledBy, Doc: in.Doc, Outside: in.Outside,
 	})
 	if err != nil {
 		return Data{}, fmt.Errorf("crd %s: %w", cfg.Dir, err)
@@ -42,6 +42,11 @@ func (crdExtractor) Extract(_ context.Context, in Input) (Data, error) {
 	if err != nil {
 		return Data{}, err
 	}
-	// A page without an authored one documents the first CRD.
-	return Data{File: crd.DataFile, Schema: crd.SchemaID, Bytes: data, Sources: map[string]string{cfg.Page: m.Kinds[0].File}}, nil
+	// A page without an authored one documents the first CRD, and its
+	// lastmod is the newest of every CRD and sample read.
+	return Data{
+		File: crd.DataFile, Schema: crd.SchemaID, Bytes: data,
+		Sources: map[string]string{cfg.Page: m.Kinds[0].File},
+		Inputs:  map[string][]string{cfg.Page: m.Read},
+	}, nil
 }

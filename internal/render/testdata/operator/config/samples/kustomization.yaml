@@ -1,0 +1,8 @@
+## Append samples of your project ##
+resources:
+- source_v1_ocirepository.yaml
+- opmodel.dev_v1alpha1_moduleinstance.yaml
+- opmodel.dev_v1alpha1_moduleinstance_jellyfin.yaml
+- opmodel.dev_v1alpha1_modulepackage.yaml
+- opmodel.dev_v1alpha1_platform.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

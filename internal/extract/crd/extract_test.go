@@ -103,7 +103,7 @@ func TestWidget(t *testing.T) {
 	if w.ReconciledBy == nil || *w.ReconciledBy != "widget" {
 		t.Errorf("reconciledBy %v", w.ReconciledBy)
 	}
-	if w.Summary != "Widget asks the controller to build one widget ([0021:D4](/enhancements/0021/decisions/))." {
+	if w.Summary != "Widget asks the controller to build one widget (0021:D4)." {
 		t.Errorf("summary %q", w.Summary)
 	}
 }
@@ -165,25 +165,41 @@ func TestSplitDocuments(t *testing.T) {
 	}
 }
 
-func TestRefusals(t *testing.T) {
-	write := func(t *testing.T, files map[string]string) string {
-		t.Helper()
-		root := t.TempDir()
-		for name, body := range files {
-			p := filepath.Join(root, name)
-			if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
-				t.Fatal(err)
-			}
+// writeTree writes files under a new root, with an empty samples
+// directory s/ unless a file creates it.
+func writeTree(t *testing.T, files map[string]string) string {
+	t.Helper()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "s"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range files {
+		p := filepath.Join(root, name)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
 		}
-		return root
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
-	crd := func(kind, extra string) string {
-		return "apiVersion: apiextensions.k8s.io/v1\nkind: CustomResourceDefinition\nspec:\n  group: example.dev\n  names:\n    kind: " + kind +
-			"\n    plural: " + strings.ToLower(kind) + "s\n  scope: Namespaced\n  versions:\n  - name: v1\n    served: true\n    storage: true\n    schema:\n      openAPIV3Schema:\n        type: object\n" + extra
-	}
+	return root
+}
+
+// crdYAML is a minimal CRD of kind; extra is appended to its schema, at
+// the openAPIV3Schema's indent.
+func crdYAML(kind, extra string) string {
+	return "apiVersion: apiextensions.k8s.io/v1\nkind: CustomResourceDefinition\nspec:\n  group: example.dev\n  names:\n    kind: " + kind +
+		"\n    plural: " + strings.ToLower(kind) + "s\n  scope: Namespaced\n  versions:\n  - name: v1\n    served: true\n    storage: true\n    schema:\n      openAPIV3Schema:\n        type: object\n" + extra
+}
+
+// specField is a CRD whose spec has one property port, with body at the
+// property's indent.
+func specField(body string) string {
+	return crdYAML("Widget", "        properties:\n          spec:\n            type: object\n            properties:\n              port:\n"+body)
+}
+
+func TestRefusals(t *testing.T) {
+	crd := crdYAML
 	for _, c := range []struct {
 		name  string
 		files map[string]string
@@ -196,13 +212,26 @@ func TestRefusals(t *testing.T) {
 		{"bad sample", map[string]string{"c/x.yaml": crd("Widget", ""), "s/example.dev_v1_widget.yaml": "a: [\n"}, nil, "s/example.dev_v1_widget.yaml: does not parse as YAML"},
 		{"duplicate kind", map[string]string{"c/a.yaml": crd("Widget", ""), "c/b.yaml": crd("Widget", "")}, nil, "c/a.yaml and c/b.yaml both define the kind Widget"},
 		{"oneOf", map[string]string{"c/x.yaml": crd("Widget", "        oneOf:\n        - required: [a]\n")}, nil, "schema constructs the reference does not render: the object: oneOf"},
-		{"int-or-string", map[string]string{"c/x.yaml": crd("Widget", "        properties:\n          spec:\n            type: object\n            properties:\n              port:\n                anyOf:\n                - type: integer\n                - type: string\n                x-kubernetes-int-or-string: true\n")}, nil, "spec.port: an int-or-string field (x-kubernetes-int-or-string), which is not supported yet"},
+		{"int-or-string", map[string]string{"c/x.yaml": specField("                anyOf:\n                - type: integer\n                - type: string\n                x-kubernetes-int-or-string: true\n")}, nil, "spec.port: an int-or-string field (x-kubernetes-int-or-string), which is not supported yet"},
 		{"stale reconciledBy", map[string]string{"c/x.yaml": crd("Widget", "")}, func(o *Options) { o.ReconciledBy = map[string]string{"Gizmo": "gizmo"} }, "reconciledBy names the kind Gizmo"},
 		{"stale order", map[string]string{"c/x.yaml": crd("Widget", "")}, func(o *Options) { o.Order = []string{"Gizmo"} }, "order names the kind Gizmo"},
 		{"leaves tree", map[string]string{"c/x.yaml": crd("Widget", "")}, func(o *Options) { o.Dir = "./../c" }, "leaves the source tree"},
+		{"samples missing", map[string]string{"c/x.yaml": crd("Widget", "")}, func(o *Options) { o.Samples = "./nosuch" }, "samples ./nosuch does not exist; create it or remove samples"},
+		{"kind name", map[string]string{"c/x.yaml": crd("Widget<script>", "")}, nil, `c/x.yaml: kind "Widget<script>" is not a Kubernetes kind name`},
+		{"scope", map[string]string{"c/x.yaml": strings.Replace(crd("Widget", ""), "scope: Namespaced", "scope: <b>x</b>", 1)}, nil, `c/x.yaml: Widget: scope "<b>x</b>" is neither Namespaced nor Cluster`},
+		{"column type", map[string]string{"c/x.yaml": strings.Replace(crd("Widget", ""), "  - name: v1\n", "  - name: v1\n    additionalPrinterColumns:\n    - name: Ready\n      type: <img>\n      jsonPath: .x\n", 1)}, nil, `c/x.yaml: Widget: printer column "Ready" has type "<img>"; want one of integer, number, string, boolean, date`},
+		{"unknown CRD field", map[string]string{"c/x.yaml": strings.Replace(crd("Widget", ""), "  scope: Namespaced\n", "  scope: Namespaced\n  conversion:\n    strategy: None\n", 1)}, nil, `c/x.yaml: json: unknown field "conversion"; the crd extractor reads only the CRD fields its page shows`},
+		{"unknown schema field", map[string]string{"c/x.yaml": specField("                type: string\n                title: Port\n")}, nil, `unknown field "title"`},
+		{"multipleOf", map[string]string{"c/x.yaml": specField("                type: integer\n                multipleOf: 2\n")}, nil, "spec.port: multipleOf"},
+		{"format", map[string]string{"c/x.yaml": specField("                type: string\n                format: byte\n")}, nil, `spec.port: format "byte"`},
+		{"messageExpression", map[string]string{"c/x.yaml": specField("                type: string\n                x-kubernetes-validations:\n                - rule: self != ''\n                  messageExpression: self\n")}, nil, "spec.port: messageExpression"},
+		{"embedded resource", map[string]string{"c/x.yaml": specField("                type: object\n                x-kubernetes-embedded-resource: true\n")}, nil, "spec.port: x-kubernetes-embedded-resource"},
+		{"tuple items", map[string]string{"c/x.yaml": specField("                type: array\n                items:\n                - type: string\n")}, nil, "spec.port: tuple items"},
+		{"metadata constraints", map[string]string{"c/x.yaml": crd("Widget", "        properties:\n          metadata:\n            type: object\n            properties:\n              name:\n                maxLength: 20\n                type: string\n")}, nil, "Widget: metadata carries constraints the page does not show"},
+		{"top-level property", map[string]string{"c/x.yaml": crd("Widget", "        properties:\n          data:\n            type: object\n")}, nil, `Widget: top-level property "data" is not shown`},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			o := Options{Root: write(t, c.files), Dir: "./c", Samples: "./s", Doc: doctext.Strip}
+			o := Options{Root: writeTree(t, c.files), Dir: "./c", Samples: "./s", Doc: doctext.Strip}
 			if c.opts != nil {
 				c.opts(&o)
 			}
@@ -211,5 +240,53 @@ func TestRefusals(t *testing.T) {
 				t.Errorf("err %v, want %q", err, c.want)
 			}
 		})
+	}
+}
+
+func TestSamplesMissingInBackfill(t *testing.T) {
+	o := Options{Root: writeTree(t, map[string]string{"c/x.yaml": crdYAML("Widget", "")}), Dir: "./c", Samples: "./nosuch", Outside: true, Doc: doctext.Strip}
+	if _, err := Extract(o); err != nil {
+		t.Fatalf("a backfill without the samples directory: %v", err)
+	}
+}
+
+func TestRefusesSymlinks(t *testing.T) {
+	root := writeTree(t, map[string]string{"real/x.yaml": crdYAML("Widget", ""), "real/sample.yaml": "apiVersion: example.dev/v1\nkind: Widget\n"})
+	if err := os.MkdirAll(filepath.Join(root, "c"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "real", "x.yaml"), filepath.Join(root, "c", "x.yaml")); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Extract(Options{Root: root, Dir: "./c", Doc: doctext.Strip})
+	if err == nil || !strings.Contains(err.Error(), "c/x.yaml is not a regular file") {
+		t.Errorf("symlinked CRD: %v", err)
+	}
+	if err := os.Rename(filepath.Join(root, "real", "x.yaml"), filepath.Join(root, "c", "x.yaml")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "real", "sample.yaml"), filepath.Join(root, "s", "example.dev_v1_widget.yaml")); err != nil {
+		t.Fatal(err)
+	}
+	_, err = Extract(Options{Root: root, Dir: "./c", Samples: "./s", Doc: doctext.Strip})
+	if err == nil || !strings.Contains(err.Error(), "s/example.dev_v1_widget.yaml is not a regular file") {
+		t.Errorf("symlinked sample: %v", err)
+	}
+}
+
+func TestSampleKeepsLargeIntegers(t *testing.T) {
+	root := writeTree(t, map[string]string{
+		"c/x.yaml":                     crdYAML("Widget", ""),
+		"s/example.dev_v1_widget.yaml": "apiVersion: example.dev/v1\nkind: Widget\nspec:\n  big: 12345678901234567890\n  ratio: 0.5\n",
+	})
+	m, err := Extract(Options{Root: root, Dir: "./c", Samples: "./s", Doc: doctext.Strip})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if y := m.Kinds[0].Sample.YAML; !strings.Contains(y, "big: 12345678901234567890\n") || !strings.Contains(y, "ratio: 0.5\n") {
+		t.Errorf("sample:\n%s", y)
+	}
+	if strings.Join(m.Read, ",") != "c/x.yaml,s/example.dev_v1_widget.yaml" {
+		t.Errorf("read %v", m.Read)
 	}
 }

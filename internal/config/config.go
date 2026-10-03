@@ -129,6 +129,9 @@ func checkBundle(project string, b Bundle) error {
 		if b.Placement.Kind == "docs" && src.Kind == "cue-catalog" {
 			return fmt.Errorf("bundles.%q.sources[%d]: a docs bundle carries no cue-catalog source; a catalog is a tab bundle of its own", project, i)
 		}
+		if b.Placement.Kind != "docs" && src.Kind == "crd" {
+			return fmt.Errorf("bundles.%q.sources[%d]: a crd source belongs in a docs bundle (placement kind \"docs\"); its page is a /docs/ reference page", project, i)
+		}
 		for _, l := range []struct {
 			name string
 			pats []string

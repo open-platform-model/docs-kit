@@ -3,10 +3,13 @@ package crd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -31,6 +34,9 @@ type Options struct {
 	Order        []string          // kinds first, in this order
 	ReconciledBy map[string]string // kind: controller name
 	Doc          doctext.Policy
+	// Outside: the config came from outside the source tree (a backfill),
+	// where a missing samples directory is no error.
+	Outside bool
 }
 
 const crdAPIVersion = "apiextensions.k8s.io/v1"
@@ -38,7 +44,8 @@ const crdAPIVersion = "apiextensions.k8s.io/v1"
 // Extract reads every CRD under o.Dir and its sample, and returns the doc
 // model.
 func Extract(o Options) (*Model, error) {
-	kinds, err := readKinds(o)
+	x := &extraction{o: o}
+	kinds, err := x.readKinds()
 	if err != nil {
 		return nil, err
 	}
@@ -48,13 +55,27 @@ func Extract(o Options) (*Model, error) {
 	if err := order(kinds, o); err != nil {
 		return nil, err
 	}
-	return &Model{Schema: SchemaID, Page: o.Page, Kinds: kinds}, nil
+	citations := CitationsStrip
+	if o.Doc == doctext.Link {
+		citations = CitationsLink
+	}
+	return &Model{Schema: SchemaID, Citations: citations, Page: o.Page, Kinds: kinds, Read: x.reads}, nil
+}
+
+// extraction is one Extract run: its options and every file it read.
+type extraction struct {
+	o     Options
+	reads []string
 }
 
 // readKinds reads every CRD of o.Dir, with its sample and controller.
-func readKinds(o Options) ([]Kind, error) {
+func (x *extraction) readKinds() ([]Kind, error) {
+	o := x.o
 	dir, err := within(o.Root, o.Dir)
 	if err != nil {
+		return nil, err
+	}
+	if err := x.checkSamplesDir(); err != nil {
 		return nil, err
 	}
 	files, err := filepath.Glob(filepath.Join(dir, "*.yaml"))
@@ -68,7 +89,7 @@ func readKinds(o Options) ([]Kind, error) {
 	seen := map[string]string{}
 	for _, f := range files {
 		rel := relPath(o.Dir, filepath.Base(f))
-		docs, err := readCRDs(f, rel)
+		docs, err := x.readCRDs(f, rel)
 		if err != nil {
 			return nil, err
 		}
@@ -82,7 +103,7 @@ func readKinds(o Options) ([]Kind, error) {
 			}
 			seen[k.Kind] = rel
 			if o.Samples != "" {
-				if k.Sample, err = sample(o, d); err != nil {
+				if k.Sample, err = x.sample(d); err != nil {
 					return nil, err
 				}
 			}
@@ -150,8 +171,8 @@ func relPath(dir, name string) string {
 
 // readCRDs decodes every document of one file, each of which must be a
 // CustomResourceDefinition.
-func readCRDs(file, rel string) ([]*crdDoc, error) {
-	data, err := os.ReadFile(file)
+func (x *extraction) readCRDs(file, rel string) ([]*crdDoc, error) {
+	data, err := x.read(file, rel)
 	if err != nil {
 		return nil, err
 	}
@@ -170,13 +191,56 @@ func readCRDs(file, rel string) ([]*crdDoc, error) {
 		if head.APIVersion != crdAPIVersion || head.Kind != "CustomResourceDefinition" {
 			return nil, fmt.Errorf("%s: holds a %s %s; a crd dir holds only %s CustomResourceDefinitions", rel, head.APIVersion, head.Kind, crdAPIVersion)
 		}
-		d := &crdDoc{}
-		if err := yaml.Unmarshal(doc, d); err != nil {
+		d, err := decodeCRD(doc)
+		if err != nil {
 			return nil, fmt.Errorf("%s: %w", rel, err)
 		}
 		out = append(out, d)
 	}
 	return out, nil
+}
+
+// read reads one regular file of the source tree and records it; a
+// symbolic link, a directory or any other file type is refused.
+func (x *extraction) read(file, rel string) ([]byte, error) {
+	fi, err := os.Lstat(file)
+	if err != nil {
+		return nil, err
+	}
+	if !fi.Mode().IsRegular() {
+		return nil, fmt.Errorf("%s is not a regular file (%s); the crd extractor reads only regular files", rel, fi.Mode().Type())
+	}
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	x.reads = append(x.reads, rel)
+	return data, nil
+}
+
+// checkSamplesDir refuses a configured samples directory that is missing
+// or not a directory, except in a backfill.
+func (x *extraction) checkSamplesDir() error {
+	if x.o.Samples == "" {
+		return nil
+	}
+	dir, err := within(x.o.Root, x.o.Samples)
+	if err != nil {
+		return err
+	}
+	fi, err := os.Lstat(dir)
+	switch {
+	case errors.Is(err, fs.ErrNotExist) && x.o.Outside:
+		x.o.Samples = ""
+		return nil
+	case errors.Is(err, fs.ErrNotExist):
+		return fmt.Errorf("samples %s does not exist; create it or remove samples", x.o.Samples)
+	case err != nil:
+		return err
+	case !fi.IsDir():
+		return fmt.Errorf("samples %s is not a directory", x.o.Samples)
+	}
+	return nil
 }
 
 // splitDocuments splits a YAML stream at its "---" separator lines (a
@@ -204,13 +268,72 @@ func splitDocuments(data []byte) [][]byte {
 	return docs
 }
 
+var (
+	reKind      = regexp.MustCompile(`^[A-Z][A-Za-z0-9]*$`)
+	scopes      = []string{"Namespaced", "Cluster"}
+	columnTypes = []string{"integer", "number", "string", "boolean", "date"}
+	topLevel    = []string{"apiVersion", "kind", "metadata", "spec", "status"}
+)
+
+// checkNames refuses names and values the page would write unescaped.
+func checkNames(d *crdDoc, rel string) error {
+	if !reKind.MatchString(d.Spec.Names.Kind) {
+		return fmt.Errorf("%s: kind %q is not a Kubernetes kind name (^[A-Z][A-Za-z0-9]*$)", rel, d.Spec.Names.Kind)
+	}
+	if !slices.Contains(scopes, d.Spec.Scope) {
+		return fmt.Errorf("%s: %s: scope %q is neither Namespaced nor Cluster", rel, d.Spec.Names.Kind, d.Spec.Scope)
+	}
+	for _, c := range d.Spec.Versions[0].AdditionalPrinterColumns {
+		if !slices.Contains(columnTypes, c.Type) {
+			return fmt.Errorf("%s: %s: printer column %q has type %q; want one of %s", rel, d.Spec.Names.Kind, c.Name, c.Type, strings.Join(columnTypes, ", "))
+		}
+	}
+	return nil
+}
+
+// checkTopLevel refuses top-level properties the page does not show: any
+// beside apiVersion, kind, metadata, spec and status, and constraints on
+// apiVersion, kind or metadata.
+func checkTopLevel(schema props, rel, kind string) error {
+	for _, name := range sortedKeys(schema.Properties) {
+		if !slices.Contains(topLevel, name) {
+			return fmt.Errorf("%s: %s: top-level property %q is not shown; only spec and status are", rel, kind, name)
+		}
+		if name == "spec" || name == "status" {
+			continue
+		}
+		// apiVersion and kind are plain strings and metadata a plain object;
+		// a description is allowed, the page shows none of them.
+		p := schema.Properties[name]
+		p.Description = ""
+		want := `{"type":"string"}`
+		if name == "metadata" {
+			want = `{"type":"object"}`
+		}
+		b, err := json.Marshal(p)
+		if err != nil {
+			return err
+		}
+		if string(b) != want {
+			return fmt.Errorf("%s: %s: %s carries constraints the page does not show: %s", rel, kind, name, b)
+		}
+	}
+	return nil
+}
+
 func extractKind(d *crdDoc, rel string, doc doctext.Policy) (Kind, error) {
 	if len(d.Spec.Versions) != 1 || d.Spec.Versions[0].Schema == nil || d.Spec.Versions[0].Schema.OpenAPIV3Schema == nil {
 		return Kind{}, fmt.Errorf("%s: want exactly one version with a schema; a CRD with several versions is not supported", rel)
 	}
+	if err := checkNames(d, rel); err != nil {
+		return Kind{}, err
+	}
 	v := d.Spec.Versions[0]
 	schema := *v.Schema.OpenAPIV3Schema
 	n := d.Spec.Names
+	if err := checkTopLevel(schema, rel, n.Kind); err != nil {
+		return Kind{}, err
+	}
 	k := Kind{
 		Kind: n.Kind, Group: d.Spec.Group, Plural: n.Plural, Scope: d.Spec.Scope,
 		ShortNames: nonNil(n.ShortNames), Categories: nonNil(n.Categories), Subresources: []string{},
@@ -228,7 +351,7 @@ func extractKind(d *crdDoc, rel string, doc doctext.Policy) (Kind, error) {
 	for _, c := range v.AdditionalPrinterColumns {
 		k.Columns = append(k.Columns, Column{Name: c.Name, Type: c.Type, JSONPath: c.JSONPath, Priority: c.Priority})
 	}
-	paras := doc.CleanParagraphs(doctext.Paragraphs(schema.Description))
+	paras := cleanParagraphs(doc, doctext.Paragraphs(schema.Description))
 	if len(paras) > 0 {
 		summary, rest := firstSentence(paras[0])
 		k.Summary = summary
@@ -281,6 +404,10 @@ type collector struct {
 	unsupported  []string
 }
 
+// formats are the string and integer formats the page shows (as its type,
+// or not at all for the integer widths).
+var formats = []string{"date-time", "int32", "int64"}
+
 // refuse records every schema construct the reference cannot show, so the
 // build fails instead of dropping a rule or a shape silently.
 func (c *collector) refuse(at string, s props) {
@@ -299,6 +426,10 @@ func (c *collector) refuse(at string, s props) {
 	}{
 		{"allOf", len(s.AllOf) > 0}, {anyOf, len(s.AnyOf) > 0}, {"not", len(s.Not) > 0 && string(s.Not) != "null"},
 		{"nullable", s.Nullable}, {"oneOf", len(s.OneOf) > 0},
+		{"multipleOf", len(s.MultipleOf) > 0}, {"x-kubernetes-embedded-resource", s.XEmbeddedResource},
+		{"tuple items", s.Items != nil && s.Items.Tuple},
+		{"format " + strconv.Quote(s.Format), s.Format != "" && !slices.Contains(formats, s.Format)},
+		{"messageExpression", slices.ContainsFunc(s.XValidations, func(v validation) bool { return v.MessageExpression != "" })},
 	} {
 		if x.present {
 			c.unsupported = append(c.unsupported, at+": "+x.name)
@@ -426,7 +557,23 @@ func (c *collector) validations(at string, s props) {
 
 // flatten folds a doc comment onto one line, under the citation policy.
 func (c *collector) flatten(s string) string {
-	return strings.Join(c.doc.CleanParagraphs(doctext.Paragraphs(s)), " ")
+	return strings.Join(cleanParagraphs(c.doc, doctext.Paragraphs(s)), " ")
+}
+
+// reLinked is a decision citation as the link policy links it.
+var reLinked = regexp.MustCompile(`\[(\d{4}:D[0-9DR:/]*)\]\(/enhancements/\d{4}/decisions/\)`)
+
+// cleanParagraphs cleans prose under the policy and keeps it plain: under
+// "link" a decision citation stays as written (the renderer links it, from
+// the citation alone), every other citation form is removed.
+func cleanParagraphs(doc doctext.Policy, paras []string) []string {
+	out := doc.CleanParagraphs(paras)
+	if doc == doctext.Link {
+		for i := range out {
+			out[i] = reLinked.ReplaceAllString(out[i], "$1")
+		}
+	}
+	return out
 }
 
 const typeArray = "array"

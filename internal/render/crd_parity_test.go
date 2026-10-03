@@ -32,13 +32,13 @@ func operatorOptions(root string) crd.Options {
 
 // TestOperatorCRDParity compares the crd page's entries with the block
 // opm-operator's hack/crdref generated between its markers in
-// docs/site/reference/operator-resources.md. It runs only when
-// OPM_OPERATOR_CHECKOUT names an operator checkout whose page holds that
-// block.
+// docs/site/reference/operator-resources.md: the copy under
+// testdata/operator (see its SOURCE), or the operator checkout
+// OPM_OPERATOR_CHECKOUT names.
 func TestOperatorCRDParity(t *testing.T) {
 	root := os.Getenv("OPM_OPERATOR_CHECKOUT")
 	if root == "" {
-		t.Skip("set OPM_OPERATOR_CHECKOUT to an opm-operator checkout to compare with crdref")
+		root = filepath.Join("testdata", "operator")
 	}
 	page, err := os.ReadFile(filepath.Join(root, "docs", "site", "reference", "operator-resources.md"))
 	if err != nil {

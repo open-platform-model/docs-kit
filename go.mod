@@ -11,6 +11,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	google.golang.org/protobuf v1.36.11
 	oras.land/oras-go/v2 v2.6.2
+	sigs.k8s.io/yaml v1.6.0
 )
 
 require (
@@ -102,5 +103,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260523011958-0a33c5d7ca68 // indirect
 	google.golang.org/grpc v1.82.1 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
-	sigs.k8s.io/yaml v1.6.0 // indirect
 )

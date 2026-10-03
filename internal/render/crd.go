@@ -16,13 +16,21 @@ import (
 //go:embed templates/crd/*.tmpl
 var crdTemplateFiles embed.FS
 
-var crdTemplates = template.Must(template.New("").Funcs(template.FuncMap{
-	"inline":    func(s string) string { return crdInline(s, false) },
-	"cell":      func(s string) string { return crdInline(s, true) },
+// crdFuncs are the crd template's helpers; inline and cell are bound to
+// the model's citation policy per render.
+func crdFuncs(link bool) template.FuncMap {
+	return template.FuncMap{
+		"inline":   func(s string) string { return crdInline(s, false, link) },
+		"cell":     func(s string) string { return crdInline(s, true, link) },
+		"fence":    crdFence,
+		"ruleText": func(r crd.Rule) string { return crdRuleText(r, link) },
+	}
+}
+
+var crdTemplates = template.Must(template.New("").Funcs(crdFuncs(false)).Funcs(template.FuncMap{
 	"code":      crdCode,
 	"codeList":  crdCodeList,
 	"ruleField": crdRuleField,
-	"ruleText":  crdRuleText,
 	"fields": func(title string, rows []crd.Field) any {
 		return struct {
 			Title   string
@@ -63,7 +71,13 @@ func (crdRenderer) Render(data []byte, _ Target) ([]Page, error) {
 	if err := mdtext.CheckShortcodes(m.Page.Path, body); err != nil {
 		return nil, err
 	}
-	return []Page{{Path: m.Page.Path, Body: body, Completable: true, Heading: "## " + m.Kinds[0].Kind, Tail: tail}}, nil
+	// An authored page that already holds any kind's heading is refused,
+	// not only the first's.
+	var more []string
+	for i := 1; i < len(m.Kinds); i++ {
+		more = append(more, "## "+m.Kinds[i].Kind)
+	}
+	return []Page{{Path: m.Page.Path, Body: body, Completable: true, Heading: "## " + m.Kinds[0].Kind, Headings: more, Tail: tail}}, nil
 }
 
 var reBlankRuns = regexp.MustCompile(`\n{3,}`)
@@ -73,8 +87,12 @@ var reBlankRuns = regexp.MustCompile(`\n{3,}`)
 // is left out; parts are separated by one blank line and the body ends in
 // one newline.
 func CRDEntries(m *crd.Model) (string, error) {
+	t, err := crdTemplates.Clone()
+	if err != nil {
+		return "", err
+	}
 	var b bytes.Buffer
-	if err := crdTemplates.ExecuteTemplate(&b, "entries.md.tmpl", m); err != nil {
+	if err := t.Funcs(crdFuncs(m.Citations == crd.CitationsLink)).ExecuteTemplate(&b, "entries.md.tmpl", m); err != nil {
 		return "", err
 	}
 	s := reBlankRuns.ReplaceAllString(b.String(), "\n\n")
@@ -87,34 +105,38 @@ func CRDEntries(m *crd.Model) (string, error) {
 // start a strike-through or a heading.
 var crdEscaper = strings.NewReplacer(
 	`\`, `\\`, "*", `\*`, "_", `\_`, "[", `\[`, "]", `\]`, "<", `\<`, ">", `\>`,
-	"~", `\~`, "|", `\|`, "#", `\#`, "{{", `{\{`,
+	"~", `\~`, "|", `\|`, "#", `\#`,
 )
 
-// reDecisionLink is the link the "link" citation policy writes into the
-// doc model; the renderer keeps it as written.
-var reDecisionLink = regexp.MustCompile(`\[\d{4}:D[0-9DR:/]*\]\(/enhancements/\d{4}/decisions/\)`)
+// reCitation is an enhancement decision citation: "0015:D3",
+// "0015:D3/D16", "0011:D9:R2". Escaping leaves it intact.
+var reCitation = regexp.MustCompile(`\b(\d{4}):D\d+(?::R\d+(?:/R\d+)*)?(?:/D\d+(?::R\d+(?:/R\d+)*)?)*`)
 
-// crdProse escapes prose outside code spans, keeping decision links.
-func crdProse(s string) string {
-	var b strings.Builder
-	last := 0
-	for _, m := range reDecisionLink.FindAllStringIndex(s, -1) {
-		b.WriteString(crdEscaper.Replace(s[last:m[0]]))
-		b.WriteString(s[m[0]:m[1]])
-		last = m[1]
+// crdProse escapes prose outside code spans and, under the link policy,
+// links each decision citation to its enhancement's decisions page. The
+// model's text is plain, so the only links on the page are the ones built
+// here from a citation.
+func crdProse(s string, link bool) string {
+	s = crdEscaper.Replace(s)
+	// "{{{" escapes to "{\{{", which still opens one: repeat until none is
+	// left.
+	for strings.Contains(s, "{{") {
+		s = strings.ReplaceAll(s, "{{", `{\{`)
 	}
-	b.WriteString(crdEscaper.Replace(s[last:]))
-	return b.String()
+	if link {
+		s = reCitation.ReplaceAllString(s, "[$0](/enhancements/$1/decisions/)")
+	}
+	return s
 }
 
 // crdInline renders doc-model prose as Markdown inline content: backtick
 // spans stay code, everything else is escaped. An unpaired backtick makes
 // the whole text prose, the backtick escaped too. In a table cell a pipe
 // is escaped inside code spans as well.
-func crdInline(s string, inTable bool) string {
+func crdInline(s string, inTable, link bool) string {
 	parts := strings.Split(s, "`")
 	if len(parts)%2 == 0 {
-		return strings.ReplaceAll(crdProse(s), "`", "\\`")
+		return strings.ReplaceAll(crdProse(s, link), "`", "\\`")
 	}
 	var b strings.Builder
 	for i, part := range parts {
@@ -122,7 +144,7 @@ func crdInline(s string, inTable bool) string {
 			b.WriteString(crdCodeIn(part, inTable))
 			continue
 		}
-		b.WriteString(crdProse(part))
+		b.WriteString(crdProse(part, link))
 	}
 	return b.String()
 }
@@ -154,13 +176,27 @@ func crdRuleField(path string) string {
 
 // crdRuleText is a rule's sentence: "One of `a`, `b`", "CEL rule `x`;
 // refused with: <message>".
-func crdRuleText(r crd.Rule) string {
+func crdRuleText(r crd.Rule, link bool) string {
 	s := r.Rule
 	if len(r.Values) > 0 {
 		s += " " + crdCodeList(r.Values)
 	}
 	if r.Message != "" {
-		s += "; refused with: " + crdInline(r.Message, true)
+		s += "; refused with: " + crdInline(r.Message, true, link)
 	}
 	return s
+}
+
+var reFenceRun = regexp.MustCompile("`+|~+")
+
+// crdFence is a backtick fence longer than any backtick or tilde run in
+// text, at least three, so no line of a sample can close it.
+func crdFence(text string) string {
+	n := 3
+	for _, r := range reFenceRun.FindAllString(text, -1) {
+		if len(r) >= n {
+			n = len(r) + 1
+		}
+	}
+	return strings.Repeat("`", n)
 }
