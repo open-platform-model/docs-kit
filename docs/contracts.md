@@ -646,7 +646,7 @@ Callers and the site never `go run` or `go install` `opm-docs`: every consumer r
 
 A field's `doc` is never compared: a doc-comment fix (a docs revision) must not read as a change. The token comparison is the one `revise` uses for `.cue` files ("Docs revisions", step 5): `cue/scanner` with comments skipped, an inserted comma equal to a written one. So a `matchN` or `if`-guard change the field walk cannot express still shows as one `spec` change. A change behind a `ref` (a shared schema) is not reported, since the walk stops at `ref`; the badge then under-claims, the safe direction. `level`, `appliesTo`, `servedBy`, `mark`, `optional` and `fulfilment` are not tracked.
 
-A member present in the previous segment and absent from the current one is listed under `removed[<current>]` with the last segment that had it and its page there. `lineage` maps each `<kind>/<name>` to, per segment, the apiVersions present there, newest first in the order C8 fixes for page paths.
+A member present in the previous segment and absent from the current one is listed under `removed[<current>]` with the last segment that had it and its page there. A member that is removed and later returns keeps its original `first`; the segment it returns in records no change for it. A spec block that does not scan as CUE (the extractor never writes one) counts as changed. `lineage` maps each `<kind>/<name>` to, per segment, the apiVersions present there, newest first in the order C8 fixes for page paths.
 
 `schema/history.cue`, embedded in the tool, validates the file before `pull` writes it; a file that fails is a tool bug, and `pull` exits 2 naming the project (`history for catalog-opm does not validate: <error>; report it against opm-docs`):
 

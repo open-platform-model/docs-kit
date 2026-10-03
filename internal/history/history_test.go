@@ -259,3 +259,13 @@ func TestEncodeValidates(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+// A member removed and later returned keeps its first segment; the
+// segment it returns in records no change for it.
+func TestReturnedMemberKeepsFirst(t *testing.T) {
+	h := compute(t, seg("4.5", "0.3.0", backup(nil)), seg("4.6", "0.3.0"), seg("edge", "0.3.0", backup(func(m *cuecatalog.Member) { m.Spec.Fields[0].Default = nil })))
+	m := h.Members[backupFQN]
+	if m.First != "4.5" || !reflect.DeepEqual(m.In, []string{"4.5", "edge"}) || len(m.Changes) != 0 || len(h.Removed["4.6"]) != 1 {
+		t.Fatalf("member %+v removed %+v", m, h.Removed)
+	}
+}
