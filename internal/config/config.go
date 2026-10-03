@@ -150,13 +150,16 @@ func checkBundle(project string, b Bundle) error {
 			}
 		}
 	}
+	docs := b.Placement.Kind == "docs"
 	for i, src := range b.Sources {
 		at := fmt.Sprintf("bundles.%q.sources[%d]", project, i)
 		switch {
-		case b.Placement.Kind == "docs" && src.Kind == "cue-catalog":
+		case docs && src.Kind == "cue-catalog":
 			return fmt.Errorf("%s: a docs bundle carries no cue-catalog source; a catalog is a tab bundle of its own", at)
-		case b.Placement.Kind != "docs" && src.Kind == KindCueDefinitions:
+		case !docs && src.Kind == KindCueDefinitions:
 			return fmt.Errorf("%s: a cue-definitions source writes pages under /docs/; give the bundle placement kind \"docs\"", at)
+		case !docs && src.Kind == "crd":
+			return fmt.Errorf("%s: a crd source belongs in a docs bundle (placement kind \"docs\"); its page is a /docs/ reference page", at)
 		}
 		if err := checkGlobs(at, src); err != nil {
 			return err

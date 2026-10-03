@@ -139,6 +139,8 @@ func TestLoadDocsPlacement(t *testing.T) {
 		version: {`, 1)},
 		{"empty pins command", strings.Replace(docs(`"reference/"`, `"x/"`), `version: {`, `pins: {command: [], projects: ["core"]}
 		version: {`, 1)},
+		{"a crd source in a tab bundle", strings.Replace(validConfig, `{kind: "cue-catalog", module: "./opm"}`, `{kind: "cue-catalog", module: "./opm"},
+			{kind: "crd", dir: "./c", page: "r.md", title: "T", description: "D"}`, 1)},
 		{"owns on a tab bundle", strings.Replace(validConfig, `root: "/catalogs/opm/"}`, `root: "/catalogs/opm/", owns: ["x/"]}`, 1)},
 	} {
 		t.Run(x.name, func(t *testing.T) {

@@ -151,22 +151,24 @@ func (p *pageLint) shortcodes(l string) {
 }
 
 // fenceLine handles a fence opening or closing line, reporting whether the
-// line was consumed. A fence line of the other kind inside a fence is not
-// consumed; the caller skips it as fenced content.
+// line was consumed. A fence closes only on a run of its own character at
+// least as long as the run that opened it, with nothing after it but
+// spaces; any other fence line inside a fence is not consumed, and the
+// caller skips it as fenced content.
 func (p *pageLint) fenceLine(l string) bool {
 	if !reFence.MatchString(l) {
 		return false
 	}
 	m := strings.TrimLeft(l, " ")
-	c := m[:3]
+	run := m[:len(m)-len(strings.TrimLeft(m, m[:1]))]
 	if p.fence == "" {
-		p.fence = c
+		p.fence = run
 		if reFenceTag.ReplaceAllString(m, "") == "" {
 			p.err(p.nr, "code fence without a language tag; write ```text for plain text")
 		}
 		return true
 	}
-	if c == p.fence {
+	if run[0] == p.fence[0] && len(run) >= len(p.fence) && strings.TrimSpace(m[len(run):]) == "" {
 		p.fence = ""
 		return true
 	}

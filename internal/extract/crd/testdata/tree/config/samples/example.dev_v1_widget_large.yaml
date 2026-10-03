@@ -1,0 +1,6 @@
+apiVersion: example.dev/v1
+kind: Widget
+metadata:
+  name: large-widget
+spec:
+  size: 10

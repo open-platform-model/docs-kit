@@ -1,0 +1,302 @@
+{
+  "schema": "docs.opmodel.dev/data/crd/v1",
+  "citations": "link",
+  "page": {
+    "path": "reference/widgets.md",
+    "title": "Widget resources",
+    "description": "One entry per widget kind.",
+    "weight": 7
+  },
+  "kinds": [
+    {
+      "kind": "Widget",
+      "group": "example.dev",
+      "plural": "widgets",
+      "scope": "Namespaced",
+      "shortNames": [
+        "wd"
+      ],
+      "categories": [
+        "toys"
+      ],
+      "subresources": [
+        "status"
+      ],
+      "versions": [
+        {
+          "name": "v1",
+          "served": true,
+          "storage": true
+        }
+      ],
+      "file": "config/crd/bases/example.dev_widgets.yaml",
+      "summary": "Widget asks the controller to build one widget (0021:D4).",
+      "notes": [
+        "It is the smallest *unit*.",
+        "A widget's `spec.size` never shrinks; see #Widget and 0021:D4/D9."
+      ],
+      "columns": [
+        {
+          "name": "Ready",
+          "type": "string",
+          "jsonPath": ".status.conditions[?(@.type=='Ready')].status",
+          "priority": 0
+        },
+        {
+          "name": "Size|Count",
+          "type": "integer",
+          "jsonPath": ".spec.size",
+          "priority": 1
+        }
+      ],
+      "spec": [
+        {
+          "path": "spec.color",
+          "type": "string",
+          "required": false,
+          "description": "Color picks the paint, a <name> or `a|b`.",
+          "default": "\"blue\"",
+          "enum": [
+            "blue",
+            "red"
+          ]
+        },
+        {
+          "path": "spec.labels",
+          "type": "map[string]string",
+          "required": false,
+          "description": "Labels are copied to every part.",
+          "default": null,
+          "enum": []
+        },
+        {
+          "path": "spec.parts",
+          "type": "[]object",
+          "required": false,
+          "description": "",
+          "default": null,
+          "enum": []
+        },
+        {
+          "path": "spec.parts[].name",
+          "type": "string",
+          "required": true,
+          "description": "",
+          "default": null,
+          "enum": []
+        },
+        {
+          "path": "spec.parts[].port",
+          "type": "integer or string",
+          "required": false,
+          "description": "",
+          "default": null,
+          "enum": []
+        },
+        {
+          "path": "spec.size",
+          "type": "integer",
+          "required": true,
+          "description": "Size in units.",
+          "default": null,
+          "enum": []
+        },
+        {
+          "path": "spec.values",
+          "type": "free-form object",
+          "required": false,
+          "description": "Values is free-form input.",
+          "default": null,
+          "enum": []
+        }
+      ],
+      "status": [
+        {
+          "path": "status.conditions",
+          "type": "[]Condition",
+          "required": false,
+          "description": "Conditions of the widget.",
+          "default": null,
+          "enum": []
+        },
+        {
+          "path": "status.observedAt",
+          "type": "string (date-time)",
+          "required": false,
+          "description": "",
+          "default": null,
+          "enum": []
+        }
+      ],
+      "rules": [
+        {
+          "field": "",
+          "rule": "CEL rule",
+          "values": [
+            "size(self.metadata.name) < 20"
+          ],
+          "message": "name must be short",
+          "by": "api-server"
+        },
+        {
+          "field": "spec",
+          "rule": "Required",
+          "values": [],
+          "message": "",
+          "by": "api-server"
+        },
+        {
+          "field": "spec",
+          "rule": "CEL rule",
+          "values": [
+            "self.size >= oldSelf.size"
+          ],
+          "message": "size cannot shrink (0021:D4)",
+          "by": "api-server"
+        },
+        {
+          "field": "spec.color",
+          "rule": "One of",
+          "values": [
+            "blue",
+            "red"
+          ],
+          "message": "",
+          "by": "api-server"
+        },
+        {
+          "field": "spec.parts",
+          "rule": "At most 8 items",
+          "values": [],
+          "message": "",
+          "by": "api-server"
+        },
+        {
+          "field": "spec.parts",
+          "rule": "At most one item per",
+          "values": [
+            "name"
+          ],
+          "message": "",
+          "by": "api-server"
+        },
+        {
+          "field": "spec.parts[].name",
+          "rule": "Required",
+          "values": [],
+          "message": "",
+          "by": "api-server"
+        },
+        {
+          "field": "spec.parts[].name",
+          "rule": "Must not be empty",
+          "values": [],
+          "message": "",
+          "by": "api-server"
+        },
+        {
+          "field": "spec.parts[].name",
+          "rule": "Matches the pattern",
+          "values": [
+            "^[a-z]+$"
+          ],
+          "message": "",
+          "by": "api-server"
+        },
+        {
+          "field": "spec.size",
+          "rule": "Required",
+          "values": [],
+          "message": "",
+          "by": "api-server"
+        },
+        {
+          "field": "spec.size",
+          "rule": "Greater than 0",
+          "values": [],
+          "message": "",
+          "by": "api-server"
+        },
+        {
+          "field": "spec.size",
+          "rule": "At most 10",
+          "values": [],
+          "message": "",
+          "by": "api-server"
+        }
+      ],
+      "sample": {
+        "file": "config/samples/example.dev_v1_widget.yaml",
+        "yaml": "apiVersion: example.dev/v1\nkind: Widget\nmetadata:\n  labels:\n    app.kubernetes.io/name: demo\n    tier: front\n  name: widget-sample\nspec:\n  color: red\n  size: 3\n"
+      },
+      "reconciledBy": "widget"
+    },
+    {
+      "kind": "Gadget",
+      "group": "example.dev",
+      "plural": "gadgets",
+      "scope": "Cluster",
+      "shortNames": [],
+      "categories": [],
+      "subresources": [],
+      "versions": [
+        {
+          "name": "v1",
+          "served": true,
+          "storage": true
+        }
+      ],
+      "file": "config/crd/bases/example.dev_gadgets.yaml",
+      "summary": "Gadget is a cluster-wide gadget.",
+      "notes": [],
+      "columns": [],
+      "spec": [
+        {
+          "path": "spec.module",
+          "type": "string",
+          "required": true,
+          "description": "",
+          "default": null,
+          "enum": []
+        }
+      ],
+      "status": [],
+      "rules": [
+        {
+          "field": "spec.module",
+          "rule": "Required",
+          "values": [],
+          "message": "",
+          "by": "api-server"
+        }
+      ],
+      "sample": null,
+      "reconciledBy": null
+    },
+    {
+      "kind": "Sprocket",
+      "group": "example.dev",
+      "plural": "sprockets",
+      "scope": "Namespaced",
+      "shortNames": [],
+      "categories": [],
+      "subresources": [],
+      "versions": [
+        {
+          "name": "v1",
+          "served": true,
+          "storage": true
+        }
+      ],
+      "file": "config/crd/bases/example.dev_sprockets.yaml",
+      "summary": "Sprocket has no sample.",
+      "notes": [],
+      "columns": [],
+      "spec": [],
+      "status": [],
+      "rules": [],
+      "sample": null,
+      "reconciledBy": null
+    }
+  ]
+}

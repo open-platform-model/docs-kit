@@ -64,6 +64,9 @@ type Page struct {
 	// Heading is Tail's first heading line ("## Catalog members"); an
 	// authored page that already holds it is refused.
 	Heading string
+	// Headings are further heading lines of Tail an authored page must not
+	// hold either (the crd page's other kinds).
+	Headings []string
 	// Tail is the generated body without front matter, appended to an
 	// authored page.
 	Tail string

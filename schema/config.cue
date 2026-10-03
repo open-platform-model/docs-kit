@@ -29,7 +29,7 @@ package schema
 // "link" links each enhancement decision citation to its decisions page.
 #Citations: *"strip" | "link"
 
-#Source: #CueCatalog | #Markdown | #Cobra | #CueDefinitions
+#Source: #CueCatalog | #Markdown | #Cobra | #CueDefinitions | #CRD
 
 #CueCatalog: {
 	kind:   "cue-catalog"
@@ -89,4 +89,25 @@ package schema
 	description: string & !=""                    // the section index's description
 	weight?:     int & >=1                        // the section index's weight
 	citations?:  #Citations
+}
+
+// The crd source (docs-kit C18): controller-gen CRDs and their kubebuilder
+// samples, rendered as one completable reference page.
+#CRD: {
+	kind:     "crd"
+	dir:      =~"^\\./[^/]"  // controller-gen output: "./config/crd/bases"
+	samples?: =~"^\\./[^/]"  // kubebuilder samples: "./config/samples"
+	// A sample document containing any of these strings is never shown (a
+	// dev or e2e fixture, not something a reader can apply).
+	hideSamplesMatching: *[] | [...string & !=""]
+	// Labels removed from a shown sample when they carry exactly this value
+	// (kubebuilder's scaffold labels say how the repository applies it).
+	stripLabels: [string & !=""]: string
+	page:        =~"^([a-z0-9]+(-[a-z0-9]+)*/)*[a-z0-9]+(-[a-z0-9]+)*\\.md$" // under content/, an owned path
+	title:       string & !="" // front matter when no authored page completes it
+	description: string & !=""
+	weight?:     int & >=1 // the page's weight when no authored page completes it
+	order?: [string & !="", ...string & !=""] // these kinds first, in this order; the rest by name
+	reconciledBy?: [string & !=""]: string & !="" // kind: the controller that reconciles it
+	citations?: #Citations
 }

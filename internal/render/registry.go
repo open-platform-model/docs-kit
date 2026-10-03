@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/open-platform-model/docs-kit/internal/extract/cobra"
+	"github.com/open-platform-model/docs-kit/internal/extract/crd"
 	"github.com/open-platform-model/docs-kit/internal/extract/cuecatalog"
 	"github.com/open-platform-model/docs-kit/internal/extract/cuedefs"
 )
@@ -23,6 +24,7 @@ var renderers = map[string]Renderer{
 	cuecatalog.SchemaID: catalogRenderer{},
 	cuedefs.SchemaID:    defsRenderer{},
 	cobra.SchemaID:      cobraRenderer{},
+	crd.SchemaID:        crdRenderer{},
 }
 
 // For returns the renderer of a data schema.
@@ -36,10 +38,13 @@ func For(schema string) (Renderer, error) {
 
 // Complete is an authored page completed by a generated one: the authored
 // front matter and body, one blank line, then p's Tail. An authored body
-// that already holds p's Heading is refused; name is the authored file.
+// that already holds p's Heading, or one of its Headings, is refused; name
+// is the authored file.
 func Complete(authored, name string, p Page) (string, error) {
-	if headingRE(p.Heading).MatchString(authored) {
-		return "", fmt.Errorf("%s already holds a %q heading; the build appends that section, so remove it from the authored page", name, p.Heading)
+	for _, h := range append([]string{p.Heading}, p.Headings...) {
+		if headingRE(h).MatchString(authored) {
+			return "", fmt.Errorf("%s already holds a %q heading; the build appends that section, so remove it from the authored page", name, h)
+		}
 	}
 	return strings.TrimRight(authored, "\n") + "\n\n" + p.Tail, nil
 }

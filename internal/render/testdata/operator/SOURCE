@@ -1,0 +1,4 @@
+Copied from open-platform-model/opm-operator at commit bf8d3c5 (Apache-2.0): its
+four CRDs, its samples, and the resource reference page holding the block
+hack/crdref generated. TestOperatorCRDParity compares the crd page with that
+block. Refresh all three together from one operator commit.

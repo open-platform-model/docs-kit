@@ -53,6 +53,7 @@ internal/doctext/             maintainer comments, citations and the citation po
 internal/mdtext/              Markdown escaping, code spans, cells, YAML strings
 internal/cuetok/              the CUE token scanner (comments skipped) shared by gitsrc and history
 internal/extract/cuecatalog/  the cue-catalog extractor: data/catalog.json
+internal/extract/crd/         the crd extractor: data/crd.json
 internal/extract/cuedefs/     the cue-definitions extractor: data/cue-definitions.json
 internal/extract/markdown/    the markdown source
 internal/extract/cobra/       the cobra source: a cobradump document to data/cobra.json

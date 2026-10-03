@@ -33,3 +33,18 @@ The renderer SHALL write one page at the source's `page` path, one of the bundle
 #### Scenario: Parity with crdref
 - **WHEN** opm-operator's tree at its newest tag is built with the planned config
 - **THEN** the generated entries equal crdref's block between its markers
+
+### Requirement: CRD text never reaches the page as markup
+The site renders raw HTML, so the crd source SHALL treat every CRD and sample string as untrusted. It SHALL refuse, exiting `2` and naming the file, a field it does not read (strict decoding), a construct its page cannot show, a kind name not matching `^[A-Z][A-Za-z0-9]*$`, a scope other than `Namespaced` or `Cluster`, a printer-column type outside `integer`, `number`, `string`, `boolean` and `date`, and a CRD or sample file that is not a regular file. The renderer SHALL escape all prose, SHALL write as links only the decision citations it finds under the `link` policy, and SHALL fence a sample with more backticks than any backtick or tilde run in it.
+
+#### Scenario: A sample cannot close its fence
+- **WHEN** a shown sample holds a block scalar with a "```" line followed by a `<script>` line
+- **THEN** the example's fence is longer than three backticks and the `<script>` line stays inside it
+
+#### Scenario: A description cannot forge a link
+- **WHEN** a field description holds `[0021:D4](/enhancements/0099/decisions/)` and `[x](javascript:alert(1))`
+- **THEN** both stay text with their brackets escaped, and only a bare citation becomes a link to its own enhancement
+
+#### Scenario: An unread field is refused
+- **WHEN** a CRD carries `spec.conversion`
+- **THEN** the build exits `2` naming the file and the unknown field

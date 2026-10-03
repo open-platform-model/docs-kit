@@ -194,3 +194,28 @@ func readLines(t *testing.T, path string) []string {
 	}
 	return out
 }
+
+// A fence closes only on a run at least as long as the one that opened
+// it: a three-backtick line inside a four-backtick fence is content, so
+// the markup after it is not linted as prose (nor rendered as HTML).
+func TestFenceClosesOnItsOwnLength(t *testing.T) {
+	dir := t.TempDir()
+	page := "---\ntitle: \"T\"\ndescription: \"D\"\ntype: reference\n---\n\n````yaml\nnote: |\n  ```\n  <img src=x>\n````\n\nAfter.\n\n```text\n<img src=y>\n```\n"
+	if err := os.WriteFile(filepath.Join(dir, "p.md"), []byte(page), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	vs, err := Lint(dir, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(vs) != 0 {
+		t.Errorf("violations %v", vs)
+	}
+	page = strings.Replace(page, "  ```\n  <img src=x>\n````", "````\n<img src=x>\n````", 1)
+	if err := os.WriteFile(filepath.Join(dir, "p.md"), []byte(page), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if vs, _ = Lint(dir, Options{}); len(vs) == 0 {
+		t.Errorf("an image after a closed fence was not flagged")
+	}
+}
