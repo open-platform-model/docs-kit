@@ -18,7 +18,7 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`. One PR, titled `
 
 ## 3. Release plumbing
 
-- [x] 3.1 `release-please-config.json` and `.release-please-manifest.json`: the `cobradump` package and `"exclude-paths": ["cobradump"]` on the root package (D5). `.github/workflows/release.yml`: goreleaser gated on the root package's release only. Verify: `actionlint` clean; `release-please` config validates against its schema (`npx release-please` dry run or the JSON schema).
+- [x] 3.1 `release-please-config.json`: the `cobradump` package, `"exclude-paths": ["cobradump"]` on the root package and `"separate-pull-requests": true` (D5); `.release-please-manifest.json` gets no `cobradump` entry, so `initial-version` 0.1.0 applies. `.github/workflows/release.yml`: goreleaser gated on the root package's release only. Verify: `actionlint` clean; `release-please` config validates against its schema (`npx release-please` dry run or the JSON schema).
 - [x] 3.2 `task check` green, then commit `ci(release): release cobradump as its own component`.
 
 ## 4. Contract and archive

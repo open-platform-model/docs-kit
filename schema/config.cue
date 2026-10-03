@@ -59,5 +59,5 @@ package schema
 	title:       string & !=""                    // the section index's title
 	description: string & !=""                    // the section index's description
 	weight?:     int & >=1                        // the section index's weight
-	citations:   #Citations
+	citations?:  #Citations
 }

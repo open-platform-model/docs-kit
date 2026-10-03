@@ -1,6 +1,9 @@
 package schema
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 func TestDefinitionsLoad(t *testing.T) {
 	for _, d := range []string{"#Manifest", "#Config", "#Pull", "#Lock", "#History"} {
@@ -15,7 +18,9 @@ func TestSourceKinds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(kinds) != 3 || kinds[0] != "cue-catalog" || kinds[1] != "markdown" || kinds[2] != "cobra" {
+	want := []string{"cobra", "cue-catalog", "markdown"}
+	slices.Sort(kinds)
+	if !slices.Equal(kinds, want) {
 		t.Fatalf("kinds %v", kinds)
 	}
 }
