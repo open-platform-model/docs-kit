@@ -43,3 +43,10 @@ Unpacking a bundle layer SHALL refuse, writing nothing, an entry with an absolut
 #### Scenario: A traversal entry is refused
 - **WHEN** a layer contains the entry `content/../../etc/passwd`
 - **THEN** unpacking fails naming the entry, and the target directory is not created
+
+### Requirement: Pages may carry their edit path
+`#Page` SHALL accept an optional `edit`, a non-empty repository-relative path, and `pull` SHALL accept a bundle with or without it.
+
+#### Scenario: An older bundle
+- **WHEN** a bundle built before `edit` existed is pulled
+- **THEN** it validates and its pages have no `edit`

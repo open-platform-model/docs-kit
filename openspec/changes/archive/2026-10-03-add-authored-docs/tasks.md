@@ -12,5 +12,5 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`; parallel with th
 ## 2. Contracts and archive
 
 - [x] 2.1 `docs/contracts.md`: C3 (`edit`), C8 (Edit and source links: tab pages none, docs pages `edit` on main, section pages none), C15 (authored docs in docs bundles, one bundle per repository, D2's configurations as examples). `README.md`: phase 3 adoption steps. Verify: links resolve.
-- [ ] 2.2 `openspec archive add-authored-docs --yes`. Verify: `task openspec:check` green.
-- [ ] 2.3 `task check` green, then commit `docs(build): document authored docs bundles`.
+- [x] 2.2 `openspec archive add-authored-docs --yes`. Verify: `task openspec:check` green.
+- [x] 2.3 `task check` green, then commit `docs(build): document authored docs bundles`.
