@@ -45,8 +45,12 @@ Unpacking a bundle layer SHALL refuse, writing nothing, an entry with an absolut
 - **THEN** unpacking fails naming the entry, and the target directory is not created
 
 ### Requirement: Pages may carry their edit path
-`#Page` SHALL accept an optional `edit`, a non-empty repository-relative path, and `pull` SHALL accept a bundle with or without it.
+`#Page` SHALL accept an optional `edit`, a repository-relative path (no leading `/` or `.`, no `..` segment), and `pull` SHALL accept a bundle with or without it. The schema SHALL refuse `edit` on a page with `generated: true` and on any page of a bundle with `placement.kind: "tab"`, naming the field.
 
 #### Scenario: An older bundle
 - **WHEN** a bundle built before `edit` existed is pulled
 - **THEN** it validates and its pages have no `edit`
+
+#### Scenario: A tab bundle's page with edit
+- **WHEN** a tab bundle's `manifest.json` gives a page `edit`
+- **THEN** validation fails with "pages.0.edit: a tab bundle's page has no edit"
