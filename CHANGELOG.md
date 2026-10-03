@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/open-platform-model/docs-kit/compare/v0.4.0...v0.5.0) (2026-10-03)
+
+
+### Features
+
+* add opm-docs serve ([#33](https://github.com/open-platform-model/docs-kit/issues/33)) ([4c09d82](https://github.com/open-platform-model/docs-kit/commit/4c09d82c8dde5c5a1879c98fc6d70409bb4fb842))
+* add the go-api extractor ([#35](https://github.com/open-platform-model/docs-kit/issues/35)) ([d1135df](https://github.com/open-platform-model/docs-kit/commit/d1135dfe1c9a79adce9a199b5243f4195430aef4))
+
 ## [0.4.0](https://github.com/open-platform-model/docs-kit/compare/v0.3.0...v0.4.0) (2026-10-03)
 
 
