@@ -6,7 +6,7 @@ The numbers (C1 onward) are stable; other repositories cite them as `docs-kit C5
 
 ## Doc-comment rules
 
-How every extractor turns source comments into reader-facing text (`internal/doctext`, `internal/mdtext`). `cue-definitions` departs from the summary, escaping and spec-block wrapping rules where C17 says so:
+How every extractor turns source comments into reader-facing text (`internal/doctext`, `internal/mdtext`). `cue-definitions` departs from the summary, escaping and spec-block wrapping rules where C17 says so, and `go-api` from the summary and escaping rules where C20 says so (a Go doc comment is Go doc syntax, not prose):
 
 - **Maintainer comments.** Inside a definition, a comment group whose first line (after `//` and trimming) starts with `WHY` or with `//` (a `////` banner) is dropped. A `WHY` line inside a doc comment is dropped on its own (core's rule, adopted now).
 - **Citations.** Removed from prose and from comments in spec blocks. The pattern accepts `0010:D28`, `0010 D28`, `OQ` numbers, `:R2` and `/R1/R2` requirement suffixes, `/D9` continuations, lists joined by `,`, `;` or `and`, an optional `(see|per|enhancement)` lead and the parenthesised form; then refgen's six clean-up rewrites (empty parens, comma before paren, space after paren, space before punctuation, double spaces, trim). Also removed: `See SPEC.md § N.` sentences, inline `SPEC.md § N`, `NNNN experiment N` and `enhancements/NNNN/experiments/...` (core's rules, adopted now). A changed comment paragraph in a spec block is re-wrapped to `80 - indent - 3` columns, minimum 40; an unchanged one keeps its breaks; a trailing comment that becomes empty is removed.
@@ -343,7 +343,7 @@ package schema
 // "link" links each enhancement decision citation to its decisions page.
 #Citations: *"strip" | "link"
 
-#Source: #CueCatalog | #Markdown | #Cobra | #CueDefinitions | #CRD
+#Source: #CueCatalog | #Markdown | #Cobra | #CueDefinitions | #CRD | #GoAPI
 
 #CueCatalog: {
 	kind:   "cue-catalog"
@@ -425,6 +425,30 @@ package schema
 	reconciledBy?: [string & !=""]: string & !="" // kind: the controller that reconciles it
 	citations?: #Citations
 }
+
+// The go-api source (docs-kit C20): a Go module's exported packages, parsed
+// (never built or type-checked) and rendered from their doc comments.
+#GoAPI: {
+	kind:   "go-api"
+	module: #GoPath // the directory holding go.mod, repo-relative: "./"
+	// Page names are package directories relative to root, which is
+	// relative to module: "./opm" makes opm/helper/objectset the page
+	// helper-objectset.
+	root: #GoPath
+	// Package patterns relative to module: "./opm/..."; "..." matches any
+	// string, and a trailing "/..." also matches the directory itself.
+	packages: [#GoPath, ...#GoPath]
+	// The directory the pages go in, one of the bundle's owned paths:
+	// "reference/go-api/".
+	section:     =~"^([a-z0-9]+(-[a-z0-9]+)*/)+$"
+	title:       string & !="" // the section index's front matter
+	description: string & !=""
+	weight?:     int & >=1 // the section index's weight among its siblings
+	citations?:  #Citations
+}
+
+// A slash path that starts "./" and holds no ".." segment.
+#GoPath: =~"^\\./" & !~"(^|/)\\.\\.(/|$)"
 ```
 
 `bundles` is keyed by project because one repository can publish several, as core and cli will in phase 2 and catalog_opm would with a second catalog. A `layout` choice for catalogs is left out until a second layout has a consumer. A path in content/ written by two sources fails the build, except an authored page at the path of a completable generated page (the catalog landing is one): it does not replace the generated page, the generated body is appended to it (C15).
@@ -438,6 +462,7 @@ package schema
 | `cue-definitions` | `data/cue-definitions.json` (C17); a docs bundle only | `package`, `skip`, `section`, `title`, `description`, `weight`, `intro`, `pages`, `exclude`; `citations` |
 | `cobra` | `data/cobra.json` (C19) | `command`, `section`, `title`, `description`, `weight`, `citations` |
 | `crd` | `data/crd.json` (C18) and one completable page; a docs bundle only | `dir`, `samples`, `hideSamplesMatching`, `stripLabels`, `page`, `title`, `description`, `weight`, `order`, `reconciledBy`, `citations` |
+| `go-api` | `data/go-api.json` (C20); a docs bundle only | `module`, `root`, `packages`, `section`, `title`, `description`, `weight`, `citations` |
 
 **Adding an extractor** (one OpenSpec change per kind): an `Extractor` in `internal/build` (`Kind`, `Extract(ctx, Input) (Data, error)`), registered in its `extractors` table; a `Renderer` in `internal/render` (`Schema`, `Render(data, Target) ([]Page, error)`), registered by its data schema; its kind added to `#Source` with `citations?: #Citations` and its own options; its data file documented as a contract of its own. A renderer page may set `Completable` with its `Heading`, further `Headings` and `Tail` (C15). An extractor's `Data.Inputs` lists, per page, every file a page was built from; a standalone page's `lastmod` is then the newest of them.
 
@@ -1379,6 +1404,74 @@ The anchor of an entry is its path in lower-case kebab case (`#opm-module-apply`
 **Parity.** For the cli tree at commit `ebf0479b`, every page equals the page the cli's `internal/cmdref` committed under `docs/site/reference/cli/` once its two marker comments are removed (the cobra pages carry none). The dump and those pages are frozen in `internal/render/testdata/cli/`, and `TestCLICommandParity` checks them on every run. `TestCLICommandParityLive` repeats it against a live checkout named by `OPM_CLI_CHECKOUT` and skips without one, without `hack/docskit-dump` or without a committed reference.
 
 **Backfill.** The hook must exist in the tagged tree, so a cli release tagged before it carries no cli bundle and cannot be backfilled; a docs revision of such a release is refused too (a help-text fix is a Go change, which "Docs revisions" refuses).
+
+## C20. `go-api`
+
+A `go-api` source documents a Go module's exported API from its doc comments, the library's first reference (DESIGN.md phase 2). Its config is `#GoAPI` (C6); a tab bundle holding one exits `1`. The library's file, as its change `publish-go-api-bundle` writes it:
+
+```cue
+bundles: library: {
+	placement: {kind: "docs", root: "/docs/", owns: ["reference/go-api/"]}
+	version: {from: "tag", prefix: "v"}
+	sources: [{
+		kind:        "go-api"
+		module:      "./"
+		root:        "./opm"
+		packages: ["./opm/..."]
+		section:     "reference/go-api/"
+		title:       "Go API"
+		description: "Every exported package of the OPM library, from its doc comments."
+	}, {
+		kind: "markdown", dir: "docs/site" // the library commits no generated pages
+	}]
+}
+```
+
+**Extraction.** Nothing is built or type-checked, so the build needs no Go toolchain and no module download. The import path prefix is `go.mod`'s `module` line. `packages` are patterns relative to `module`, as the go command reads them: `...` matches any string, and a trailing `/...` also matches the directory itself. A package is a directory a pattern matches that holds a `.go` file a `linux/amd64` build without cgo selects (`go/build`'s `MatchFile`: build constraints, `_GOOS` file names, `import "C"`), test files left out. The walk leaves out, with everything under them, a directory named `internal`, `testdata` or `vendor`, one whose name starts with `.` or `_`, and a nested module (a directory holding a `go.mod`); a `main` package is not documented. Files are parsed with `go/parser` (comments kept) and read by `go/doc` (`doc.NewFromFiles`, exported symbols only), which groups a type's constants, variables, constructors and methods under it. An exported symbol without a doc comment keeps its declaration with an empty `doc`; no symbol is invented. `module`, `root`, `go.mod`, every Go file read and every directory a pattern selects must be regular files or directories: a symbolic link exits `2` naming it.
+
+**Refusals** (exit `2`): a pattern that matches no package ("`packages ./opm/nope/... matches no package under ./`"; a `warning:` line in a backfill, C5), a package at `root` itself (it has no page name) or outside `root`, a page name that is not lower-case kebab-case or that two packages share, two package names in one directory, a file that does not parse, and a link in a doc comment whose URL names a scheme other than `http` or `https` ("`package ./opm/kernel: the doc comment links "file:///etc/passwd"; a link is http, https or relative`").
+
+**Doc comments.** Rationale lines (`WHY`) are dropped. The comment is parsed by `go/doc/comment`, its doc links resolved by the package's imports, then by the one selected package of that name, then by the standard library, and printed as Markdown by docs-kit's printer: a paragraph is one line, its citations handled by the source's policy ("Doc-comment rules"), then escaped outside code spans and links (``\ ` * _ [ ] < > | !`` backslash-escaped, `{{` written `{\{` until none is left, and a line that would open a block, starting `#`, `+`, `-`, `=`, `~` or `N.`/`N)`, escaped at its start); a backtick code span (a run of n backticks up to the next run of exactly n, not three or more at a line's start) is kept, its fence one longer than its longest backtick run; a link's text is escaped and its URL percent-encodes what would end it; a heading is written at its page level (below) and also escapes `#`; a list keeps its items (`- ` or `N. `, a blank line between items when the source has one); a code block is a `text` fence one backtick longer than its longest backtick run (at least three). Go doc syntax reads ``` `` ``` and `''` as curly quotes, so a doc comment holds no code span of two backticks. A declaration is printed by `go/format` without its doc comment, keeping its fields' and specs' comments (a `WHY` group or `////` banner dropped, citations removed and the comment re-wrapped as "Doc-comment rules" say for a spec block) and gofmt's `// contains filtered or unexported fields`. The `synopsis` is `go/doc`'s first sentence of the package doc, plain text, every citation removed under both policies.
+
+**Doc links.** A link to a package documented in the bundle links its page, `/docs/<section><page>/`; to a symbol documented in the bundle, `/docs/<section><page>/#<anchor>`, where a name of a constant or variable group takes its group's anchor and a field (`[T.Field]`) its type's; anything else `https://pkg.go.dev/<import path>`, plus `#<Name>` or `#<Recv>.<Name>`.
+
+**Data model**, `data/go-api.json`:
+
+```json
+{
+  "schema": "docs.opmodel.dev/data/go-api/v1",
+  "modulePath": "github.com/open-platform-model/library",
+  "version": "1.0.0-beta.1",
+  "section": "reference/go-api/", "title": "Go API", "description": "...", "weight": null,
+  "packages": [
+    {
+      "importPath": "github.com/open-platform-model/library/opm/kernel",
+      "name": "kernel", "page": "kernel", "synopsis": "<first sentence>",
+      "doc": "<markdown>",
+      "consts": [#Value], "vars": [#Value],
+      "funcs":  [#Func],
+      "types":  [{"name": "Kernel", "anchor": "kernel", "decl": "...", "doc": "...",
+                  "consts": [#Value], "vars": [#Value], "funcs": [#Func], "methods": [#Func]}],
+      "files": ["opm/kernel/doc.go", "opm/kernel/kernel.go"]
+    }
+  ]
+}
+```
+
+with `#Value: {names: [string], anchor, decl, doc}` and `#Func: {name, recv: string | null, anchor, decl, doc}`; `recv` is a method's receiver as declared (`"*Kernel"`), `null` for a function or constructor. Packages sort by import path, symbols in `go/doc` order (by name); `files` are repo-relative, by name. `weight` is `null` when unset; every list is present, empty or not.
+
+**Pages.** Every page lies under `section`, which lies under one of the bundle's `owns` (C15); the renderer also refuses a target that is not a docs placement. Every page is generated: no `edit`.
+
+| Path | Page |
+|---|---|
+| `<section>_index.md` | front matter `title`, `description`, `weight` when set, no `type`; "Every package below belongs to the Go module `<module path>`."; `## Packages`, one line per package: a link titled by the import path relative to the module, then its escaped synopsis. Completable (C15) with heading `## Packages`; no `source` |
+| `<section><page>.md` | front matter `title` the import path relative to the module (`opm/kernel`), `description` the synopsis (or "Package <name>." when empty), `type: reference`; the import line in a `go` fence; the package doc, its headings from `###`; then `## Constants`, `## Variables`, `## Functions` and `## Types`, each left out when empty. A constant or variable group (headed by its first name), a function and a type are `###` entries; a type's constants, variables, constructors (`#### New`) and methods (`#### Kernel.Render`) follow it as `####` entries. An entry is its heading, its declaration in a `go` fence one longer than its longest backtick run, then its doc, whose headings start one level below the entry's. `manifest.json` `pages[].source` is the package's first file by name, its `lastmod` the newest commit date of the package's files |
+
+`<page>` is the package directory relative to `root` with `/` as `-` (`helper/objectset` is `helper-objectset`). An anchor is Hugo's default (`github`) anchor of the heading's text: lower case, a space or `-` as `-`, every other character but a letter, a digit or `_` dropped (`Kernel.Render` is `kernelrender`). The extractor assigns anchors walking the page's headings in the order the renderer writes them, the docs' own headings included, and makes a repeat unique as Hugo does, `-1`, then `-2`: a function `WidgetSpin` after a method `Widget.Spin` would collide, so the second heading on the page gets `widgetspin-1`. A rendered page that still opens a shortcode (`{{<` or `{{%` in a declaration, a code block or the synopsis in front matter) exits `2`.
+
+**Parity record.** No generator existed, so there is nothing to equal. At library `v1.0.0-beta.1` (`02344e5`) the config above builds 9 package pages and the index, lint-clean; go.mod and the public Go files of that tag are frozen in `internal/render/testdata/library` with the pages they render, and `TestLibraryGoAPI` checks both and every anchor and doc link on every run; `OPM_LIBRARY_CHECKOUT=<checkout> go test ./internal/render -run TestLibraryGoAPILive` renders a live checkout, lints it and logs the exported symbols without a doc comment.
+
+**Consumers.** library (`publish-go-api-bundle`): its `docs-kit.cue` as above, its doc comments repaired (the change's design.md lists what the trial build found at `v1.0.0-beta.1`). opmodel.dev pulls `library` per site version at the cli's pin (C16) and gains `/docs/reference/go-api/`.
 
 ## Site decisions
 

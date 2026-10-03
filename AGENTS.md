@@ -57,7 +57,8 @@ internal/extract/crd/         the crd extractor: data/crd.json
 internal/extract/cuedefs/     the cue-definitions extractor: data/cue-definitions.json
 internal/extract/markdown/    the markdown source
 internal/extract/cobra/       the cobra source: a cobradump document to data/cobra.json
-internal/render/              the renderer registry by data schema; embedded templates: landing, kind index, member page, definitions index and page, command reference
+internal/extract/goapi/       the go-api extractor: a Go module's exported packages (go/parser, go/doc) to data/go-api.json
+internal/render/              the renderer registry by data schema; embedded templates: landing, kind index, member page, definitions index and page, command reference, Go API index and page
 internal/render/helptext/     cobra help text (Long, Example, usage) to Markdown
 internal/dialect/             the page-dialect lint, with the conformance fixtures
 internal/command/             repository commands: argv, no shell, timeout, output cap, the check double run

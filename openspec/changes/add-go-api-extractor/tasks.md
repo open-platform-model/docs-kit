@@ -16,6 +16,6 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`. One PR, titled `
 
 ## 3. Contract and archive
 
-- [ ] 3.1 `docs/contracts.md` C20 (D1, D3, D4); C6's source table. Verify: schema text equals `schema/config.cue`.
+- [x] 3.1 `docs/contracts.md` C20 (D1, D3, D4); C6's source table. Verify: schema text equals `schema/config.cue`.
 - [ ] 3.2 `openspec archive add-go-api-extractor --yes`. Verify: `task openspec:check` green.
 - [ ] 3.3 `task check` green, then commit `docs(extract): document the go-api contract`.
