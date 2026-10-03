@@ -1,0 +1,2 @@
+core/docs/site/concepts/slashless-root.md:7: catalog link "/catalogs/opm": write /catalogs/<name>/ or /catalogs/<name>/<MAJOR>/<path>/ with a trailing slash
+core/docs/site/concepts/slashless-root.md:9: catalog link "/catalogs/opm#members": write /catalogs/<name>/ or /catalogs/<name>/<MAJOR>/<path>/ with a trailing slash

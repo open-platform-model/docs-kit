@@ -152,6 +152,9 @@ func TestEdgeBuildAndDirty(t *testing.T) {
 func TestConfigFromOutside(t *testing.T) {
 	r := fixtureRepo(t)
 	r.Git("rm", "-q", "-r", "docs-kit.cue", "docs")
+	p := filepath.Join(r.Dir, "demo", "catalog.cue")
+	b, _ := os.ReadFile(p)
+	r.Write(map[string]string{"demo/catalog.cue": strings.Replace(string(b), `"1.2.3"`, `"1.2.4"`, 1)})
 	r.Commit("an old release had neither")
 	r.Git("tag", "demo-v1.2.4")
 	cwd := t.TempDir()
@@ -184,6 +187,8 @@ func TestRefusals(t *testing.T) {
 			want: []string{"docs/catalogs/demo", "docs-kit.cue"}},
 		{name: "wrong prefix", o: Options{Release: "v1.2.3"}, usage: true, want: []string{"v1.2.3", `"demo-v"`}},
 		{name: "not semver", o: Options{Release: "demo-v1.2"}, usage: true, want: []string{"demo-v1.2"}},
+		{name: "tag and catalog version differ", edit: func(r *gittest.Repo) { r.Git("tag", "demo-v1.2.4") },
+			o: Options{Release: "demo-v1.2.4"}, want: []string{"demo-v1.2.4", "1.2.4", `"1.2.3"`, "./demo"}},
 		{name: "misspelled key", edit: func(r *gittest.Repo) {
 			r.Write(map[string]string{"docs-kit.cue": strings.Replace(fixtureConfig, "placement:", "placment:", 1)})
 		}, usage: true, want: []string{"placment", "docs-kit.cue"}},
@@ -212,6 +217,9 @@ func TestRefusals(t *testing.T) {
 			_, err := Run(context.Background(), o)
 			if err == nil {
 				t.Fatal("built")
+			}
+			if _, serr := os.Stat(filepath.Join(o.Out, "catalog-demo", bundle.ManifestFile)); serr == nil {
+				t.Error("a refused build wrote manifest.json")
 			}
 			var ue *UsageError
 			if errors.As(err, &ue) != c.usage {

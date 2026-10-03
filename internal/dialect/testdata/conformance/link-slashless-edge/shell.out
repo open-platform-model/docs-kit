@@ -1,0 +1,2 @@
+core/docs/site/concepts/slashless-edge.md:7: catalog link "/catalogs/opm/edge": docs pages link catalogs through /catalogs/opm/<MAJOR>/
+core/docs/site/concepts/slashless-edge.md:9: catalog link "/catalogs/opm/edge/traits/backup": docs pages link catalogs through /catalogs/opm/<MAJOR>/

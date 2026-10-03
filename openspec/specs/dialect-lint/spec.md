@@ -17,7 +17,7 @@ The page-dialect lint in `opm-docs`: dialect 1, and its docs and bundle modes.
 - **THEN** the lint reports nothing for that line
 
 ### Requirement: Docs mode allows only major catalog links
-In docs mode (the default), a `/catalogs/` link SHALL be the bare tab root (`/catalogs/<name>/`) or use a major segment; a minor or `edge` segment SHALL be a violation naming the major form.
+In docs mode (the default), a `/catalogs/` link SHALL be the bare tab root (`/catalogs/<name>/`) or use a major segment; a minor or `edge` segment SHALL be a violation naming the major form. A link whose second segment is a minor or `edge` SHALL get that message even when it also lacks its trailing slash, as opmodel.dev's shell lint reports it; any other malformed `/catalogs/` link, the slashless bare root included, SHALL get the trailing-slash message.
 
 #### Scenario: A docs page pins a minor
 - **WHEN** a `docs/site` page links `/catalogs/opm/4.4/traits/backup/`
@@ -26,6 +26,14 @@ In docs mode (the default), a `/catalogs/` link SHALL be the bare tab root (`/ca
 #### Scenario: The bare tab root
 - **WHEN** a `docs/site` page links `/catalogs/opm/`
 - **THEN** the lint reports nothing for that line
+
+#### Scenario: A slashless minor or edge link
+- **WHEN** a `docs/site` page links `/catalogs/opm/4.4/traits/backup` or `/catalogs/opm/edge`
+- **THEN** the lint reports the line, saying docs pages link catalogs through `/catalogs/opm/4/` or `/catalogs/opm/<MAJOR>/`, exactly as the site's shell lint does
+
+#### Scenario: A slashless bare root
+- **WHEN** a `docs/site` page links `/catalogs/opm`
+- **THEN** the lint reports the line, saying to write the link with a trailing slash
 
 ### Requirement: The conformance fixture set binds both linters until phase 3
 Until phase 3 retires the site's shell lint, docs-kit SHALL ship a conformance fixture set whose initial content is a copy of exactly the fixture directories under opmodel.dev `site/tests/lint/` (not `site/tests/dialect/`), with each fixture's expected `<file>:<line>` output and the source commit, and `task test` SHALL fail when `opm-docs lint` disagrees with any expected output. docs-kit SHALL be the source of every fixture added after the copy, the `/catalogs/` link fixtures first. A dialect rule change SHALL land in docs-kit first, with its fixture, and opmodel.dev SHALL copy that fixture and update its shell lint in the PR that bumps its pinned `opm-docs` to the release carrying the change.
