@@ -1,0 +1,8 @@
+apiVersion: example.dev/v1
+kind: Gadget
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+  name: gadget-sample
+spec:
+  module: testing.opmodel.dev/hello@v0

@@ -1,0 +1,139 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: widgets.example.dev
+spec:
+  group: example.dev
+  names:
+    categories:
+    - toys
+    kind: Widget
+    listKind: WidgetList
+    plural: widgets
+    shortNames:
+    - wd
+    singular: widget
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: Ready
+      type: string
+    - jsonPath: .spec.size
+      name: Size|Count
+      priority: 1
+      type: integer
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          Widget asks the controller to build one widget (0021:D4). It is
+          the smallest *unit*.
+
+          A widget's `spec.size` never shrinks; see #Widget and 0021:D4/D9.
+        properties:
+          apiVersion:
+            description: APIVersion defines the versioned schema.
+            type: string
+          kind:
+            description: Kind is a string value.
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              color:
+                default: blue
+                description: Color picks the paint, a <name> or `a|b`.
+                enum:
+                - blue
+                - red
+                type: string
+              labels:
+                additionalProperties:
+                  type: string
+                description: Labels are copied to every part.
+                type: object
+              parts:
+                items:
+                  properties:
+                    name:
+                      minLength: 1
+                      pattern: ^[a-z]+$
+                      type: string
+                    port:
+                      x-kubernetes-int-or-string: true
+                  required:
+                  - name
+                  type: object
+                maxItems: 8
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              size:
+                description: Size in units.
+                format: int32
+                maximum: 10
+                minimum: 0
+                exclusiveMinimum: true
+                type: integer
+              values:
+                description: Values is free-form input.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+            required:
+            - size
+            type: object
+            x-kubernetes-validations:
+            - message: size cannot shrink (0021:D4)
+              rule: self.size >= oldSelf.size
+          status:
+            properties:
+              conditions:
+                description: Conditions of the widget.
+                items:
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      minLength: 1
+                      type: string
+                    status:
+                      enum:
+                      - "True"
+                      - "False"
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              observedAt:
+                format: date-time
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+        x-kubernetes-validations:
+        - message: name must be short
+          rule: size(self.metadata.name) < 20
+    served: true
+    storage: true
+    subresources:
+      status: {}

@@ -64,6 +64,7 @@ const markdownKind = "markdown"
 // #Source in schema/config.cue.
 var extractors = []Extractor{
 	cueCatalogExtractor{},
+	crdExtractor{},
 }
 
 // Paths an extractor or renderer may write, checked before anything is

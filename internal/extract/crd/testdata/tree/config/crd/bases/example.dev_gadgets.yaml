@@ -1,0 +1,27 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: gadgets.example.dev
+spec:
+  group: example.dev
+  names:
+    kind: Gadget
+    plural: gadgets
+  scope: Cluster
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        description: Gadget is a cluster-wide gadget.
+        properties:
+          spec:
+            properties:
+              module:
+                type: string
+            required:
+            - module
+            type: object
+        type: object
+    served: true
+    storage: true

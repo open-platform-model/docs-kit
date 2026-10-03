@@ -1,0 +1,25 @@
+# A Flux source the widget reads; not a Widget.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: widgets
+---
+# The widget sample.
+apiVersion: example.dev/v1
+kind: Widget
+metadata:
+  labels:
+    app.kubernetes.io/name: demo # scaffold
+    app.kubernetes.io/managed-by: kustomize
+    tier: front
+  name: widget-sample
+spec:
+  size: 3 # three units
+  color: red
+---
+apiVersion: example.dev/v1
+kind: Widget
+metadata:
+  name: second-widget
+spec:
+  size: 9
