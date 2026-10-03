@@ -19,10 +19,10 @@ Gate: none (docs-kit `main`). One PR, titled `feat: build docs-placed bundles fr
 
 ## 3. Citations, repository commands and pins
 
-- [ ] 3.1 `internal/doctext`: the `link` citation policy (D5). Verify: table tests for each citation form in prose, in a code span and in a spec comment, in both modes.
-- [ ] 3.2 `internal/command`: the runner (D6) with timeout, output cap, one-document check, and the `check` double run. Verify: tests with a helper program (`go run ./internal/command/testdata/echo`) for success, failure, trailing output, timeout (short test timeout) and nondeterminism.
-- [ ] 3.3 `pins` (D7): config, build, manifest. Verify: tests for exact keys, a missing and an extra project, a `v`-prefixed version refused.
-- [ ] 3.4 `task check` green, then commit `feat(build): run repository commands and record pins`.
+- [x] 3.1 `internal/doctext`: the `link` citation policy (D5). Verify: table tests for each citation form in prose, in a code span and in a spec comment, in both modes.
+- [x] 3.2 `internal/command`: the runner (D6) with timeout, output cap, one-document check, and the `check` double run. Verify: tests with a helper program (`go run ./internal/command/testdata/echo`) for success, failure, trailing output, timeout (short test timeout) and nondeterminism.
+- [x] 3.3 `pins` (D7): config, build, manifest. Verify: tests for exact keys, a missing and an extra project, a `v`-prefixed version refused.
+- [x] 3.4 `task check` green, then commit `feat(build): run repository commands and record pins`.
 
 ## 4. The workflow
 

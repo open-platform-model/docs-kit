@@ -6,6 +6,8 @@ import (
 
 	"cuelang.org/go/cue"
 
+	"github.com/open-platform-model/docs-kit/internal/command"
+	"github.com/open-platform-model/docs-kit/internal/doctext"
 	"github.com/open-platform-model/docs-kit/internal/extract/cuecatalog"
 	"github.com/open-platform-model/docs-kit/internal/render"
 )
@@ -18,13 +20,24 @@ type Extractor interface {
 }
 
 // Input is what an extractor may read: the source tree, its own config
-// entry (decoded by the extractor) and the build identity.
+// entry (decoded by the extractor), the build identity, the command runner
+// and the citation policy.
 type Input struct {
-	Source  string    // the --source tree
-	Config  cue.Value // this source's entry in docs-kit.cue, validated
-	Version string    // "4.4.5" or "edge"
-	Release string    // the release tag built, "opm-v4.4.5"; "" for edge
-	Outside bool      // the config came from outside the source tree (a backfill)
+	Source   string          // the --source tree
+	Config   cue.Value       // this source's entry in docs-kit.cue, validated
+	Version  string          // "4.4.5" or "edge"
+	Release  string          // the release tag built, "opm-v4.4.5"; "" for edge
+	Outside  bool            // the config came from outside the source tree (a backfill)
+	Commands *command.Runner // runs repository commands (docs-kit C14)
+	Doc      doctext.Policy  // what the source's citations become
+}
+
+// policy is a source's citation policy, Strip unless it says link.
+func policy(citations string) doctext.Policy {
+	if doctext.Policy(citations) == doctext.Link {
+		return doctext.Link
+	}
+	return doctext.Strip
 }
 
 // Edge reports an edge build.

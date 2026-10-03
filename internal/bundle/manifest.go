@@ -83,6 +83,9 @@ type Manifest struct {
 	Placement Placement  `json:"placement"`
 	Pages     []Page     `json:"pages"`
 	Data      []DataFile `json:"data"`
+	// Pins maps a project to the exact version this build documents
+	// against (DESIGN decision 10); absent when the config has no pins.
+	Pins map[string]string `json:"pins,omitempty"`
 }
 
 // Segment is the URL segment the bundle is shown under: "MAJOR.MINOR" of

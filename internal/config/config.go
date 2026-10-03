@@ -33,11 +33,21 @@ type Placement struct {
 // extractor decodes for its own options. Dir, Include and Exclude are the
 // markdown source's.
 type Source struct {
-	Kind    string    `json:"kind"`
-	Dir     string    `json:"dir,omitempty"`
-	Include []string  `json:"include,omitempty"`
-	Exclude []string  `json:"exclude,omitempty"`
-	Value   cue.Value `json:"-"`
+	Kind string `json:"kind"`
+	Dir  string `json:"dir,omitempty"`
+	// Citations is an extractor source's citation policy, "strip" or
+	// "link"; "" for markdown, which copies text as written.
+	Citations string    `json:"citations,omitempty"`
+	Include   []string  `json:"include,omitempty"`
+	Exclude   []string  `json:"exclude,omitempty"`
+	Value     cue.Value `json:"-"`
+}
+
+// Pins names the command that prints a build's pins and the projects it
+// must pin.
+type Pins struct {
+	Command  []string `json:"command"`
+	Projects []string `json:"projects"`
 }
 
 // VersionRule says where a release version comes from.
@@ -51,6 +61,7 @@ type Bundle struct {
 	Placement Placement   `json:"placement"`
 	Version   VersionRule `json:"version"`
 	Sources   []Source    `json:"sources"`
+	Pins      *Pins       `json:"pins,omitempty"`
 }
 
 // Config is a validated docs-kit.cue.

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/open-platform-model/docs-kit/internal/bundle"
+	"github.com/open-platform-model/docs-kit/internal/command"
 	"github.com/open-platform-model/docs-kit/internal/config"
 	"github.com/open-platform-model/docs-kit/internal/dialect"
 	"github.com/open-platform-model/docs-kit/internal/extract/markdown"
@@ -41,6 +43,11 @@ type Options struct {
 	Revision   int
 	Patches    []string
 	PatchDates map[string]string
+	// Check runs every repository command twice and refuses differing
+	// output (opm-docs check). Stderr takes the commands' stderr; nil is
+	// os.Stderr.
+	Check  bool
+	Stderr io.Writer
 }
 
 // UsageError is a mistake in the invocation or the config.
@@ -248,6 +255,10 @@ func buildProject(ctx context.Context, o Options, cfg *config.Config, project st
 		Placement: bundle.Placement{Kind: b.Placement.Kind, Root: b.Placement.Root, Owns: b.Placement.Owns},
 	}
 	s := &assembly{ctx: ctx, o: o, id: id, m: m, dir: dir, cfgPath: cfg.Path, written: map[string]string{}, repo: gitsrc.Repo{Dir: o.Source}, patched: o.PatchDates}
+	s.commands = &command.Runner{Dir: o.Source, Project: project, Version: id.version, Twice: o.Check, Stderr: o.Stderr}
+	if err := s.pins(b.Pins); err != nil {
+		return Result{}, err
+	}
 	if err := s.sources(b, cfg.Path, outside); err != nil {
 		return Result{}, err
 	}
@@ -259,15 +270,16 @@ func buildProject(ctx context.Context, o Options, cfg *config.Config, project st
 
 // assembly collects one bundle's pages and data.
 type assembly struct {
-	ctx     context.Context
-	o       Options
-	id      *ident
-	m       *bundle.Manifest
-	dir     string
-	cfgPath string
-	repo    gitsrc.Repo
-	written map[string]string // content path -> the source that wrote it
-	patched map[string]string // a docs revision: patched file -> its newest patch's date
+	ctx      context.Context
+	o        Options
+	id       *ident
+	m        *bundle.Manifest
+	dir      string
+	cfgPath  string
+	commands *command.Runner
+	repo     gitsrc.Repo
+	written  map[string]string // content path -> the source that wrote it
+	patched  map[string]string // a docs revision: patched file -> its newest patch's date
 }
 
 // lastmod is a source file's last commit date at the commit built; in a
@@ -364,7 +376,10 @@ func (s *assembly) extract(b config.Bundle, cfgPath string, outside bool) ([]aut
 			return nil, nil, &UsageError{fmt.Errorf("%s: sources[%d] and sources[%d] are both %s; a bundle holds one source of each extractor kind", cfgPath, j, i, src.Kind)}
 		}
 		byKind[src.Kind] = i
-		d, err := ex.Extract(s.ctx, Input{Source: s.o.Source, Config: src.Value, Version: s.id.version, Release: s.o.Release, Outside: outside})
+		d, err := ex.Extract(s.ctx, Input{
+			Source: s.o.Source, Config: src.Value, Version: s.id.version, Release: s.o.Release, Outside: outside,
+			Commands: s.commands, Doc: policy(src.Citations),
+		})
 		if err != nil {
 			return nil, nil, err
 		}

@@ -133,6 +133,12 @@ func TestLoadDocsPlacement(t *testing.T) {
 		{"tab root on a docs bundle", strings.Replace(docs(`"reference/"`, `"x/"`), `root: "/docs/"`, `root: "/catalogs/cli/"`, 1)},
 		{"a catalog in a docs bundle", strings.Replace(docs(`"reference/"`, `"x/"`), `{kind: "markdown"`, `{kind: "cue-catalog", module: "./opm"},
 			{kind: "markdown"`, 1)},
+		{"citations on markdown", strings.Replace(docs(`"reference/"`, `"x/"`), `{kind: "markdown",`, `{kind: "markdown", citations: "strip",`, 1)},
+		{"linked citations on a catalog", strings.Replace(validConfig, `module: "./opm"}`, `module: "./opm", citations: "link"}`, 1)},
+		{"empty pins projects", strings.Replace(docs(`"reference/"`, `"x/"`), `version: {`, `pins: {command: ["cat", "pins.json"], projects: []}
+		version: {`, 1)},
+		{"empty pins command", strings.Replace(docs(`"reference/"`, `"x/"`), `version: {`, `pins: {command: [], projects: ["core"]}
+		version: {`, 1)},
 		{"owns on a tab bundle", strings.Replace(validConfig, `root: "/catalogs/opm/"}`, `root: "/catalogs/opm/", owns: ["x/"]}`, 1)},
 	} {
 		t.Run(x.name, func(t *testing.T) {

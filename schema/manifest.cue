@@ -30,6 +30,9 @@ import (
 	placement: #Placement
 	pages: list.MinItems(1) & [...#Page]
 	data: [...#DataFile]
+	// The exact versions of other projects this build documents against
+	// (DESIGN decision 10), from the config's pins command.
+	pins?: [#Project]: #SemVer
 }
 
 #Project: =~"^[a-z0-9]+(-[a-z0-9]+)*$"

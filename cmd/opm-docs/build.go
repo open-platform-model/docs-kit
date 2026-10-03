@@ -25,7 +25,7 @@ func newBuildCmd() *cobra.Command {
 			if edge && o.Release != "" {
 				return usage("--edge and --release %s: choose one", o.Release)
 			}
-			o.Tool = version.Version
+			o.Tool, o.Stderr = version.Version, cmd.ErrOrStderr()
 			return runBuild(cmd, o)
 		},
 	}
@@ -85,6 +85,8 @@ func newCheckCmd() *cobra.Command {
 			}
 			defer os.RemoveAll(tmp)
 			o.Out, o.Source, o.Tool = tmp, ".", version.Version
+			// check runs every repository command twice (docs-kit C14).
+			o.Check, o.Stderr = true, cmd.ErrOrStderr()
 			results, err := build.Run(cmd.Context(), o)
 			if err != nil {
 				return buildError(cmd.OutOrStdout(), err)
