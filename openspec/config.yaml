@@ -122,7 +122,7 @@ context: |
   - Format: type(scope): description
   - Types: feat, fix, refactor, docs, test, chore, build, ci
   - Scopes: cmd, bundle, tags, config, extract, render, lint, oci, pull, revise, workflow,
-    openspec, deps
+    openspec, deps, cobradump (the nested module, released as its own component)
   - feat and fix release `opm-docs` (release-please); docs, test, chore, build and ci do not
   - A dependency bump that can change formatted CUE (cuelang.org/go above all) is feat(deps),
     never fix or chore: it must release as a minor (docs/contracts.md C10, C13)
