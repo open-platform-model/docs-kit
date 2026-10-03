@@ -24,7 +24,7 @@ A PR body you write stays under 250 words of prose (code blocks, URLs and traile
 
 docs-kit builds each Open Platform Model repository's documentation into a versioned, signed OCI artifact (a docs bundle) in that repository's CI, and lets the opmodel.dev site pull and assemble those bundles. It holds one Go program, `opm-docs`, and the reusable workflow that runs it.
 
-Status: phase 1 is built: `build`, `check`, `lint`, `push`, `promote`, `pull`, `revise` (docs revisions), the `cue-catalog` extractor, a `markdown` source, the publish workflow and the release pipeline. Phase 2's shared ground is built: the extractor and renderer registries, docs-placed bundles, repository commands and pins, and pulling site versions; so is the `cue-definitions` extractor.
+Status: phase 1 is built: `build`, `check`, `lint`, `push`, `promote`, `pull`, `revise` (docs revisions), the `cue-catalog` extractor, a `markdown` source, the publish workflow and the release pipeline. Phase 2's shared ground is built: the extractor and renderer registries, docs-placed bundles, repository commands and pins, and pulling site versions; so is the `cue-definitions` extractor. `serve` previews a repository's bundles on a local Hugo or through an opmodel.dev checkout.
 
 ## Repository Rules
 
@@ -70,6 +70,7 @@ internal/publish/             push and promote
 internal/pull/                tab and site-version resolution, cache, unpack layout, history.json, lock
 internal/history/             a tab's version history across its segments (pure)
 internal/revise/              docs revisions: read the newest revision's fixes, apply them and the new fix, build
+internal/serve/               serve: the embedded skeleton Hugo site, the hugo process, the polling watcher, site mode
 cobradump/                    nested Go module (own go.mod, cobra and pflag only): Write and WritePins, the CLI's hook; released as its own component
 internal/gittest/, internal/ocitest/, internal/verify/sigtest/   test helpers
 docs/contracts.md             the contracts other repositories read
@@ -86,7 +87,7 @@ Taskfile.yml                  build and gate tasks
 - `task fmt` formats; `task fmt:check` fails on an unformatted file.
 - `task vet`, `task lint` (golangci-lint, config in `.golangci.yml`), `task test` (offline).
 - `task openspec:check` validates every spec and active change under `--strict`; `task openspec:install` installs openspec 1.12.0.
-- `task check` runs `fmt:check`, `vet`, `lint`, `openspec:check` and `test`: the gate before every commit task. `vet`, `lint`, `test` and `tidy` cover the nested `cobradump/` module too (`go -C cobradump test ./...`). CI also runs `actionlint` over `.github/workflows/`.
+- `task check` runs `fmt:check`, `vet`, `lint`, `openspec:check` and `test`: the gate before every commit task. `vet`, `lint`, `test` and `tidy` cover the nested `cobradump/` module too (`go -C cobradump test ./...`). CI also runs `actionlint` over `.github/workflows/`, and the `serve-hugo` job runs `TestServeWithHugo` against a pinned Hugo (it skips locally without `hugo` on `PATH`).
 
 ## Releasing
 

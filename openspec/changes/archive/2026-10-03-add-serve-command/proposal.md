@@ -24,6 +24,7 @@ None.
 ### Modified Capabilities
 
 - `opm-docs-cli`: the command set gains `serve` (and names `revise`, added earlier); `serve`'s behavior (requirement added).
+- `repository-commands`: `serve` runs repository commands as `build` does (it builds through `build`).
 
 ## Impact
 

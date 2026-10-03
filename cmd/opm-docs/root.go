@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 )
@@ -62,6 +63,7 @@ func newRoot(stdout, stderr io.Writer) *cobra.Command {
 		newPromoteCmd(),
 		newPullCmd(),
 		newReviseCmd(),
+		newServeCmd(),
 	)
 	return root
 }
@@ -69,7 +71,9 @@ func newRoot(stdout, stderr io.Writer) *cobra.Command {
 func run(args []string, stdout, stderr io.Writer) int {
 	root := newRoot(stdout, stderr)
 	root.SetArgs(args)
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	// SIGTERM and SIGHUP stop a command as Ctrl-C does, so serve stops hugo
+	// and removes its temporary tree on a kill or a closed terminal too.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 	defer stop()
 	err := root.ExecuteContext(ctx)
 	if err == nil {
