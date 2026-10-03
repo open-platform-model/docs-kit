@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/open-platform-model/docs-kit/compare/v0.5.0...v0.6.0) (2026-10-03)
+
+
+### Features
+
+* add the enhancements bundle ([#36](https://github.com/open-platform-model/docs-kit/issues/36)) ([4661875](https://github.com/open-platform-model/docs-kit/commit/4661875f9efb38d63a2c70a6c71522090410da83))
+* check the markup of every bundle page ([#41](https://github.com/open-platform-model/docs-kit/issues/41)) ([7f81c33](https://github.com/open-platform-model/docs-kit/commit/7f81c33bd8a390894d57b177d1f9c004f86d3b90))
+
 ## [0.5.0](https://github.com/open-platform-model/docs-kit/compare/v0.4.0...v0.5.0) (2026-10-03)
 
 
