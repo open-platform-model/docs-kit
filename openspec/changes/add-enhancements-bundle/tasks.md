@@ -21,8 +21,8 @@ Gate: `generalize-build-assembly` and `pull-docs-placement` are merged on docs-k
 
 ## 4. Pull of sections
 
-- [ ] 4.1 `schema/pull.cue` `sections`, `schema/lock.cue` roots, `internal/config`, `internal/pull` (D5), the sweep keeps section projects. Verify: in-process registry tests for a section pull, no edge (fails), placement mismatch, `--local enhancements@edge=...`, a project in two roles (exit 1).
-- [ ] 4.2 `task check` green, then commit `feat(pull): pull the enhancements section`.
+- [x] 4.1 `schema/pull.cue` `sections`, `schema/lock.cue` roots, `internal/config`, `internal/pull` (D5), the sweep keeps section projects. Verify: in-process registry tests for a section pull, no edge (fails), placement mismatch, `--local enhancements@edge=...`, a project in two roles (exit 1).
+- [x] 4.2 `task check` green, then commit `feat(pull): pull the enhancements section`.
 
 ## 5. Contracts and archive
 

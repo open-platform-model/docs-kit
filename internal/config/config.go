@@ -326,6 +326,13 @@ func (v SiteVersion) Role(project string) string {
 	return ""
 }
 
+// Section is one unversioned section the site shows, pulled from its edge
+// tag only, and who may sign its bundle.
+type Section struct {
+	Repo string `json:"repo"`
+	Root string `json:"root"`
+}
+
 // Pull is a validated bundles.cue, with defaults applied.
 type Pull struct {
 	Path     string
@@ -334,7 +341,18 @@ type Pull struct {
 	Signer   Signer                 `json:"signer"`
 	Tabs     map[string]Tab         `json:"tabs"`
 	Docs     map[string]DocsProject `json:"docs"`
+	Sections map[string]Section     `json:"sections"`
 	Versions map[string]SiteVersion `json:"versions"`
+}
+
+// SectionProjects returns the configured sections in name order.
+func (p *Pull) SectionProjects() []string {
+	out := make([]string, 0, len(p.Sections))
+	for s := range p.Sections {
+		out = append(out, s)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // SiteVersions returns the configured site versions in numeric order.
@@ -403,9 +421,16 @@ func LoadPull(path string) (*Pull, error) {
 }
 
 // checkVersions applies the rules the schema cannot state: a project is
-// a tab or a docs project, not both; every project a site version names is
-// a docs project; and a version names a project once.
+// a tab, a docs project or a section, never two of them; every project a
+// site version names is a docs project; and a version names a project once.
 func (p *Pull) checkVersions() error {
+	for _, s := range p.SectionProjects() {
+		_, tab := p.Tabs[s]
+		_, docs := p.Docs[s]
+		if tab || docs {
+			return fmt.Errorf("%s is both a section and a %s project; a project has one placement, so remove it from sections or from %s", s, map[bool]string{true: "tab", false: "docs"}[tab], map[bool]string{true: "tabs", false: "docs"}[tab])
+		}
+	}
 	docs := make([]string, 0, len(p.Docs))
 	for d := range p.Docs {
 		docs = append(docs, d)

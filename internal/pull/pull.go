@@ -87,6 +87,7 @@ func usagef(format string, args ...any) error { return &UsageError{fmt.Errorf(fo
 type puller struct {
 	o        Options
 	cfg      *config.Pull
+	places   map[string]placed // the tabs and sections, pulled by segment
 	verifier *verify.Verifier
 	written  map[string]bool   // "<project>/<segment>", once swapped in
 	staged   map[string]string // "<project>/<segment>": its unpacked and linted tree, not yet swapped in
@@ -114,7 +115,7 @@ func Run(ctx context.Context, o Options) (*Lock, error) {
 	if o.Warn == nil {
 		o.Warn = func(string) {}
 	}
-	p := &puller{o: o, cfg: cfg, written: map[string]bool{}, staged: map[string]string{},
+	p := &puller{o: o, cfg: cfg, places: placements(cfg), written: map[string]bool{}, staged: map[string]string{},
 		versionStaged: map[string]string{}, versionWritten: map[string]bool{}, docsLocals: map[string]Local{}}
 	// A staged tree left behind by a failure is removed; a swapped one is
 	// already gone from its staging path.
@@ -153,10 +154,10 @@ func Run(ctx context.Context, o Options) (*Lock, error) {
 	return lock, nil
 }
 
-// stageAll unpacks and lints every segment of every tab, from local trees,
-// a frozen lock or the registry.
+// stageAll unpacks and lints every segment of every tab and section, from
+// local trees, a frozen lock or the registry.
 func (p *puller) stageAll(ctx context.Context, locals map[string][]Local, frozen *Lock) error {
-	for _, project := range p.cfg.Projects() {
+	for _, project := range p.placedProjects() {
 		var err error
 		switch {
 		case len(locals[project]) > 0:
@@ -207,8 +208,12 @@ func (p *puller) prepare() (map[string][]Local, *Lock, error) {
 			}
 			continue
 		}
-		if _, ok := p.cfg.Tabs[l.Project]; !ok {
-			return nil, nil, usagef("--local %s@%s: %s is not a tab in %s", l.Project, l.Segment, l.Project, p.o.Config)
+		pl, ok := p.places[l.Project]
+		if !ok {
+			return nil, nil, usagef("--local %s@%s: %s is not a tab or a section in %s", l.Project, l.Segment, l.Project, p.o.Config)
+		}
+		if pl.section && l.Segment != tags.Edge {
+			return nil, nil, usagef("--local %s@%s: %s is a section, whose only segment is edge", l.Project, l.Segment, l.Project)
 		}
 		locals[l.Project] = append(locals[l.Project], l)
 	}
@@ -380,7 +385,7 @@ func (p *puller) relToLock(path string) (string, error) {
 // locals takes every given segment of a project from local trees, with no
 // registry and no signature.
 func (p *puller) locals(project string, ls []Local) error {
-	tab := p.cfg.Tabs[project]
+	tab := p.places[project]
 	for _, l := range ls {
 		m, err := bundle.Read(l.Dir)
 		if err != nil {
@@ -410,13 +415,13 @@ func (p *puller) locals(project string, ls []Local) error {
 	return nil
 }
 
-// checkBundle checks a manifest belongs in the tab.
-func checkBundle(m *bundle.Manifest, project string, tab config.Tab) error {
+// checkBundle checks a manifest belongs in the tab or section.
+func checkBundle(m *bundle.Manifest, project string, tab placed) error {
 	if m.Project != project {
 		return fmt.Errorf("the bundle is project %s, not %s", m.Project, project)
 	}
-	if m.Placement.Kind != "tab" || m.Placement.Root != tab.Root {
-		return fmt.Errorf("the bundle's placement is %s %s, and the tab's root is %s", m.Placement.Kind, m.Placement.Root, tab.Root)
+	if m.Placement.Kind != tab.kind() || m.Placement.Root != tab.Root {
+		return fmt.Errorf("the bundle's placement is %s %s, and the %s's root is %s", m.Placement.Kind, m.Placement.Root, tab.kind(), tab.Root)
 	}
 	return nil
 }
@@ -499,7 +504,7 @@ func (e *LintError) Error() string {
 // resolve picks a tab's segments from the registry's tags: every minor at
 // or above from, and edge when the tab shows it.
 func (p *puller) resolve(ctx context.Context, project string) error {
-	tab := p.cfg.Tabs[project]
+	tab := p.places[project]
 	repo, err := p.o.Client.Repository(p.cfg.Registry + "/" + project)
 	if err != nil {
 		return err
@@ -526,7 +531,11 @@ func (p *puller) resolve(ctx context.Context, project string) error {
 
 // selectSegments picks a tab's segments from a repository's tags: every
 // minor at or above from, then edge when the tab shows it and it exists.
-func (p *puller) selectSegments(project string, tab config.Tab, all []string) ([]string, error) {
+// A section takes edge only.
+func (p *puller) selectSegments(project string, tab placed, all []string) ([]string, error) {
+	if tab.section {
+		return sectionSegments(project, all)
+	}
 	var segments []string
 	hasEdge := false
 	for _, t := range all {
@@ -554,8 +563,11 @@ func (p *puller) selectSegments(project string, tab config.Tab, all []string) ([
 
 // frozen pulls exactly the digests the lock names for a project.
 func (p *puller) frozen(ctx context.Context, project string, l *Lock) error {
-	tab := p.cfg.Tabs[project]
+	tab := p.places[project]
 	want := p.cfg.Registry + "/" + project
+	if tab.section && !slices.ContainsFunc(l.Bundles, func(e Entry) bool { return e.Project == project }) {
+		return usagef("--frozen %s has no entry for the section %s; pull again without --frozen", p.o.Frozen, project)
+	}
 	for i := range l.Bundles {
 		e := &l.Bundles[i]
 		if e.Project != project {
@@ -563,6 +575,9 @@ func (p *puller) frozen(ctx context.Context, project string, l *Lock) error {
 		}
 		if e.Repository != want {
 			return usagef("--frozen %s: %s@%s names the repository %s; the config pulls %s from %s", p.o.Frozen, project, e.Segment, e.Repository, project, want)
+		}
+		if tab.section && e.Segment != tags.Edge {
+			return usagef("--frozen %s: %s@%s is not a segment the config shows (a section shows edge only)", p.o.Frozen, project, e.Segment)
 		}
 		if e.Segment == tags.Edge && !tab.Edge || e.Segment != tags.Edge && tags.CompareMinor(e.Segment, tab.From) < 0 {
 			return usagef("--frozen %s: %s@%s is not a segment the config shows (from %s, edge %t)", p.o.Frozen, project, e.Segment, tab.From, tab.Edge)
@@ -585,7 +600,7 @@ func (p *puller) frozen(ctx context.Context, project string, l *Lock) error {
 // fetch verifies one bundle and only then fetches, unpacks and lints its
 // layer.
 func (p *puller) fetch(ctx context.Context, project, segment string, repo *oci.Repo, desc ocispec.Descriptor) error {
-	tab := p.cfg.Tabs[project]
+	tab := p.places[project]
 	what := fmt.Sprintf("%s %s (%s@%s)", project, segment, repo.Name, desc.Digest)
 	f, err := p.verified(ctx, repo, desc, project, tab.Repo, segment, what)
 	if err != nil {
@@ -805,7 +820,7 @@ func (p *puller) sweep() error {
 			continue
 		}
 		pdir := filepath.Join(p.o.Out, pd.Name())
-		if _, ok := p.cfg.Tabs[pd.Name()]; !ok {
+		if _, ok := p.places[pd.Name()]; !ok {
 			if err := os.RemoveAll(pdir); err != nil {
 				return err
 			}
