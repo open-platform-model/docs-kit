@@ -49,12 +49,12 @@ In `release` mode the workflow SHALL check out the tag at `src/` with full histo
 - **WHEN** catalog_opm dispatches `mode: release` with `tag: opm-v4.4.5`, a tag cut before catalog_opm had `docs-kit.cue`
 - **THEN** the workflow builds from that tag with `main`'s `docs-kit.cue` and publishes `4.4.5.0`, then moves `4.4.5`, `4.4` and `4`
 
-### Requirement: The job logs in to GHCR before building
-In every mode, before `opm-docs build` or `opm-docs check`, the workflow SHALL log in to `ghcr.io` with `github.token`, so the extractor resolves CUE dependencies from GHCR authenticated. The `check` mode SHALL need no permission beyond `contents: read` and `packages: read` for it.
+### Requirement: Only the publish job logs in to GHCR
+The build job SHALL NOT log in to any registry, and its checkouts SHALL NOT persist credentials, so no credential is on disk where a repository command could read it; the extractors resolve CUE dependencies and `revise` reads bundles anonymously from public GHCR packages. The publish job SHALL log in to `ghcr.io` with `github.token` before `push` and `promote`. The `check` mode SHALL need no permission beyond `contents: read` and `packages: read`.
 
 #### Scenario: Check resolves core from GHCR
 - **WHEN** `mode: check` runs on a pull request with `packages: read`
-- **THEN** the build resolves `opmodel.dev/core@v2` from GHCR with the job's token, and no step needs a secret
+- **THEN** the build resolves `opmodel.dev/core@v2` from GHCR anonymously, and no step needs a secret
 
 ### Requirement: Sources of a backfill resolve against the release tree
 In `release` mode, when the release tree has no `docs-kit.cue`, the workflow SHALL build with `main`'s `docs-kit.cue` while every source in it resolves against the release tree at `src/`. A `markdown` dir missing from that release tree SHALL yield no pages without failing; the bundle then carries the generated landing only.
@@ -75,7 +75,7 @@ In `release` mode, when the release tree has no `docs-kit.cue`, the workflow SHA
 - **THEN** the job fails at `revise`, naming the file, and nothing is pushed
 
 ### Requirement: Build and publish run in separate jobs
-`publish.yml` SHALL build (`check`, `build` or `revise`) in a job that declares `contents: read` and `packages: read` and no `id-token`, and SHALL push, sign and promote in a second job that needs the first, checks out nothing of the caller and takes the bundle tree from a workflow artifact. Its inputs, outputs and the caller's required permissions SHALL be unchanged, and the concurrency groups SHALL be declared at the workflow level, covering both jobs of a run, so two revisions of one release never build at once.
+`publish.yml` SHALL build (`check`, `build` or `revise`) in a job that declares `contents: read` and `packages: read` and no `id-token`, and SHALL push, sign and promote in a second job that needs the first, checks out nothing of the caller and takes the bundle tree from a workflow artifact. Its inputs, outputs and the caller's required permissions SHALL be unchanged except the additive `setup-go` input, and the concurrency groups SHALL be declared at the workflow level, covering both jobs of a run, so two revisions of one release never build at once.
 
 #### Scenario: Two revisions dispatched together
 - **WHEN** two `revision` runs of `opm-v4.5.1` are dispatched a second apart
@@ -85,8 +85,15 @@ In `release` mode, when the release tree has no `docs-kit.cue`, the workflow SHA
 - **WHEN** a cli release publish runs its dump command
 - **THEN** that command runs in the build job, which cannot request an OIDC token, and the signing job runs no step from the cli tree
 
+### Requirement: The publish job signs only the bundle the run asked for
+Before `push`, the publish job SHALL refuse the downloaded tree unless its `manifest.json` names `inputs.project` as `project` and `github.repository` as `source.repo`, and either `inputs.tag` as `source.ref` (`release`, `revision`) or `edge` as `version` (`edge`). The artifact SHALL be named `docs-bundle-<project>-<run id>-<run attempt>`, so a re-run never takes an earlier attempt's tree.
+
+#### Scenario: A build job writes another project's bundle
+- **WHEN** the build job of a `core` edge run leaves a tree whose manifest names project `cli`
+- **THEN** the publish job fails before `push`, naming `cli` and `core`, and nothing is pushed or signed
+
 ### Requirement: The workflow installs Go on request
-`publish.yml` SHALL accept a boolean input `setup-go` (default `false`); when true, the build job SHALL install Go with a SHA-pinned `actions/setup-go` from `src/go.mod` in `release` mode and from `go.mod` otherwise, before building.
+`publish.yml` SHALL accept a boolean input `setup-go` (default `false`); when true, the build job SHALL install Go with a SHA-pinned `actions/setup-go` from `src/go.mod` in `release` mode and from the checkout of `main`'s `go.mod` otherwise (`revision` included), before building, with its cache off.
 
 #### Scenario: cli check
 - **WHEN** the cli calls `mode: check` with `setup-go: true`

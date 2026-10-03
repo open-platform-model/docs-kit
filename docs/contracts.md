@@ -245,16 +245,18 @@ on:
         value: ${{ jobs.publish.outputs.tag }}
 ```
 
-`setup-go` (added by `generalize-build-assembly`): when `true`, the build job installs Go with a SHA-pinned `actions/setup-go` from `src/go.mod` in `release` mode and from `go.mod` otherwise, before building, for a repository command (C14) that runs `go`.
+`setup-go` (added by `generalize-build-assembly`): when `true`, the build job installs Go with a SHA-pinned `actions/setup-go`, its cache off (a cache restored where the caller's code runs is an input another run's code could have written), before building, for a repository command (C14) that runs `go`. The Go version comes from `src/go.mod` (the release tree) in `release` mode and from the checkout of `main`'s `go.mod` otherwise, `revision` included: its patched release tree exists only inside `revise`, and Go builds an older module with a newer toolchain.
 
 **Two jobs** (since `generalize-build-assembly`; inputs, outputs and the caller's grant unchanged). A repository command runs the caller's own code during its build, so the job that builds is not the job that signs:
 
 | Job | Runs | Permissions it declares | Caller's code |
 |---|---|---|---|
-| `build` | the mode check; checkout(s); install `opm-docs`; `setup-go` when asked; GHCR read login; `check`, `build` or `revise`; upload `out/<project>/` as the workflow artifact `docs-bundle-<project>-<run id>` (retention 1 day; not in `check` mode) | `contents: read`, `packages: read` | yes |
-| `publish` | `needs: build`, skipped in `check` mode; install the `opm-docs` release the build job installed (its tag passed as a job output); download the artifact into `out/<project>/` and recreate `content/` and `data/` (an artifact drops an empty directory); GHCR login; `push`; `cosign sign`; `promote` | none (inherits the caller's `packages: write`, `id-token: write`) | none: no checkout of the caller |
+| `build` | the mode check; checkout(s) with `persist-credentials: false`; install `opm-docs`; `setup-go` when asked; `check`, `build` or `revise`; upload `out/<project>/` as the workflow artifact `docs-bundle-<project>-<run id>-<run attempt>` (retention 1 day; not in `check` mode) | `contents: read`, `packages: read` | yes |
+| `publish` | `needs: build`, skipped in `check` mode; install the `opm-docs` release the build job installed (its tag passed as a job output); download the artifact into `out/<project>/` and recreate `content/` and `data/` (an artifact drops an empty directory); the identity check below; GHCR login; `push`; `cosign sign`; `promote` | none (inherits the caller's `packages: write`, `id-token: write`) | none: no checkout of the caller |
 
-The build job can never request an OIDC token, so a compromised dependency of the caller cannot sign a bundle; `push` packs deterministically from the tree in whichever job runs it.
+The build job can never request an OIDC token, so a compromised dependency of the caller cannot sign a bundle, and it holds no credential a repository command could read (C14): its checkouts persist none and it never logs in to a registry. `push` packs deterministically from the tree in whichever job runs it.
+
+**Identity check.** The tree comes from a job that ran the caller's code, so before `push` the publish job refuses it unless `manifest.json` has `project` equal to `inputs.project`, `source.repo` equal to `github.repository`, and `source.ref` equal to `inputs.tag` (`release`, `revision`) or `version` equal to `edge` (`edge`). Each refusal names the value found and the one expected; nothing is pushed or signed.
 
 No secrets are declared: the workflow uses `github.token`. The `publish` job declares no `permissions`, so it runs with the grant of the caller's job (a called workflow cannot raise it, and a job that asked for more than a check-only caller grants would fail that caller at start-up); the `build` job declares only the read grant every caller gives. The caller's job MUST grant:
 
@@ -263,7 +265,7 @@ No secrets are declared: the workflow uses `github.token`. The `publish` job dec
 | `check` | `read` | `read` | none |
 | `edge`, `release`, `revision` | `read` | `write` | `write` |
 
-**Registry read login.** Before `build` or `check` in every mode, the build job logs in to `ghcr.io` with `github.token` (`docker login ghcr.io -u ${{ github.actor }} --password-stdin`), so the extractor's CUE dependency resolution (`opmodel.dev/core@v2` and the catalog's other dependencies on GHCR) is authenticated and not rate-limited. `check` needs only `packages: read` for this, and the build job declares no more. The publish job logs in again; that login, under the caller's `packages: write`, is the credential `push` and `promote` use.
+**Registry login.** Only the publish job logs in to `ghcr.io`, with `github.token` (`docker login ghcr.io -u ${{ github.actor }} --password-stdin`); that login, under the caller's `packages: write`, is the credential `push` and `promote` use. The build job does not log in (since `generalize-build-assembly`; before it, it logged in for reads): a credential file there would be readable by a repository command. The extractor's CUE dependency resolution (`opmodel.dev/core@v2` and the catalog's other dependencies) and `revise`'s registry reads go to public GHCR packages anonymously. A caller whose CUE dependencies are private cannot build with this workflow.
 
 What each mode does (all but `check` refuse unless `github.ref` is `refs/heads/main`):
 
@@ -829,11 +831,12 @@ A config value of type `#Command` (C6) names a program of the repository: an arg
 |---|---|
 | Runs in | `build`, `check` and `revise` only; never `push`, `promote` or `pull` |
 | Directory | the source tree (`--source`; a revision's patched worktree) |
-| Environment | the build's own, plus `OPM_DOCS=1`, `OPM_DOCS_PROJECT=<project>`, `OPM_DOCS_VERSION=<version or edge>` |
+| Environment | an allowlist of the build's own: `PATH`, `HOME`, `TMPDIR`, `USER`, `LANG`, `LC_*`, `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` (either case), Go's variables (`GO` then capitals and digits only: `GOPATH`, `GOFLAGS`, `GOPROXY`, `GOTOOLCHAIN`; never `GOOGLE_*`), `CGO_*`, `CUE_*`, `OPM_DOCS*`; plus `OPM_DOCS=1`, `OPM_DOCS_PROJECT=<project>`, `OPM_DOCS_VERSION=<version or edge>`. Nothing else passes: no `GITHUB_TOKEN`, no `ACTIONS_*`, no `DOCKER_CONFIG` |
+| Credentials | none: besides the environment rule, a command never runs where a registry or git credential is on disk (in `publish.yml` the build job persists no checkout credential and never logs in, C5) |
 | stdin | empty |
 | stdout | exactly one JSON document, at most 16 MiB, whose `schema` field names a schema its consumer reads; anything after the document is an error |
 | stderr | passed through to the build's stderr |
-| Timeout | 10 minutes; then the program is stopped |
+| Timeout | 10 minutes; then the command's whole process group is killed (it runs in a group of its own on Unix, so a program `go run` compiled dies with it); a canceled build (an interrupt) kills it the same way and names the cause |
 | Failure | a non-zero exit, a timeout, an output over the cap, trailing output or an unknown schema exits `2` naming the project and the argv (``cli: command `go run ./hack/docskit-dump`: exited with status 1``) |
 | Determinism | `check` runs every command twice and exits `2`, naming the argv, when the outputs differ ("two runs printed different output; a docs build must be deterministic"); `build` and `revise` run it once |
 
@@ -847,9 +850,11 @@ A bundle with `placement: {kind: "docs", root: "/docs/", owns: [...]}` merges in
 |---|---|
 | two owned paths nest (`reference/` and `reference/cli/`), naming both | `1` |
 | the bundle holds a `cue-catalog` source (a catalog is a tab, C1) | `1` |
-| a generated page (`generated: true`) lies outside every owned path ("`docs-kit.cue: content/reference/commands/opm.md is generated, but cli owns only reference/cli/; add it to placement.owns`") | `2` |
+| a page a renderer writes lies outside every owned path, a completed page included ("`docs-kit.cue: content/reference/commands/opm.md is generated, but cli owns only reference/cli/; add it to placement.owns`") | `2` |
 
 **Bundle-mode lint of a docs bundle** (`lint --bundle`, run by `build`, `push` and `pull`): the docs-mode `/catalogs/` link rules (C11: the bare root or a major segment, "docs pages link catalogs through /catalogs/opm/4/"), plus: a `/docs/` link whose path lies under an owned path names a page of the bundle (`/docs/reference/cli/opm-module/` is `reference/cli/opm-module.md` or `reference/cli/opm-module/_index.md`); fragments are not checked. A `/docs/` link outside the owned paths points into another bundle or a site page and is not checked by the bundle: the site's post-build link check covers it. The dialect version stays `1`.
+
+**Generated paths** (every bundle, tab or docs). Before anything is written, `build` refuses (exit `2`, naming the extractor kind and the path) a page path a renderer returns that does not match `#Page.path` (C3), a data file an extractor returns that does not match `#DataFile.path`, a page path rendered twice (by two renderers, or by one twice; two completable pages at one path name both extractor kinds), and a data file written by two extractors. Neither pattern admits `..`, an absolute path or upper case.
 
 **Completable pages.** A renderer may mark a page completable, with the heading its generated body opens with. When a `markdown` source of the same bundle supplies a page at that path, the bundle's page is the authored front matter and body, unchanged, then one blank line, then the generated body without front matter, recorded as `generated: false` with the authored file as `source`. An authored body that already holds the heading exits `2` naming the file. Without an authored page, the generated page stands alone with its own front matter, `generated: true`. The catalog landing is the first completable page (heading `## Catalog members`; output unchanged).
 

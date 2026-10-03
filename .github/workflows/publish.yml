@@ -21,7 +21,9 @@
 # Two jobs. build checks out the caller and runs opm-docs check, build or
 # revise, which may run the caller's own code (repository commands,
 # docs-kit C14); it declares contents: read and packages: read, so it can
-# never request an OIDC token. publish takes the bundle tree from a workflow
+# never request an OIDC token, and it holds no credential a command could
+# read: the checkouts persist none and it never logs in to a registry (CUE
+# modules and bundles resolve anonymously from public GHCR packages). publish takes the bundle tree from a workflow
 # artifact, checks out nothing of the caller, and pushes, signs and promotes.
 #
 # The caller's job grants the permissions (publish declares none, so a
@@ -122,6 +124,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       # Release mode: every source resolves against the release tree at src/.
       - if: inputs.mode == 'release'
@@ -130,6 +133,7 @@ jobs:
           ref: refs/tags/${{ inputs.tag }}
           path: src
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Install the opm-docs release .opm-docs-version names
         id: install
@@ -156,16 +160,16 @@ jobs:
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
+      # Go from the release tree in release mode; from the checkout of main
+      # otherwise, revision mode included (its patched release tree is a
+      # temporary worktree that exists only inside revise). No cache: a
+      # cache restored in a job that runs the caller's code is an input
+      # another run's code could have written.
       - if: inputs.setup-go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: ${{ inputs.mode == 'release' && 'src/go.mod' || 'go.mod' }}
-
-      - name: Log in to GHCR
-        env:
-          TOKEN: ${{ github.token }}
-          ACTOR: ${{ github.actor }}
-        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          cache: false
 
       - name: opm-docs check
         if: inputs.mode == 'check'
@@ -196,7 +200,7 @@ jobs:
         if: inputs.mode != 'check'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: docs-bundle-${{ inputs.project }}-${{ github.run_id }}
+          name: docs-bundle-${{ inputs.project }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: out/${{ inputs.project }}/
           if-no-files-found: error
           retention-days: 1
@@ -232,11 +236,33 @@ jobs:
 
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: docs-bundle-${{ inputs.project }}-${{ github.run_id }}
+          name: docs-bundle-${{ inputs.project }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: out/${{ inputs.project }}
 
       - name: Restore the bundle's empty directories
         run: mkdir -p "out/$PROJECT/content" "out/$PROJECT/data"
+
+      # The tree came from a job that ran the caller's code: sign only a
+      # bundle of this project, of this repository, of the ref this run was
+      # asked to publish.
+      - name: Check the bundle is the one this run publishes
+        env:
+          TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          m="out/$PROJECT/manifest.json"
+          got_project=$(jq -r .project "$m")
+          got_repo=$(jq -r .source.repo "$m")
+          got_ref=$(jq -r .source.ref "$m")
+          got_version=$(jq -r .version "$m")
+          fail() { echo "::error::$1"; exit 1; }
+          [ "$got_project" = "$PROJECT" ] || fail "the bundle is of project \"$got_project\", not $PROJECT"
+          [ "$got_repo" = "$REPO" ] || fail "the bundle is of repository \"$got_repo\", not $REPO"
+          case "$MODE" in
+            edge) [ "$got_version" = edge ] || fail "an edge run built version \"$got_version\", not edge" ;;
+            release|revision) [ "$got_ref" = "$TAG" ] || fail "the bundle is of ref \"$got_ref\", not the tag $TAG" ;;
+          esac
 
       - name: Log in to GHCR
         env:

@@ -6,7 +6,7 @@ Building and linting a bundle placed in a site version's `/docs/` tree: the cont
 ## Requirements
 
 ### Requirement: A docs bundle declares what it owns
-A bundle with `placement.kind: "docs"` SHALL have root `/docs/` and MAY list `owns`, paths under `content/` (a directory ending `/` or a page ending `.md`) it owns exclusively; two owned paths of one bundle SHALL NOT nest. `build` SHALL copy the placement into `manifest.json` and SHALL fail with exit 2 when a generated page lies outside every owned path, naming the page and the config. A docs bundle SHALL NOT hold a `cue-catalog` source.
+A bundle with `placement.kind: "docs"` SHALL have root `/docs/` and MAY list `owns`, paths under `content/` (a directory ending `/` or a page ending `.md`) it owns exclusively; two owned paths of one bundle SHALL NOT nest. `build` SHALL copy the placement into `manifest.json` and SHALL fail with exit 2 when a page a renderer writes lies outside every owned path, a completed page included, naming the page and the config. A docs bundle SHALL NOT hold a `cue-catalog` source.
 
 #### Scenario: A generated page outside owns
 - **WHEN** the cli bundle owns `reference/cli/` and a renderer writes `reference/commands/opm.md`

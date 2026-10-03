@@ -29,7 +29,7 @@ Status: phase 1 is built: `build`, `check`, `lint`, `push`, `promote`, `pull`, `
 ## Repository Rules
 
 - `DESIGN.md` is the approved design; its Decisions table binds every change. Cite a decision as `DESIGN decision 9`, never a bare `D9`.
-- `docs/contracts.md` fixes every contract another repository reads (C1 to C13, "Commands", "Page renderer", "Doc-comment rules"). Other repositories cite it by number (`docs-kit C5`); a change to it follows Principle II.
+- `docs/contracts.md` fixes every contract another repository reads (C1 to C15, "Commands", "Page renderer", "Doc-comment rules"). Other repositories cite it by number (`docs-kit C5`); a change to it follows Principle II.
 - `openspec/config.yaml` is the constitution (principles, gates, artifact rules). Feature work ships as an OpenSpec change (`spec-driven` schema, specs included), cut into mergeable sections that each end green and close with their own commit.
 - Never push to `main`. Every change lands by PR; the OpenSpec archive commit rides the implementing PR.
 - The bundle format, tag scheme, workflow interface, `docs-kit.cue`, pull config and lock are contracts other repositories read (constitution Principle II). A change to one names every consuming repository.
