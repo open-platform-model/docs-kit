@@ -131,8 +131,12 @@ func TestHasFile(t *testing.T) {
 			t.Errorf("HasFile(%s, %s) = %v, want %v", c.rev, c.path, got, c.want)
 		}
 	}
+	// Paths are relative to the repository root, whatever Dir is.
 	sub := Repo{Dir: filepath.Join(r.Dir, "docs")}
-	if !sub.HasFile(ctx, "HEAD", "site/start/install.md") {
-		t.Error("a path relative to a subdirectory Dir was not found")
+	if !sub.HasFile(ctx, "HEAD", "docs/site/start/install.md") {
+		t.Error("a root-relative path from a subdirectory Dir was not found")
+	}
+	if sub.HasFile(ctx, "HEAD", "site/start/install.md") {
+		t.Error("a path relative to a subdirectory Dir was found")
 	}
 }

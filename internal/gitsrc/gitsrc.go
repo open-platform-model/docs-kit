@@ -155,11 +155,11 @@ func (r Repo) LastMod(ctx context.Context, commit, path string) string {
 	return t.UTC().Format(time.RFC3339)
 }
 
-// HasFile reports whether path, relative to Dir, is a regular file
+// HasFile reports whether path, relative to the repository root, is a regular file
 // (executable or not) in rev's tree; a directory, a symlink, a submodule
 // or a path rev does not have is not.
 func (r Repo) HasFile(ctx context.Context, rev, path string) bool {
-	out, err := r.git(ctx, "--literal-pathspecs", "ls-tree", "-z", rev, "--", path)
+	out, err := r.git(ctx, "--literal-pathspecs", "ls-tree", "--full-tree", "-z", rev, "--", path)
 	if err != nil || out == "" {
 		return false
 	}
