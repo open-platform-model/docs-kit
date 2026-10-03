@@ -10,7 +10,7 @@ One PR closing docs-kit#8 and docs-kit#10; its `fix` commits release `v0.2.1`.
 
 ## 2. Align the slashless catalog link message
 
-- [ ] 2.1 `internal/dialect`: classify a malformed docs-mode `/catalogs/` link by its second segment (design.md D2). Verify: `TestConformance` passes the new fixtures.
-- [ ] 2.2 Conformance fixtures `link-slashless-minor`, `link-slashless-edge`, `link-slashless-root`, each with `expect` and `shell.out`; the outputs match opmodel.dev's `lint-sources.sh` run over them. README lists them.
-- [ ] 2.3 `docs/contracts.md` C11 records the rule.
-- [ ] 2.4 `task check` green, then commit `fix(lint): report a slashless minor or edge catalog link as the site lint does`.
+- [x] 2.1 `internal/dialect`: classify a malformed docs-mode `/catalogs/` link by its second segment (design.md D2). Verify: `TestConformance` passes the new fixtures.
+- [x] 2.2 Conformance fixtures `link-slashless-minor`, `link-slashless-edge`, `link-slashless-root`, each with `expect` and `shell.out`; the outputs match opmodel.dev's `lint-sources.sh` run over them. README lists them.
+- [x] 2.3 `docs/contracts.md` C11 records the rule.
+- [x] 2.4 `task check` green, then commit `fix(lint): report a slashless minor or edge catalog link as the site lint does`.

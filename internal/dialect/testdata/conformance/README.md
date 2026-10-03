@@ -22,6 +22,13 @@ kept as copied.
 Its `shell.out` is written by hand; the shell lint adopts it when the site
 re-syncs.
 
+`link-slashless-minor/`, `link-slashless-edge/` and `link-slashless-root/` are
+docs-kit's too: a `/catalogs/` link without its trailing slash. A minor or
+`edge` second segment reports the segment message, a bare root the
+trailing-slash message. Their `shell.out` was captured by running opmodel.dev's
+`lint-sources.sh` at commit `b6a306492d129557504708d67ada7333af1f7aab` over each
+case's `core/docs/site`, as above.
+
 ## Re-sync rule
 
 - docs-kit is the source of every new fixture: a rule change lands here

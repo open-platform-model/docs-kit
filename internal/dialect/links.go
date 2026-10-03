@@ -5,6 +5,9 @@ import (
 	"strings"
 )
 
+// edgeSegment is the segment of a catalog's unreleased build.
+const edgeSegment = "edge"
+
 var (
 	reExternal    = regexp.MustCompile(`^(https?:|mailto:|#)`)
 	reDocs        = regexp.MustCompile(`^/docs/`)
@@ -12,6 +15,7 @@ var (
 	reEnh         = regexp.MustCompile(`^/enhancements([/#]|$)`)
 	reEnhOK       = regexp.MustCompile(`^/enhancements/([0-9][0-9][0-9][0-9]/((problem|design|decisions|graduation|risks|operational|questions)/)?)?(#[^ ]*)?$`)
 	reCatalogs    = regexp.MustCompile(`^/catalogs([/#]|$)`)
+	reMinor       = regexp.MustCompile(`^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$`)
 	reCatalogLink = regexp.MustCompile(`^/catalogs/([a-z0-9]+(?:-[a-z0-9]+)*)/(?:((?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*))?|edge)/((?:[a-z0-9-]+/)*))?(#[^ ]*)?$`)
 )
 
@@ -39,7 +43,7 @@ func (p *pageLint) dest(t string) {
 func (p *pageLint) catalogLink(t string) {
 	m := reCatalogLink.FindStringSubmatch(t)
 	if m == nil {
-		p.err(p.nr, `catalog link "`+t+`": write /catalogs/<name>/ or /catalogs/<name>/<MAJOR>/<path>/ with a trailing slash`)
+		p.malformedCatalogLink(t)
 		return
 	}
 	name, segment, path := m[1], m[2], m[3]
@@ -52,7 +56,7 @@ func (p *pageLint) catalogLink(t string) {
 		return
 	}
 	major := "<MAJOR>"
-	if segment != "edge" {
+	if segment != edgeSegment {
 		major, _, _ = strings.Cut(segment, ".")
 	}
 	if p.opts.Mode == Bundle {
@@ -60,6 +64,28 @@ func (p *pageLint) catalogLink(t string) {
 		return
 	}
 	p.err(p.nr, `catalog link "`+t+`": docs pages link catalogs through `+root+major+`/`)
+}
+
+// malformedCatalogLink reports a /catalogs/ link that is not of a valid
+// form. In docs mode a minor or edge second segment is the fault named,
+// even without the trailing slash, so the message matches the site's
+// shell lint; anything else is told to take the trailing-slash form.
+func (p *pageLint) malformedCatalogLink(t string) {
+	if p.opts.Mode != Bundle {
+		seg := strings.Split(strings.TrimPrefix(t, "/catalogs/"), "/")
+		if len(seg) > 1 {
+			switch {
+			case reMinor.MatchString(seg[1]):
+				major, _, _ := strings.Cut(seg[1], ".")
+				p.err(p.nr, `catalog link "`+t+`": docs pages link catalogs through /catalogs/`+seg[0]+`/`+major+`/`)
+				return
+			case seg[1] == edgeSegment:
+				p.err(p.nr, `catalog link "`+t+`": docs pages link catalogs through /catalogs/`+seg[0]+`/<MAJOR>/`)
+				return
+			}
+		}
+	}
+	p.err(p.nr, `catalog link "`+t+`": write /catalogs/<name>/ or /catalogs/<name>/<MAJOR>/<path>/ with a trailing slash`)
 }
 
 // ownLink checks a link into the bundle's own root: it uses the bundle's
@@ -83,5 +109,5 @@ func (p *pageLint) ownLink(t, segment, path string) {
 }
 
 func isMajor(s string) bool {
-	return s != "edge" && !strings.Contains(s, ".")
+	return s != edgeSegment && !strings.Contains(s, ".")
 }
