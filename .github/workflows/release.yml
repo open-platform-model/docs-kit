@@ -68,6 +68,17 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+      # A cobradump release is published at once, and GitHub would mark it
+      # Latest; the Latest release stays opm-docs', which install docs and
+      # the releases/latest link point at.
+      - name: Keep a cobradump release from becoming Latest
+        if: steps.release.outputs['cobradump--release_created'] == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.release.outputs['cobradump--tag_name'] }}
+        run: gh release edit "$TAG" --latest=false
+
   goreleaser:
     name: Build and publish release binaries
     needs: release-please
