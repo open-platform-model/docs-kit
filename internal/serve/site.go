@@ -38,7 +38,7 @@ func RunSite(ctx context.Context, o Options) error {
 	if err != nil {
 		return err
 	}
-	tmp, err := os.MkdirTemp("", "opm-docs-serve-*")
+	tmp, err := makeTemp()
 	if err != nil {
 		return err
 	}
@@ -49,8 +49,11 @@ func RunSite(ctx context.Context, o Options) error {
 	bo := o.Build
 	bo.Out = tmp
 	bo.Release, bo.Revision, bo.Patches, bo.Check = "", 0, nil, false
-	results, err := build.Run(ctx, bo)
+	results, err := buildRun(ctx, bo)
 	if err != nil {
+		if ctx.Err() != nil {
+			return nil // stopped during the build
+		}
 		return &BuildError{err}
 	}
 	var pairs []string
@@ -63,7 +66,13 @@ func RunSite(ctx context.Context, o Options) error {
 	}
 	local := strings.Join(pairs, " ")
 	fmt.Fprintf(o.Stderr, "opm-docs serve: %s=%q in %s\n", SiteLocalVar, local, o.Site)
-	env := append(withoutVar(os.Environ(), SiteLocalVar), SiteLocalVar+"="+local)
+	// The author's own bundle variables would change what the site pulls:
+	// a frozen lock refuses local entries, OPM_BUNDLES names other trees.
+	env := os.Environ()
+	for _, v := range []string{SiteLocalVar, "OPM_BUNDLES_FROZEN", "OPM_BUNDLES"} {
+		env = withoutVar(env, v)
+	}
+	env = append(env, SiteLocalVar+"="+local)
 	for _, t := range []string{SitePullTask, SiteServeTask} {
 		cmd := exec.CommandContext(ctx, task, t)
 		cmd.Dir, cmd.Env = o.Site, env
@@ -111,8 +120,10 @@ func checkSite(o Options, cfg *config.Config, projects []string) (string, error)
 	if err != nil {
 		return "", usage("--site needs task (https://taskfile.dev) on PATH: the site's preview runs `task %s` and `task %s`", SitePullTask, SiteServeTask)
 	}
-	if !statOK(filepath.Join(o.Site, "Taskfile.yml")) {
-		return "", usage("--site %s: no Taskfile.yml there; pass the root of an opmodel.dev checkout", o.Site)
+	for _, f := range []string{"Taskfile.yml", "site/bundles.cue"} {
+		if !statOK(filepath.Join(o.Site, filepath.FromSlash(f))) {
+			return "", usage("--site %s: no %s there; pass the root of an opmodel.dev checkout", o.Site, f)
+		}
 	}
 	return task, nil
 }

@@ -147,7 +147,7 @@ func TestWatcher(t *testing.T) {
 	write(t, filepath.Join(docs, "a.md"), "a")
 	write(t, filepath.Join(api, "x.cue"), "x")
 	write(t, filepath.Join(dir, ".git", "HEAD"), "ref")
-	w := newWatcher(map[string][]string{"cli": {docs}, "core": {api}, "all": {dir}})
+	w := newWatcher(map[string][]root{"cli": {{Path: docs}}, "core": {{Path: api}}, "all": {{Path: dir, Tree: true}}})
 	if got := w.poll(); len(got) != 0 {
 		t.Fatalf("no change: %v", got)
 	}
@@ -172,7 +172,17 @@ func TestWatcher(t *testing.T) {
 	if got := w.poll(); !slices.Equal(got, []string{"all", "cli"}) {
 		t.Fatalf("removed a.md: %v", got)
 	}
-	w.setRoots(map[string][]string{"cli": {docs, api}})
+	for _, p := range []string{"out/cli/manifest.json", "node_modules/x/a.js", "pkg/vendor/m/m.go", ".cue-cache/x"} {
+		write(t, filepath.Join(dir, filepath.FromSlash(p)), "x")
+	}
+	if got := w.poll(); len(got) != 0 {
+		t.Fatalf("a change under out/, node_modules, vendor or a dot directory: %v", got)
+	}
+	write(t, filepath.Join(docs, "out", "page.md"), "x") // a markdown dir's out/ is pages
+	if got := w.poll(); !slices.Equal(got, []string{"all", "cli"}) {
+		t.Fatalf("added docs/site/out/page.md: %v", got)
+	}
+	w.setRoots(map[string][]root{"cli": {{Path: docs}, {Path: api}}})
 	if got := w.poll(); len(got) != 0 {
 		t.Fatalf("new roots take a baseline: %v", got)
 	}
@@ -202,13 +212,13 @@ func TestWatchRoots(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := watchRoots(dir, cfgPath, cfg.Bundles["ops"])
-	want := []string{filepath.Join(dir, "config", "crd", "bases"), filepath.Join(dir, "config", "samples"), filepath.Join(dir, "docs", "site"), cfgPath}
-	slices.Sort(want)
+	want := []root{{Path: filepath.Join(dir, "config", "crd", "bases")}, {Path: filepath.Join(dir, "config", "samples")}, {Path: filepath.Join(dir, "docs", "site")}, {Path: cfgPath}}
+	slices.SortFunc(want, func(a, b root) int { return strings.Compare(a.Path, b.Path) })
 	if !slices.Equal(got, want) {
 		t.Fatalf("crd and markdown roots:\n%v\nwant\n%v", got, want)
 	}
 	got = watchRoots(dir, cfgPath, cfg.Bundles["cli"])
-	if want := []string{dir, cfgPath}; !slices.Equal(got, want) {
+	if want := []root{{Path: dir, Tree: true}, {Path: cfgPath}}; !slices.Equal(got, want) {
 		t.Fatalf("a repository command watches the tree: %v", got)
 	}
 }
@@ -287,7 +297,7 @@ func TestWatchLoop(t *testing.T) {
 	write(t, page, "a")
 	f.set("one")
 	f.o.Build.Source = src // no config there: roots stay as they are
-	w := newWatcher(map[string][]string{"cli": {filepath.Dir(page)}})
+	w := newWatcher(map[string][]root{"cli": {{Path: filepath.Dir(page)}}})
 	ticks := make(chan time.Time)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -319,11 +329,13 @@ func installPage(body string) string {
 	return "---\ntitle: \"Install\"\ndescription: \"Install the cli.\"\ntype: how-to\n---\n\n" + body + "\n\n> [!NOTE]\n> A note.\n\n{{< opm/module-to-cluster >}}\n"
 }
 
+const oldPage = "---\ntitle: \"Old\"\ndescription: \"A page the author removes.\"\ntype: how-to\n---\n\nOld words.\n"
+
 func cliRepo(t *testing.T) *gittest.Repo {
 	t.Helper()
 	t.Setenv("GITHUB_REPOSITORY", "")
 	r := gittest.New(t, "https://github.com/example/cli.git")
-	r.Write(map[string]string{"docs-kit.cue": docsConfig, "docs/site/start/install.md": installPage("First words.")})
+	r.Write(map[string]string{"docs-kit.cue": docsConfig, "docs/site/start/install.md": installPage("First words."), "docs/site/start/old.md": oldPage})
 	r.Commit("docs")
 	return r
 }
@@ -387,8 +399,27 @@ func TestServeWithHugo(t *testing.T) {
 			t.Errorf("page lacks %q:\n%s", want, body)
 		}
 	}
+	if !strings.Contains(logs.String(), "opm-docs serve: cli at http://"+Bind+":"+strconv.Itoa(port)+"/docs/") {
+		t.Errorf("no URL printed:\n%s", logs.String())
+	}
 	r.Write(map[string]string{"docs/site/start/install.md": installPage("Second words.")})
 	get(t, url, "Second words.", time.Now().Add(30*time.Second))
+	// A removed page and a page in a new directory restart hugo.
+	base := "http://" + Bind + ":" + strconv.Itoa(port)
+	get(t, base+"/docs/start/old/", "Old words.", time.Now().Add(5*time.Second))
+	if err := os.Remove(filepath.Join(r.Dir, "docs", "site", "start", "old.md")); err != nil {
+		t.Fatal(err)
+	}
+	r.Write(map[string]string{"docs/site/guides/new.md": strings.Replace(oldPage, "Old words.", "New words.", 1)})
+	get(t, base+"/docs/guides/new/", "New words.", time.Now().Add(30*time.Second))
+	gone := time.Now().Add(30 * time.Second)
+	for status(t, base+"/docs/start/old/") != http.StatusNotFound {
+		if time.Now().After(gone) {
+			t.Fatalf("the removed page still answers:\n%s", logs.String())
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	get(t, base+"/docs/guides/new/", "New words.", time.Now().Add(30*time.Second))
 	// A page breaking the dialect fails the rebuild; the last good page stays.
 	r.Write(map[string]string{"docs/site/start/install.md": installPage("Third words.") + "\n![a picture](x.png)\n"})
 	deadline := time.Now().Add(30 * time.Second)
@@ -410,6 +441,17 @@ func TestServeWithHugo(t *testing.T) {
 	}
 }
 
+func status(t *testing.T, url string) int {
+	t.Helper()
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0 // hugo restarting
+	}
+	_ = resp.Body.Close()
+	return resp.StatusCode
+}
+
 type syncBuffer struct {
 	mu sync.Mutex
 	b  strings.Builder
@@ -425,4 +467,80 @@ func (s *syncBuffer) String() string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.b.String()
+}
+
+func TestSyncTreeReportsAddedAndRemoved(t *testing.T) {
+	src, dst := t.TempDir(), filepath.Join(t.TempDir(), "live")
+	write(t, filepath.Join(src, "a.md"), "a")
+	write(t, filepath.Join(src, "x", "b.md"), "b")
+	steps := []struct {
+		name    string
+		change  func()
+		changed bool
+	}{
+		{"first copy", func() {}, true},
+		{"nothing", func() {}, false},
+		{"an edit", func() { write(t, filepath.Join(src, "a.md"), "a2") }, false},
+		{"a page in a new directory", func() { write(t, filepath.Join(src, "y", "c.md"), "c") }, true},
+		{"a removed page", func() { _ = os.RemoveAll(filepath.Join(src, "x")) }, true},
+	}
+	for _, st := range steps {
+		st.change()
+		changed, err := syncTree(src, dst)
+		if err != nil || changed != st.changed {
+			t.Fatalf("%s: changed %v (want %v), %v", st.name, changed, st.changed, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dst, "x")); err == nil {
+		t.Fatal("x/ was not removed")
+	}
+	if b, _ := os.ReadFile(filepath.Join(dst, "a.md")); string(b) != "a2" {
+		t.Fatalf("a.md holds %q", b)
+	}
+}
+
+func TestRunStoppedDuringFirstBuild(t *testing.T) {
+	r := cliRepo(t)
+	t.Cleanup(func() { lookPath = defaultLookPath; buildRun = build.Run })
+	hugo := fakeProgram(t, "hugo", "echo 'hugo v0.167.0 linux/amd64'\n")
+	lookPath = func(string) (string, error) { return hugo, nil }
+	ctx, cancel := context.WithCancel(context.Background())
+	buildRun = func(context.Context, build.Options) ([]build.Result, error) {
+		cancel()
+		return nil, errors.New("git: signal: interrupt")
+	}
+	err := Run(ctx, Options{Build: build.Options{Source: r.Dir, Stderr: io.Discard}, Port: 1313, Stderr: io.Discard}, nil)
+	if err != nil {
+		t.Fatalf("stopped during the first build: %v", err)
+	}
+}
+
+func TestSweepStale(t *testing.T) {
+	tmp := t.TempDir()
+	done := exec.CommandContext(context.Background(), "true")
+	if err := done.Run(); err != nil {
+		t.Skip("no true program:", err)
+	}
+	dead := done.Process.Pid
+	dirs := map[string]string{
+		tempPrefix + "dead":  strconv.Itoa(dead),
+		tempPrefix + "live":  strconv.Itoa(os.Getppid()),
+		tempPrefix + "owner": "",
+		"other-dir":          strconv.Itoa(dead),
+	}
+	for d, pid := range dirs {
+		if err := os.MkdirAll(filepath.Join(tmp, d), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if pid != "" {
+			write(t, filepath.Join(tmp, d, ownerFile), pid)
+		}
+	}
+	sweepStale(tmp)
+	for d := range dirs {
+		_, err := os.Stat(filepath.Join(tmp, d))
+		if gone := err != nil; gone != (d == tempPrefix+"dead") {
+			t.Errorf("%s: gone %v", d, gone)
+		}
+	}
 }

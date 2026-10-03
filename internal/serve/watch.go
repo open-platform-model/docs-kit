@@ -3,6 +3,7 @@ package serve
 import (
 	"io/fs"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -25,12 +26,12 @@ var sourcePaths = map[string][]string{
 // bundle: the config, each source's paths, or the whole source tree when
 // a source or the pins run a repository command (C14), whose inputs are
 // the tree's files.
-func watchRoots(source, cfgPath string, b config.Bundle) []string {
-	roots := []string{abs(cfgPath)}
+func watchRoots(source, cfgPath string, b config.Bundle) []root {
+	roots := []root{{Path: abs(cfgPath)}}
 	whole := b.Pins != nil
 	for _, src := range b.Sources {
 		if src.Markdown != nil {
-			roots = append(roots, abs(filepath.Join(source, filepath.FromSlash(src.Markdown.Dir))))
+			roots = append(roots, root{Path: abs(filepath.Join(source, filepath.FromSlash(src.Markdown.Dir)))})
 			continue
 		}
 		keys, ok := sourcePaths[src.Kind]
@@ -40,15 +41,42 @@ func watchRoots(source, cfgPath string, b config.Bundle) []string {
 		}
 		for _, k := range keys {
 			if p, err := src.Value.LookupPath(cue.ParsePath(k)).String(); err == nil && p != "" {
-				roots = append(roots, abs(filepath.Join(source, filepath.FromSlash(p))))
+				roots = append(roots, root{Path: abs(filepath.Join(source, filepath.FromSlash(p)))})
 			}
 		}
 	}
 	if whole {
-		roots = append(roots, abs(source))
+		roots = append(roots, root{Path: abs(source), Tree: true})
 	}
-	sort.Strings(roots)
+	sort.Slice(roots, func(i, j int) bool { return roots[i].Path < roots[j].Path })
 	return roots
+}
+
+// root is one watched file or directory. A Tree root is the whole source
+// tree: there the build output (out/ at its top) and dependency trees
+// (node_modules, vendor) are skipped too, besides dot directories.
+type root struct {
+	Path string
+	Tree bool
+}
+
+// treeSkips are the directory names a whole-tree root skips at any depth.
+var treeSkips = map[string]bool{"node_modules": true, "vendor": true}
+
+// skip reports a directory a poll does not enter: one starting with "."
+// anywhere, and in a whole-tree root out/ at its top and treeSkips.
+func (r root) skip(dir, name string) bool {
+	switch {
+	case dir == r.Path:
+		return false
+	case strings.HasPrefix(name, "."):
+		return true
+	case !r.Tree:
+		return false
+	case treeSkips[name]:
+		return true
+	}
+	return name == "out" && filepath.Dir(dir) == r.Path
 }
 
 func abs(p string) string {
@@ -65,14 +93,14 @@ type stamp struct {
 }
 
 // watcher polls each project's roots and reports the projects with a file
-// added, removed or changed since the last poll. Directories whose name
-// starts with "." (.git, .cue-cache) are skipped.
+// added, removed or changed since the last poll, skipping what root.skip
+// names.
 type watcher struct {
-	roots map[string][]string // project -> roots
+	roots map[string][]root // project -> roots
 	last  map[string]map[string]stamp
 }
 
-func newWatcher(roots map[string][]string) *watcher {
+func newWatcher(roots map[string][]root) *watcher {
 	w := &watcher{roots: roots, last: map[string]map[string]stamp{}}
 	for p := range roots {
 		w.last[p] = snapshot(roots[p])
@@ -82,9 +110,9 @@ func newWatcher(roots map[string][]string) *watcher {
 
 // setRoots replaces the roots, taking a new baseline for every project
 // whose roots changed.
-func (w *watcher) setRoots(roots map[string][]string) {
+func (w *watcher) setRoots(roots map[string][]root) {
 	for p, r := range roots {
-		if strings.Join(r, "\x00") != strings.Join(w.roots[p], "\x00") {
+		if !slices.Equal(r, w.roots[p]) {
 			w.last[p] = snapshot(r)
 		}
 	}
@@ -125,15 +153,15 @@ func same(a, b map[string]stamp) bool {
 
 // snapshot stamps every regular file under roots. A missing root holds
 // nothing, so creating it counts as a change.
-func snapshot(roots []string) map[string]stamp {
+func snapshot(roots []root) map[string]stamp {
 	out := map[string]stamp{}
 	for _, r := range roots {
-		_ = filepath.WalkDir(r, func(p string, d fs.DirEntry, err error) error {
+		_ = filepath.WalkDir(r.Path, func(p string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return nil //nolint:nilerr // a file removed during the walk is seen by the next poll
 			}
 			if d.IsDir() {
-				if p != r && strings.HasPrefix(d.Name(), ".") {
+				if r.skip(p, d.Name()) {
 					return filepath.SkipDir
 				}
 				return nil

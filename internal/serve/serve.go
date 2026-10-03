@@ -11,10 +11,12 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/open-platform-model/docs-kit/internal/build"
@@ -61,12 +63,19 @@ type server struct {
 	live   string
 	build  func(ctx context.Context, project string) error // builds into stage/<project>
 	report Report
+	// restart asks for hugo to start again (pages added or removed); nil
+	// in tests without hugo.
+	restart func()
 }
+
+// buildRun is build.Run; tests replace it.
+var buildRun = build.Run
 
 // Run builds the selected projects and serves them on the skeleton with
 // the host's hugo until ctx ends (nil) or hugo exits (an error). A first
-// build that fails returns a *BuildError; a rebuild that fails while
-// watching is reported and the last good bundle stays served.
+// build that fails returns a *BuildError, unless ctx ended during it; a
+// rebuild that fails while watching is reported and the last good bundle
+// stays served.
 func Run(ctx context.Context, o Options, report Report) error {
 	cfg, projects, err := build.Selected(o.Build)
 	if err != nil {
@@ -76,7 +85,7 @@ func Run(ctx context.Context, o Options, report Report) error {
 	if err != nil {
 		return err
 	}
-	tmp, err := os.MkdirTemp("", "opm-docs-serve-*")
+	tmp, err := makeTemp()
 	if err != nil {
 		return err
 	}
@@ -86,9 +95,12 @@ func Run(ctx context.Context, o Options, report Report) error {
 	var mounts []mount
 	for _, p := range projects {
 		if err := s.build(ctx, p); err != nil {
+			if ctx.Err() != nil {
+				return nil // stopped during the first build
+			}
 			return &BuildError{err}
 		}
-		if err := syncTree(filepath.Join(s.stage, p, bundle.ContentDir), filepath.Join(s.live, p, bundle.ContentDir)); err != nil {
+		if _, err := syncTree(filepath.Join(s.stage, p, bundle.ContentDir), filepath.Join(s.live, p, bundle.ContentDir)); err != nil {
 			return err
 		}
 		m, err := bundle.Read(filepath.Join(s.stage, p))
@@ -102,13 +114,22 @@ func Run(ctx context.Context, o Options, report Report) error {
 		return err
 	}
 	base := "http://" + Bind + ":" + strconv.Itoa(o.Port)
-	for i, p := range projects {
-		fmt.Fprintf(o.Stderr, "opm-docs serve: %s at %s%s\n", p, base, urlPath(mounts[i].Target))
+	ready := func() {
+		for i, p := range projects {
+			fmt.Fprintf(o.Stderr, "opm-docs serve: %s at %s%s\n", p, base, urlPath(mounts[i].Target))
+		}
+		fmt.Fprintf(o.Stderr, "opm-docs serve: watching the sources; Ctrl-C stops\n")
 	}
-	fmt.Fprintf(o.Stderr, "opm-docs serve: watching the sources; Ctrl-C stops\n")
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	restart := make(chan struct{}, 1)
+	s.restart = func() {
+		select {
+		case restart <- struct{}{}:
+		default:
+		}
+	}
 	w := newWatcher(roots(o.Build.Source, cfg, projects))
 	interval := o.Interval
 	if interval == 0 {
@@ -121,24 +142,105 @@ func Run(ctx context.Context, o Options, report Report) error {
 		defer close(done)
 		s.watch(ctx, ticker.C, w)
 	}()
-	cmd := exec.CommandContext(ctx, hugo, "server",
-		"--source", siteDir, "--bind", Bind, "--port", strconv.Itoa(o.Port), "--baseURL", base+"/", "--appendPort=false")
-	cmd.Stdout, cmd.Stderr = o.Stderr, o.Stderr
-	stopped, err := runChild(ctx, cmd)
+	err = s.hugo(ctx, hugo, siteDir, restart, ready)
 	cancel()
 	<-done
-	if stopped {
-		return nil
+	return err
+}
+
+// hugo runs `hugo server` until ctx ends (nil) or it exits on its own (an
+// error), starting it again on each restart: Hugo's own watcher follows
+// changed files, not a page added in a new directory or removed. ready
+// runs once, when the first hugo accepts connections.
+func (s *server) hugo(ctx context.Context, hugo, siteDir string, restart <-chan struct{}, ready func()) error {
+	addr := Bind + ":" + strconv.Itoa(s.o.Port)
+	first := true
+	for {
+		hctx, hcancel := context.WithCancel(ctx)
+		cmd := exec.CommandContext(hctx, hugo, "server",
+			"--source", siteDir, "--bind", Bind, "--port", strconv.Itoa(s.o.Port), "--baseURL", "http://"+addr+"/", "--appendPort=false", "--renderToMemory")
+		cmd.Env = withoutPrefix(os.Environ(), "HUGO_")
+		cmd.Stdout, cmd.Stderr = s.o.Stderr, s.o.Stderr
+		type result struct {
+			stopped bool
+			err     error
+		}
+		exited := make(chan result, 1)
+		go func() {
+			stopped, err := runChild(hctx, cmd)
+			exited <- result{stopped, err}
+		}()
+		if first {
+			first = false
+			go func() {
+				if serving(hctx, addr) {
+					ready()
+				}
+			}()
+		}
+		select {
+		case r := <-exited:
+			hcancel()
+			if ended(ctx) || r.stopped {
+				return nil
+			}
+			err := r.err
+			if err == nil {
+				err = errors.New("hugo server stopped")
+			}
+			return fmt.Errorf("%w; the preview is down (when the port is in use, pass another with --port)", err)
+		case <-ctx.Done():
+			hcancel()
+			<-exited
+			return nil
+		case <-restart:
+			hcancel()
+			<-exited
+			if ended(ctx) {
+				return nil
+			}
+			fmt.Fprintf(s.o.Stderr, "opm-docs serve: pages were added or removed; restarting hugo\n")
+		}
 	}
-	if err == nil {
-		err = errors.New("hugo server stopped")
+}
+
+// ended reports a context that is done: the author stopped serve.
+func ended(ctx context.Context) bool { return ctx.Err() != nil }
+
+// serving waits until addr accepts a connection (true), or ctx ends or a
+// minute passes (false).
+func serving(ctx context.Context, addr string) bool {
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	for ctx.Err() == nil {
+		c, err := (&net.Dialer{Timeout: time.Second}).DialContext(ctx, "tcp", addr)
+		if err == nil {
+			_ = c.Close()
+			return true
+		}
+		select {
+		case <-ctx.Done():
+		case <-time.After(100 * time.Millisecond):
+		}
 	}
-	return fmt.Errorf("%w; the preview is down (when the port is in use, pass another with --port)", err)
+	return false
+}
+
+// withoutPrefix drops every variable whose name starts with prefix: a
+// HUGO_* variable of the author's shell would reconfigure the skeleton.
+func withoutPrefix(env []string, prefix string) []string {
+	out := make([]string, 0, len(env))
+	for _, kv := range env {
+		if !strings.HasPrefix(kv, prefix) {
+			out = append(out, kv)
+		}
+	}
+	return out
 }
 
 // roots is every project's watch roots.
-func roots(source string, cfg *config.Config, projects []string) map[string][]string {
-	out := map[string][]string{}
+func roots(source string, cfg *config.Config, projects []string) map[string][]root {
+	out := map[string][]root{}
 	for _, p := range projects {
 		out[p] = watchRoots(source, cfg.Path, cfg.Bundles[p])
 	}
@@ -151,7 +253,7 @@ func (s *server) buildOne(ctx context.Context, project string) error {
 	o.Projects = []string{project}
 	o.Out = s.stage
 	o.Release, o.Revision, o.Patches, o.Check = "", 0, nil, false
-	_, err := build.Run(ctx, o)
+	_, err := buildRun(ctx, o)
 	return err
 }
 
@@ -179,7 +281,7 @@ func (s *server) watch(ctx context.Context, ticks <-chan time.Time, w *watcher) 
 		o := s.o.Build
 		o.Projects = nil
 		if cfg, _, err := build.Selected(o); err == nil {
-			r := map[string][]string{}
+			r := map[string][]root{}
 			for p := range w.roots {
 				if b, ok := cfg.Bundles[p]; ok {
 					r[p] = watchRoots(s.o.Build.Source, cfg.Path, b)
@@ -209,17 +311,22 @@ func (s *server) rebuild(ctx context.Context, project string) {
 		fmt.Fprintf(s.o.Stderr, "opm-docs serve: %s: the build failed; still serving the last good build\n", project)
 		return
 	}
-	if err := syncTree(filepath.Join(s.stage, project, bundle.ContentDir), filepath.Join(s.live, project, bundle.ContentDir)); err != nil {
-		fmt.Fprintf(s.o.Stderr, "opm-docs serve: %s: %v\n", project, err)
+	changed, err := syncTree(filepath.Join(s.stage, project, bundle.ContentDir), filepath.Join(s.live, project, bundle.ContentDir))
+	if err != nil {
+		fmt.Fprintf(s.o.Stderr, "opm-docs serve: %s: copying the build over the served pages failed, so they may be partial: %v; save a page to rebuild\n", project, err)
 		return
 	}
 	fmt.Fprintf(s.o.Stderr, "opm-docs serve: %s rebuilt\n", project)
+	if changed && s.restart != nil {
+		s.restart()
+	}
 }
 
 // syncTree makes dst hold exactly src's files: it writes each file whose
 // bytes differ and removes what src lacks, so only changed pages touch
-// Hugo's watcher.
-func syncTree(src, dst string) error {
+// Hugo's watcher. It reports whether a file was added or removed.
+func syncTree(src, dst string) (bool, error) {
+	setChanged := false
 	want := map[string]bool{}
 	err := filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -238,13 +345,17 @@ func syncTree(src, dst string) error {
 		if err != nil {
 			return err
 		}
-		if old, err := os.ReadFile(to); err == nil && bytes.Equal(old, b) {
+		old, err := os.ReadFile(to)
+		if err == nil && bytes.Equal(old, b) {
 			return nil
+		}
+		if err != nil {
+			setChanged = true
 		}
 		return os.WriteFile(to, b, 0o600) //nolint:gosec // to is a path of the served copy, under dst
 	})
 	if err != nil {
-		return err
+		return setChanged, err
 	}
 	var stale []string
 	err = filepath.WalkDir(dst, func(p string, _ fs.DirEntry, err error) error {
@@ -261,13 +372,14 @@ func syncTree(src, dst string) error {
 		return nil
 	})
 	if err != nil {
-		return err
+		return setChanged, err
 	}
 	// Deepest first, so a directory is removed after its files.
 	for i := len(stale) - 1; i >= 0; i-- {
+		setChanged = true
 		if err := os.RemoveAll(stale[i]); err != nil {
-			return err
+			return setChanged, err
 		}
 	}
-	return nil
+	return setChanged, nil
 }

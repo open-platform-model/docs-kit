@@ -32,6 +32,7 @@ func TestServeUsage(t *testing.T) {
 		{"version without site", []string{"serve", "--config", cfg, "--site-version", "v1.0"}, "--site-version v1.0 needs --site"},
 		{"docs bundle without --site-version", []string{"serve", "--config", cfg, "--site", t.TempDir()}, "cli is a docs bundle: pass --site-version"},
 		{"site without task", []string{"serve", "--config", cfg, "--site", t.TempDir(), "--site-version", "v1.0"}, "--site needs task"},
+		{"port with site", []string{"serve", "--config", cfg, "--site", t.TempDir(), "--port", "8080"}, "--port with --site"},
 		{"unknown project", []string{"serve", "--config", cfg, "--project", "core"}, "--project core"},
 	}
 	for _, c := range cases {

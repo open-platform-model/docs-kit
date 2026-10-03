@@ -93,6 +93,7 @@ func minHugo() string {
 // foreground process group) and up to ten seconds to stop. It reports
 // whether ctx ended, which callers treat as the author stopping serve.
 func runChild(ctx context.Context, cmd *exec.Cmd) (stopped bool, err error) {
+	dieWithParent(cmd)
 	cmd.Cancel = func() error { return cmd.Process.Signal(os.Interrupt) }
 	cmd.WaitDelay = 10 * time.Second
 	err = cmd.Run()

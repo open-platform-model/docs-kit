@@ -23,14 +23,15 @@ const siteConfig = docsConfig + `bundles: "catalog-x": {
 const catalogLanding = "---\ntitle: \"Catalog x\"\ndescription: \"The x catalog.\"\n---\n\nThe landing.\n"
 
 // fakeTask puts a task on PATH that logs each run as
-// "<args>|<dir>|<OPM_BUNDLES_LOCAL>|<every tree has a manifest>" and
+// "<args>|<dir>|<OPM_BUNDLES_LOCAL>|<every tree has a manifest>|
+// <OPM_BUNDLES_FROZEN and OPM_BUNDLES>" and
 // exits with status when its argument is fail.
 func fakeTask(t *testing.T, fail string) string {
 	t.Helper()
 	log := filepath.Join(t.TempDir(), "task.log")
 	p := fakeProgram(t, "task", `trees=yes
 for pair in $OPM_BUNDLES_LOCAL; do [ -f "${pair#*=}/manifest.json" ] || trees=no; done
-printf '%s|%s|%s|%s\n' "$*" "$PWD" "$OPM_BUNDLES_LOCAL" "$trees" >> "`+log+`"
+printf '%s|%s|%s|%s|%s\n' "$*" "$PWD" "$OPM_BUNDLES_LOCAL" "$trees" "$OPM_BUNDLES_FROZEN$OPM_BUNDLES" >> "`+log+`"
 [ "$1" = "`+fail+`" ] && exit 3
 exit 0
 `)
@@ -46,6 +47,7 @@ func siteRepo(t *testing.T) (r *gittest.Repo, siteDir string) {
 	r.Commit("docs")
 	siteDir = t.TempDir()
 	write(t, filepath.Join(siteDir, "Taskfile.yml"), "version: \"3\"\n")
+	write(t, filepath.Join(siteDir, "site", "bundles.cue"), "tabs: {}\n")
 	return r, siteDir
 }
 
@@ -59,6 +61,8 @@ func siteOptions(r *gittest.Repo, site, version string) Options {
 func TestRunSite(t *testing.T) {
 	log := fakeTask(t, "")
 	r, site := siteRepo(t)
+	t.Setenv("OPM_BUNDLES_FROZEN", "site/bundles.frozen.json")
+	t.Setenv("OPM_BUNDLES", "elsewhere")
 	if err := RunSite(context.Background(), siteOptions(r, site, "v1.0")); err != nil {
 		t.Fatal(err)
 	}
@@ -83,17 +87,23 @@ func TestRunSite(t *testing.T) {
 		if f[3] != "yes" {
 			t.Errorf("run %d: a named tree has no manifest.json", i)
 		}
+		if f[4] != "" {
+			t.Errorf("run %d: the author's OPM_BUNDLES_FROZEN or OPM_BUNDLES reached the site: %q", i, f[4])
+		}
 	}
 }
 
 func TestRunSiteRefuses(t *testing.T) {
 	r, site := siteRepo(t)
+	onlyTaskfile := t.TempDir()
+	write(t, filepath.Join(onlyTaskfile, "Taskfile.yml"), "version: \"3\"\n")
 	cases := []struct {
 		name, site, version, want string
 	}{
 		{"docs bundle without a site version", site, "", "pass --site-version"},
 		{"malformed site version", site, "1.0", "--site-version 1.0: a site version is v<MAJOR>.<MINOR>"},
 		{"no checkout", t.TempDir(), "v1.0", "no Taskfile.yml there"},
+		{"no bundles.cue", onlyTaskfile, "v1.0", "no site/bundles.cue there"},
 	}
 	fakeTask(t, "")
 	for _, c := range cases {
@@ -126,5 +136,22 @@ func TestRunSitePullFails(t *testing.T) {
 	b, _ := os.ReadFile(log)
 	if strings.Count(string(b), "\n") != 1 {
 		t.Fatalf("task serve ran after a failed pull:\n%s", b)
+	}
+}
+
+func TestRunSiteStoppedDuringBuild(t *testing.T) {
+	log := fakeTask(t, "")
+	r, site := siteRepo(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(func() { buildRun = build.Run })
+	buildRun = func(context.Context, build.Options) ([]build.Result, error) {
+		cancel()
+		return nil, errors.New("git: signal: interrupt")
+	}
+	if err := RunSite(ctx, siteOptions(r, site, "v1.0")); err != nil {
+		t.Fatalf("stopped during the build: %v", err)
+	}
+	if _, err := os.Stat(log); err == nil {
+		t.Fatal("task ran after the build was stopped")
 	}
 }

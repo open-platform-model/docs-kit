@@ -28,6 +28,9 @@ func newServeCmd() *cobra.Command {
 			if o.Port < 1 || o.Port > 65535 {
 				return usage("--port %d: a port is 1 to 65535", o.Port)
 			}
+			if o.Site != "" && cmd.Flags().Changed("port") {
+				return usage("--port with --site: the site's task serve picks its own port (SITE_PORT in the checkout)")
+			}
 			if o.SiteVersion != "" && o.Site == "" {
 				return usage("--site-version %s needs --site: the skeleton serves a docs bundle at /docs/ whatever its site version", o.SiteVersion)
 			}
@@ -46,7 +49,7 @@ func newServeCmd() *cobra.Command {
 	f.StringVar(&o.Build.Config, "config", "", "the config file (default: docs-kit.cue in --source, else in the current directory)")
 	f.StringSliceVar(&o.Build.Projects, "project", nil, "serve only this project (repeatable; default every project)")
 	f.StringVar(&o.Build.Source, "source", ".", "the source tree")
-	f.IntVar(&o.Port, "port", 1313, "the preview's port on 127.0.0.1 (ignored with --site)")
+	f.IntVar(&o.Port, "port", 1313, "the preview's port on 127.0.0.1 (not with --site)")
 	f.StringVar(&o.Site, "site", "", "an opmodel.dev checkout: preview through its own task bundles:pull and task serve")
 	f.StringVar(&o.SiteVersion, "site-version", "", "with --site: the site version a docs bundle previews in, such as v1.0")
 	return cmd

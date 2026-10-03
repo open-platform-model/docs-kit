@@ -72,10 +72,12 @@ jobs:
 
   # opm-docs serve against a real Hugo: the version and checksum opmodel.dev
   # pins in site/Dockerfile, so the preview runs on the Hugo the site builds
-  # with. task check skips this test without hugo on PATH.
+  # with. task check skips these tests without hugo on PATH; here a missing
+  # hugo fails them, and the grep proves each one ran rather than skipped.
   serve-hugo:
     name: serve with hugo
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       HUGO_VERSION: 0.167.0
       HUGO_SHA256: 4d84519b9f619e6d4c3fb45a50157abeabeb724f859c60605f44c23def6e1169
@@ -93,10 +95,13 @@ jobs:
           mkdir -p "$RUNNER_TEMP/hugo"
           tar -xzf "$RUNNER_TEMP/hugo.tgz" -C "$RUNNER_TEMP/hugo" hugo
           echo "$RUNNER_TEMP/hugo" >> "$GITHUB_PATH"
-      - name: TestServeWithHugo
+      - name: TestServeWithHugo and TestServeSignals
         env:
           OPM_DOCS_REQUIRE_HUGO: "1"
-        run: go test -count=1 -race -run '^TestServeWithHugo$' -v ./internal/serve/
+        run: |
+          go test -count=1 -race -run '^(TestServeWithHugo|TestServeSignals)$' -v ./internal/serve/ ./cmd/opm-docs/ | tee "$RUNNER_TEMP/serve.log"
+          grep -q -- '--- PASS: TestServeWithHugo' "$RUNNER_TEMP/serve.log"
+          grep -q -- '--- PASS: TestServeSignals' "$RUNNER_TEMP/serve.log"
 
   actionlint:
     name: actionlint
