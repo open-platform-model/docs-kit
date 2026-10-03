@@ -22,24 +22,46 @@ const (
 	cmdrefEnd   = "\n<!-- end generated -->\n"
 )
 
-// TestCLICommandParity renders a cli checkout's command tree, printed by
-// its hack/docskit-dump program, with the cli's planned config, and
-// compares every page with the one cmdref committed under
-// docs/site/reference/cli/. It runs only when OPM_CLI_CHECKOUT names such a
-// checkout.
+// TestCLICommandParity renders the cli's command tree as its hack/docskit-dump
+// program printed it at cli commit ebf0479b (testdata/cli/dump.json) with
+// the cli's planned config, and compares every page with the one cmdref
+// committed at that commit (testdata/cli/reference/cli/).
 func TestCLICommandParity(t *testing.T) {
+	dump, err := os.ReadFile(filepath.Join("testdata", "cli", "dump.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	compareWithCmdref(t, dump, filepath.Join("testdata", "cli"))
+}
+
+// TestCLICommandParityLive does the same against a live cli checkout named
+// by OPM_CLI_CHECKOUT, running its hack/docskit-dump program twice (C14).
+// It skips when the variable is unset or the checkout has no hook or no
+// committed reference.
+func TestCLICommandParityLive(t *testing.T) {
 	cli := os.Getenv("OPM_CLI_CHECKOUT")
 	if cli == "" {
 		t.Skip("OPM_CLI_CHECKOUT is not set")
 	}
-	if _, err := os.Stat(filepath.Join(cli, "hack", "docskit-dump")); err != nil {
-		t.Skipf("%s has no hack/docskit-dump", cli)
+	site := filepath.Join(cli, "docs", "site")
+	for _, need := range []string{filepath.Join(cli, "hack", "docskit-dump"), filepath.Join(site, "reference", "cli")} {
+		if _, err := os.Stat(need); err != nil {
+			t.Skipf("%s has no %s", cli, need)
+		}
 	}
 	run := &command.Runner{Dir: cli, Project: "cli", Version: "edge", Twice: true}
 	dump, err := run.Run(context.Background(), []string{"go", "run", "./hack/docskit-dump"}, cobra.DumpSchema)
 	if err != nil {
 		t.Fatal(err)
 	}
+	compareWithCmdref(t, dump, site)
+}
+
+// compareWithCmdref renders dump and compares each page with cmdref's page
+// of the same path under site, its marker comments removed, and the page
+// sets with each other.
+func compareWithCmdref(t *testing.T, dump []byte, site string) {
+	t.Helper()
 	m, err := cobra.FromDump(dump, cobra.Options{
 		Section: "reference/cli/", Title: "CLI Reference",
 		Description: "Every opm command and flag, generated from the CLI's cobra commands.",
@@ -56,7 +78,7 @@ func TestCLICommandParity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ref := filepath.Join(cli, "docs", "site", "reference", "cli")
+	ref := filepath.Join(site, "reference", "cli")
 	var want []string
 	entries, err := os.ReadDir(ref)
 	if err != nil {
@@ -68,10 +90,10 @@ func TestCLICommandParity(t *testing.T) {
 			want = append(want, "reference/cli/"+e.Name())
 		}
 	}
-	var got []string
+	got := make([]string, 0, len(pages))
 	for _, p := range pages {
 		got = append(got, p.Path)
-		committed, err := os.ReadFile(filepath.Join(cli, "docs", "site", filepath.FromSlash(p.Path)))
+		committed, err := os.ReadFile(filepath.Join(site, filepath.FromSlash(p.Path)))
 		if err != nil {
 			t.Errorf("%s: cmdref wrote no such page", p.Path)
 			continue
