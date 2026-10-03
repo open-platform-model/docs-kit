@@ -261,16 +261,10 @@ func (x *extraction) line(file, l string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		ts := textStart(l, i, code)
-		if title != "" && ts >= last && plain(l[ts+1:i]) == path.Base(strings.SplitN(strings.SplitN(dest, "#", 2)[0], "?", 2)[0]) {
-			b.WriteString(escapeHTML(l[last:ts+1], 0))
-			b.WriteString(mdtext.Text(title))
-		} else {
-			b.WriteString(escapeHTML(l[last:i], 0))
-		}
+		x.writeText(&b, l, last, i, code, title, dest)
 		b.WriteString("](")
-		if angled && u == dest {
-			u = "<" + u + ">"
+		if angled && (u == dest || strings.ContainsAny(u, " \t")) {
+			u = "<" + u + ">" // a destination with a blank needs its brackets
 		}
 		b.WriteString(u)
 		last = de
@@ -281,6 +275,19 @@ func (x *extraction) line(file, l string) (string, error) {
 	}
 	b.WriteString(escapeHTML(l[last:], 0))
 	return b.String(), nil
+}
+
+// writeText writes l[last:end], the text before a link's "](" at end:
+// a link text that is its target's file name (dest's base) becomes the
+// target page's title when the target is a page; raw HTML is escaped.
+func (x *extraction) writeText(b *strings.Builder, l string, last, end int, code []bool, title, dest string) {
+	ts := textStart(l, end, code)
+	if title != "" && ts >= last && plain(l[ts+1:end]) == path.Base(strings.SplitN(strings.SplitN(dest, "#", 2)[0], "?", 2)[0]) {
+		b.WriteString(escapeHTML(l[last:ts+1], 0))
+		b.WriteString(mdtext.Text(title))
+		return
+	}
+	b.WriteString(escapeHTML(l[last:end], 0))
 }
 
 // refDef resolves a reference definition's destination, l[start:end],

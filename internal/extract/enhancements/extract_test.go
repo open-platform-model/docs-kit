@@ -243,6 +243,7 @@ func TestClean(t *testing.T) {
 		{"other text", "[the decisions](03-decisions.md)\n", "[the decisions](/enhancements/0025/decisions/)\n"},
 		{"angle destination", "[x](<03-decisions.md>)\n", "[x](/enhancements/0025/decisions/)\n"},
 		{"angle external", "[x](<https://a.example/b c>)\n", "[x](<https://a.example/b c>)\n"},
+		{"angle fragment with a blank", "[x](<03-decisions.md#a b>)\n", "[x](</enhancements/0025/decisions/#a b>)\n"},
 		{"entry directory", "[0025](./)\n", "[0025](/enhancements/0025/)\n"},
 		{"root", "[all](../)\n", "[all](/enhancements/)\n"},
 		{"github file", "[s](schemas/target.cue#L1)\n", "[s](https://github.com/open-platform-model/enhancements/blob/" + testCommit + "/0025/schemas/target.cue#L1)\n"},
