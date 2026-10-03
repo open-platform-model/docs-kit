@@ -4,7 +4,7 @@ Builds each Open Platform Model repository's documentation into a versioned, sig
 
 It holds one Go program, `opm-docs`, and the reusable workflow that runs it, `.github/workflows/publish.yml`. [DESIGN.md](DESIGN.md) is the design; [docs/contracts.md](docs/contracts.md) fixes everything another repository reads (the bundle format, tags, the workflow interface, `docs-kit.cue`, the pull config and lock, the signing identity, the doc model and the page dialect).
 
-Status: phase 1 is built, and phase 2's shared ground. `opm-docs` builds the opm catalog's reference from a CUE catalog module (`cue-catalog`) plus a directory of authored pages (`markdown`), publishes it as a signed bundle, pulls bundles for the site, and builds docs revisions of published releases. It also builds bundles placed in a site version's `/docs/` tree, runs repository commands and records the versions a bundle pins; the extractors that use them come in their own changes.
+Status: phase 1 is built, and phase 2's shared ground. `opm-docs` builds the opm catalog's reference from a CUE catalog module (`cue-catalog`) plus a directory of authored pages (`markdown`), publishes it as a signed bundle, pulls bundles for the site, and builds docs revisions of published releases. It also builds bundles placed in a site version's `/docs/` tree, runs repository commands, records the versions a bundle pins and pulls each site version's docs bundles from the anchor's pins; the extractors that use them come in their own changes.
 
 ## Source kinds
 
@@ -62,11 +62,13 @@ The caller passes `setup-go: true` to `publish.yml`, so `go run` works in the bu
 | `lint` | `--bundle`, `--dialect` (`1`) | Lint page directories (or bundle directories) against the page dialect. |
 | `push` | `--dir` (required), `--registry` (`ghcr.io/open-platform-model/docs`) | Pack deterministically and push under the full tag (by digest for edge); print `{"digest","tag"}`. |
 | `promote` | `--project`, `--digest` (required), `--registry` | Verify the digest's signature, then move the moving tags of its line. Runs in GitHub Actions (`GITHUB_REPOSITORY`). |
-| `pull` | `--config` (`bundles.cue`), `--out` (`.bundles`), `--lock` (`<out>/lock.json`), `--frozen <lock>`, `--offline`, `--local <project>@<segment>=<dir>` (repeatable) | Resolve, verify, unpack, lint and lock the bundles the site shows; write each tab's version history to `<out>/<project>/history.json` (docs/contracts.md C13). |
+| `pull` | `--config` (`bundles.cue`), `--out` (`.bundles`), `--lock` (`<out>/lock.json`), `--frozen <lock>`, `--offline`, `--local <project>@<segment>=<dir>` (repeatable; the segment a tab's `MAJOR.MINOR` or `edge`, or a site version `v<MAJOR>.<MINOR>`) | Resolve, verify, unpack, lint and lock the bundles the site shows; write each tab's version history to `<out>/<project>/history.json` (docs/contracts.md C13); pull each site version's docs bundles into `<out>/_versions/<site-version>/<project>/` (C16). |
 | `revise` | `--project`, `--tag`, `--fix` (required), `--out` (`out`), `--registry`, `--config` (default `docs-kit.cue` in the release tree, else the current directory) | Build the next docs revision of a published release with a documentation fix from `main` into `out/<project>/`; push nothing ([docs revisions](docs/contracts.md#docs-revisions)). |
 | `version` | | Print `opm-docs <version>`. |
 
 A local preview needs no registry: `opm-docs build` in the source repository, then point the site at the output with `opm-docs pull --local catalog-opm@edge=<repo>/out/catalog-opm`.
+
+**Site versions.** A site version's `/docs/` comes from docs bundles chosen by `bundles.cue` `versions` (docs/contracts.md C16): an anchor bundle (the cli at a tag such as `1.0`), the projects pulled at the exact versions the anchor's `manifest.json` `pins` names (through each release's tag, so docs revisions follow), and projects pulled by their own tag. A version is replaced whole or not at all: its bundles must not serve one URL twice or put a page under another bundle's owned path. `--local cli@v1.0=<cli>/out/cli` previews a cli tree with the releases it pins.
 
 ## Installing
 

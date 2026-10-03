@@ -460,11 +460,30 @@ package schema
 		from: =~"^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" // the oldest minor shown
 		edge: *true | bool
 	}
-	// Phase 2 adds `versions:` for bundles placed in a site version's /docs/.
+	// Projects that may be placed in a site version's /docs/, each with the
+	// only repository allowed to sign it.
+	docs: [#Project]: {
+		repo: =~"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+	}
+	versions: [#SiteVersion]: {
+		// The bundle that chooses the others: its manifest's pins.
+		anchor: {project: #Project, tag: #DocsTag}
+		// Pulled at the exact version the anchor's manifest.json pins.
+		pinned: *[] | [...#Project]
+		// Pulled by their own tag, not by a pin.
+		tags: [#Project]: #DocsTag
+	}
 }
+
+// A site version: "v1.0".
+#SiteVersion: =~"^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+
+// A minor tag ("1.0"), a major tag ("4"), an exact release ("2.0.0-beta.1")
+// or "edge".
+#DocsTag: =~"^((0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))?|edge)$" | #SemVer
 ```
 
-The file opmodel.dev writes:
+The file opmodel.dev writes for its tabs (its site versions, `docs` and `versions`, are C16's):
 
 ```cue
 tabs: {
@@ -479,10 +498,12 @@ opm-docs pull --config site/bundles.cue --out site/.bundles --lock site/.bundles
               [--frozen <lock>] [--offline] [--local <project>@<segment>=<dir>]...
 ```
 
+Everything below is about tabs; a site version's docs bundles follow C16, which states where it differs.
+
 - Default: list each tab's tags (C4), resolve, verify (C9), fetch the layer **by digest** after verification, unpack, lint, write the lock.
 - `--frozen <lock>`: pull exactly the digests in that lock, no tag resolution; verification and lint still run. The recovery path, as `frozen.conf` is for site versions.
 - `--offline`: no network; requires `--frozen` and every blob in the cache. Fails naming the first missing digest.
-- `--local <project>@<segment>=<dir>`, repeatable: take that segment of that project from a local bundle tree (an `opm-docs build` output or a test fixture) instead of the registry, e.g. `--local catalog-opm@4.4=fixtures/catalog-opm/4.4 --local catalog-opm@4.5=... --local catalog-opm@edge=...`. The segment must equal the one the tree's `manifest.json` implies (`MAJOR.MINOR` of its version, or `edge`), and the project must be a tab in the config. A local entry is unsigned: `pull` skips signature verification and never fetches the Sigstore trusted root for it, but still validates the manifest, applies the unpack guards and lints it in bundle mode. When `--local` names a project, registry resolution is skipped for that whole project, so a pull whose every tab is local needs no network at all. Each local entry is marked `"local": true` in the lock. For an author's preview and the site's tests; a publishing CI build never passes it.
+- `--local <project>@<segment>=<dir>`, repeatable: take that segment of that project from a local bundle tree (an `opm-docs build` output or a test fixture) instead of the registry, e.g. `--local catalog-opm@4.4=fixtures/catalog-opm/4.4 --local catalog-opm@4.5=... --local catalog-opm@edge=...`. The segment must equal the one the tree's `manifest.json` implies (`MAJOR.MINOR` of its version, or `edge`), and the project must be a tab in the config (a segment `v<MAJOR>.<MINOR>` names a site version instead, C16). A local entry is unsigned: `pull` skips signature verification and never fetches the Sigstore trusted root for it, but still validates the manifest, applies the unpack guards and lints it in bundle mode. When `--local` names a project, registry resolution is skipped for that whole project, so a pull whose every tab is local needs no network at all. Each local entry is marked `"local": true` in the lock. For an author's preview and the site's tests; a publishing CI build never passes it.
 - Cache: blobs under `$XDG_CACHE_HOME/opm-docs/blobs/sha256/<hex>` (else `~/.cache/...`), reused by digest. The Sigstore trusted root is cached beside it.
 
 Edge cases:
@@ -494,7 +515,7 @@ Edge cases:
 - **`--offline` and the trusted root:** offline, `pull` uses the cached trusted root as it is and never refreshes it. When the cached TUF metadata has expired it warns and still verifies, because each signature is checked against the key validity window at its own timestamp, which an expired cache does not change. With no cached root at all, `--offline` fails.
 - **Compressed size:** a layer descriptor larger than 32 MiB is refused before any byte is fetched; the 64 MiB uncompressed cap applies during unpacking. `push` refuses a bundle over the same limits (32 MiB packed, 10,000 entries, 64 MiB of files) before it writes anything, so no publish produces a bundle every pull refuses (added in review, 2026-10-02).
 
-Unpack layout, owned entirely by `pull` (it removes any project or segment directory it did not write this run). Each bundle unpacks and lints in `<out>/<project>/.incoming-<segment>/` and replaces its segment only after both pass, so a refused bundle leaves the previous segment in place (added in review, 2026-10-02). Since C13, no segment is swapped in until every bundle, every tab's history and the lock have passed: a refusal at any of them leaves the previous trees, `history.json` files and lock as they were:
+Unpack layout, owned entirely by `pull` (it removes any project or segment directory it did not write this run; `<out>/_versions/` holds the site versions, C16, and is swept by their rules). Each bundle unpacks and lints in `<out>/<project>/.incoming-<segment>/` and replaces its segment only after both pass, so a refused bundle leaves the previous segment in place (added in review, 2026-10-02). Since C13, no segment is swapped in until every bundle, every tab's history and the lock have passed: a refusal at any of them leaves the previous trees, `history.json` files and lock as they were:
 
 ```text
 site/.bundles/
@@ -504,6 +525,7 @@ site/.bundles/
     4.4/      manifest.json  content/  data/
     4.5/      ...
     edge/     ...
+  _versions/  (C16)
 ```
 
 `<out>/<project>/history.json` is the tab's version history (C13), written after the sweep and before the lock for every tab with two or more segments holding `data/catalog.json`, and removed from a tab with fewer. The sweep never removes it.
@@ -521,6 +543,7 @@ package schema
 	config: =~"^sha256:[0-9a-f]{64}$" // SHA-256 of the bundles.cue bytes
 	bundles: [...#Locked]
 	history?: [...{project: #Project, digest: =~"^sha256:[0-9a-f]{64}$", path: =~"^[a-z0-9]+(-[a-z0-9]+)*/history\\.json$"}] // path relative to the lock's directory
+	docs?: [...#DocsLocked] // the bundles of each site version; left out when the config has no versions
 }
 
 #Locked: #Pulled | #Local
@@ -559,9 +582,48 @@ package schema
 }
 
 #Segment: =~"^((0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)|edge)$"
+
+#DocsLocked: #DocsPulled | #DocsLocal
+
+#DocsRole: "anchor" | "pinned" | "tag"
+
+#DocsPulled: {
+	site:       #SiteVersion
+	project:    #Project
+	role:       #DocsRole
+	tag:        #DocsTag      // the tag resolved: "1.0", "2.0.0-beta.1", "4", "edge"
+	repository: string & !="" // "ghcr.io/open-platform-model/docs/cli"
+	digest:     =~"^sha256:[0-9a-f]{64}$"
+	version:    #Version
+	revision:   int & >=0
+	commit:     #SHA
+	dialect:    int & >=1
+	builtBy:    #SemVer
+	signer: {
+		workflow:   string & !=""
+		repository: string & !=""
+		ref:        "refs/heads/main"
+	}
+	pins?: [#Project]: #SemVer // the anchor only: its manifest's pins as read
+	dir: string & !="" // "_versions/v1.0/cli", relative to the lock's directory
+}
+
+#DocsLocal: {
+	site:     #SiteVersion
+	project:  #Project
+	role:     #DocsRole
+	local:    true
+	version:  #Version
+	revision: int & >=0
+	commit:   #SHA
+	dialect:  int & >=1
+	builtBy:  #SemVer
+	pins?: [#Project]: #SemVer
+	dir: string & !=""
+}
 ```
 
-Serialization (so two pulls of one resolution compare byte for byte): JSON, two-space indent, a trailing newline, no timestamps; entries sorted by `project`, then `segment` (minors by numeric MAJOR then MINOR, ascending, `edge` last); keys in exactly the order the schema lists them (top level `schema`, `tool`, `config`, `bundles`, then `history` when present; a pulled entry `project`, `root`, `segment`, `tag`, `repository`, `digest`, `version`, `revision`, `commit`, `dialect`, `builtBy`, `signer` with `workflow`, `repository`, `ref`, then `dir`; a local entry `project`, `root`, `segment`, `local`, `version`, `revision`, `commit`, `dialect`, `builtBy`, `dir`). A local entry omits `tag`, `repository`, `digest` and `signer`. Example:
+Serialization (so two pulls of one resolution compare byte for byte): JSON, two-space indent, a trailing newline, no timestamps; entries sorted by `project`, then `segment` (minors by numeric MAJOR then MINOR, ascending, `edge` last); keys in exactly the order the schema lists them (top level `schema`, `tool`, `config`, `bundles`, then `history` and `docs` (C16) when present; a pulled entry `project`, `root`, `segment`, `tag`, `repository`, `digest`, `version`, `revision`, `commit`, `dialect`, `builtBy`, `signer` with `workflow`, `repository`, `ref`, then `dir`; a local entry `project`, `root`, `segment`, `local`, `version`, `revision`, `commit`, `dialect`, `builtBy`, `dir`). A local entry omits `tag`, `repository`, `digest` and `signer`. Example:
 
 ```json
 {
@@ -777,7 +839,7 @@ Callers and the site never `go run` or `go install` `opm-docs`: every consumer r
 - **Assets.** Every docs-kit release `vX.Y.Z` carries `opm-docs_X.Y.Z_<os>_<arch>.tar.gz` for `linux_amd64`, `linux_arm64`, `darwin_arm64` and `darwin_amd64` (each holding the `opm-docs` binary and `LICENSE`, the Apache-2.0 text at docs-kit's root; the org adopted Apache-2.0 on 2026-10-02), and `checksums.txt` (SHA-256, `sha256sum` format, one line per archive). Built by goreleaser in a draft-first release workflow, the pattern cli already uses. URL: `https://github.com/open-platform-model/docs-kit/releases/download/vX.Y.Z/<asset>`.
 - **Pinned in a build image**. A consumer may instead pin the `linux_amd64` archive by its SHA-256 in its own build image (opmodel.dev does this in `site/Dockerfile`, as it pins Hugo and Pagefind) and run `opm-docs` inside that image, with network on for the `pull` step only. The SHA-256 it pins is the archive's line in that release's `checksums.txt`. docs-kit therefore keeps shipping the `linux_amd64` archive and `checksums.txt` in every release, under the names above.
 - **Pin file.** A caller of `publish.yml`, and any consumer that runs the tool on the host (catalog_opm for its local `docs:bundle` tasks; opmodel.dev only if it does not use the image pattern), pins it in a repo-root file `.opm-docs-version`: one line, the release tag (`v0.1.0`), matching `^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$`. `publish.yml` reads the same file (C5), so every caller of `publish.yml` has one; its tag and the `publish.yml@` ref name the same release and move in one PR.
-- **The site bumps first** (since `generalize-build-assembly`). `#Manifest` is closed, so an `opm-docs` older than a manifest field refuses a bundle that carries it (`placement.owns` and `pins` came with `generalize-build-assembly`, `pages[].edit` with `add-authored-docs`; later changes add more). **opmodel.dev's pinned `opm-docs` is never older than any producer's `.opm-docs-version`.** A docs-kit release reaches the site first (its `site/Dockerfile` bump); only then may a producer move its `.opm-docs-version` and `publish.yml@` ref to it. `docs/orchestration.md` orders every bump that way.
+- **The site bumps first** (since `generalize-build-assembly`). `#Manifest` is closed, so an `opm-docs` older than a manifest field refuses a bundle that carries it (`placement.owns` and `pins` came with `generalize-build-assembly`, `pages[].edit` with `add-authored-docs`; later changes add more). `#Pull` and `#Lock` are closed too: the site writes `docs` and `versions` (C16) into `bundles.cue` only once its pinned `opm-docs` reads them. **opmodel.dev's pinned `opm-docs` is never older than any producer's `.opm-docs-version`.** A docs-kit release reaches the site first (its `site/Dockerfile` bump); only then may a producer move its `.opm-docs-version` and `publish.yml@` ref to it. `docs/orchestration.md` orders every bump that way.
 - **`cobradump`, the second component.** The nested Go module `github.com/open-platform-model/docs-kit/cobradump` (C19) releases on its own through release-please, from its own release PR (`separate-pull-requests`), tagged `cobradump/vX.Y.Z` (from `0.1.0`), the form the Go module proxy needs for a nested module. Its release is published at once and carries no assets: a CLI requires it by module version, and the proxy serves it from the tag. A commit under `cobradump/` releases only `cobradump` (the root package excludes that path) and takes the commit scope `cobradump`; goreleaser runs only for an `opm-docs` release, and `release.yml` marks a `cobradump` release not Latest (`gh release edit --latest=false`), so the Latest release is always `opm-docs`'. A `cobradump/` tag never matches the signer glob `refs/tags/v[0-9]*` (C9), so it can never act as a trusted `publish.yml` ref. The tag rulesets cover `cobradump/v*` as they cover `v*`.
 - **Verification.** Download the archive and `checksums.txt` for the host's os and arch, check with `grep ' <archive>$' checksums.txt | sha256sum -c -` (refusing an archive with no line), then extract only `opm-docs`. A failed check stops the task; nothing falls back to building from source. The install target is a gitignored repo-local directory (`.bin/` or `site/.bin/`), never a global path.
 
@@ -968,6 +1030,98 @@ bundles: opm: {
 
 **Pins** (DESIGN decision 10). When a bundle's config has `pins: {command, projects}`, `build` runs the command (C14) and requires a `docs.opmodel.dev/pins/v1` document whose `pins` keys are exactly `projects` and whose values are SemVer versions without `v` (C3's `#SemVer`); it writes them to `manifest.json` `pins`. A missing or extra project, or a malformed version, exits `2` naming it and the command. A backfilled release (config from outside the tree) whose tree cannot run the command fails: pins are a contract, never guessed.
 
+## C16. Site versions
+
+A site version (`v1.0`) shows, in its `/docs/` tree, the docs bundles (C15) of the cli release it follows and of the exact versions that release pins (DESIGN decisions 9 and 10). `opm-docs pull` resolves them from `bundles.cue` (C7's `#Pull`, keys `docs` and `versions`); the site never works out a pin itself.
+
+**Config.** `docs` names every project that may be placed in a site version's `/docs/`, each with the only repository allowed to sign it (C9's Source Repository URI). `versions` maps a site version to its `anchor` (a project and a tag), the `pinned` projects and the projects pulled by their own `tags`. A tag is a minor tag (`1.0`), a major tag (`4`), an exact release (`2.0.0-beta.1`) or `edge`. opmodel.dev's file once v1.0 reads bundles:
+
+```cue
+docs: {
+	cli:            {repo: "open-platform-model/cli"}
+	core:           {repo: "open-platform-model/core"}
+	library:        {repo: "open-platform-model/library"}
+	"opm-operator": {repo: "open-platform-model/opm-operator"}
+}
+versions: "v1.0": {
+	anchor: {project: "cli", tag: "1.0"}
+	pinned: ["library", "core", "opm-operator"]
+}
+```
+
+`docs` without `versions` is valid and pulls nothing for it. Phase 3 adds `opm` and `catalog-opm-docs` under `docs` and, for v1.0, `tags: {opm: "1.0", "catalog-opm-docs": "4"}`. Before any network call `pull` exits `1`, naming the version and the project, when a version names a project that is not a key of `docs`, names one project twice (in any two of `anchor`, `pinned`, `tags`), or a project is both a tab and a docs project.
+
+**Resolution**, per site version, in version order:
+
+1. **Anchor.** Resolve `anchor.tag` in `<registry>/<project>`, verify (C9 with `docs[project].repo`), fetch by digest, unpack, lint in bundle mode. The resolved build must be in the tag's line (C4): an edge build for `edge`, a build of that MAJOR.MINOR for a minor tag, of that MAJOR for a major tag, of exactly that version for a release tag.
+2. **Pins.** Each `pinned` project resolves at the tag equal to the anchor's `manifest.json` `pins` entry for it: the release tag, which C4 moves to the newest revision of that release, so docs revisions follow with no config change. The resolved build's version must equal the pin. A pinned project the anchor does not pin exits `2` ("v1.0: cli 1.0.0-beta.6 (sha256:...) pins no version of core; ..."); a pin whose release tag does not exist exits `2` ("v1.0: cli 1.0.0-beta.6 pins core 2.0.0-beta.1, and ghcr.io/open-platform-model/docs/core has no bundle for it (or the package is not public); publish it: run core's docs workflow in release mode for its 2.0.0-beta.1 release"). A registry that denies the anonymous pull (401 or 403, GHCR's answer for a package that does not exist yet or is private) counts as a missing tag.
+3. **Own tags.** Each `tags` project resolves like the anchor, at its own tag.
+
+Every bundle of a site version must be `placement.kind: "docs"` and its own project, else exit `2` naming both. Edge has no special case: an anchor at `edge` pins exact releases like any other build. A missing anchor or `tags` tag exits `2` naming the repository and the tag.
+
+**Layout and replacement.**
+
+```text
+<out>/
+  lock.json
+  catalog-opm/4.5/ ...                    tabs (C7)
+  _versions/
+    v1.0/
+      cli/           manifest.json  content/  data/
+      core/          ...
+      library/       ...
+      opm-operator/  ...
+```
+
+`_versions` cannot collide with a project (C1 names have no `_`). Every bundle of site version `v` unpacks and lints in `<out>/_versions/.incoming-<v>/<project>/`; the checks below run over that set; only once every site version, every tab, every history and the lock have passed is each `<v>` replaced whole (the previous tree moves aside to `.outgoing-<v>`, the new one takes its place, then the previous one is removed), so a refusal leaves the previous `<out>/_versions/<v>/` and the previous lock as they were. The sweep removes every entry of `_versions/` that this run did not write, and `_versions/` itself when the config has no `versions`.
+
+**Checks across one site version** (exit `2`, naming the version, the path and both projects with their versions), in this order:
+
+- two owned paths that nest, one equal to or under the other ("v1.0: cli 1.0.0 owns reference/cli/ and core 2.0.0 owns reference/; ...");
+- a page under a path another bundle owns ("v1.0: core 2.0.0-beta.1 has reference/cli/x.md, under reference/cli/, which cli 1.0.0-beta.6 owns; ...");
+- pages that serve one URL: one `content/` path in two bundles ("v1.0: reference/_index.md is in both cli 1.0.0-beta.6 and core 2.0.0-beta.1; ..."), or two paths Hugo serves at one URL ("v1.0: guides/cli.md in cli 1.0.0 and guides/cli/_index.md in core 2.0.0 serve one URL, /docs/guides/cli/; ...").
+
+Every check compares by the URL Hugo serves: `.md` dropped, then a trailing `_index` or `index` (`cli.md`, `cli/_index.md` and `cli/index.md` are one page); an owned page `x.md` holds everything under `x/`, as an owned directory `x/` does.
+
+Links across bundles are not checked here; the site's post-build link check covers them (C15).
+
+**Lock.** `#Lock` (C7) carries the optional `docs` list, `#DocsLocked`, one entry per docs bundle: keys in the order the schema lists them (a pulled entry `site`, `project`, `role`, `tag`, `repository`, `digest`, `version`, `revision`, `commit`, `dialect`, `builtBy`, `signer` with `workflow`, `repository`, `ref`, `pins`, `dir`; a local entry `site`, `project`, `role`, `local`, `version`, `revision`, `commit`, `dialect`, `builtBy`, `pins`, `dir`), `pins` only on an anchor that has them (as its manifest holds them, keys sorted), `dir` relative to the lock's directory (`_versions/v1.0/cli`). Entries sort by site version (numeric MAJOR, then MINOR), then role (`anchor`, `pinned`, `tag`), then project. The key is left out when the config has no `versions`; the schema id stays `lock/v1`. Example entry:
+
+```json
+{
+  "site": "v1.0",
+  "project": "cli",
+  "role": "anchor",
+  "tag": "1.0",
+  "repository": "ghcr.io/open-platform-model/docs/cli",
+  "digest": "sha256:<64 hex>",
+  "version": "1.0.0-beta.6",
+  "revision": 0,
+  "commit": "<40 hex>",
+  "dialect": 1,
+  "builtBy": "0.4.0",
+  "signer": {
+    "workflow": "https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml@refs/tags/v0.4.0",
+    "repository": "https://github.com/open-platform-model/cli",
+    "ref": "refs/heads/main"
+  },
+  "pins": {
+    "core": "2.0.0-beta.1",
+    "library": "1.0.0-beta.1",
+    "opm-operator": "1.0.0-beta.4"
+  },
+  "dir": "_versions/v1.0/cli"
+}
+```
+
+**`--local <project>@v<MAJOR>.<MINOR>=<dir>`** (a segment starting with `v` names a site version; `<MAJOR>.<MINOR>` and `edge` stay tab segments, C7): that project of that site version comes from the tree, with no signature and no Sigstore trusted root, and every other check (manifest, placement, guards, lint, the cross-bundle checks). Its version is not checked against a tag's line, so an author's edge build previews as the anchor. A local anchor's pins choose the pinned projects, each local or pulled; a local pinned tree whose version differs from its pin exits `1` naming both. A `--local` naming a site version the config lacks, a project that version does not pull, or one pair twice exits `1`. A pull whose every tab segment and every site-version project is local needs no network. Each local entry is `"local": true` in the lock.
+
+**`--frozen <lock>`**: each configured project of each site version is fetched by the digest its `docs` entry names, verified and linted again; no tag is resolved. A lock that does not fit exits `1`: an entry whose site version, project or role is not the config's, whose `repository` is not `<registry>/<project>`, whose anchor or `tags` tag differs from the config's, a pinned entry whose version or tag differs from the locked anchor's `pins`, a local entry (re-run with `--local`), one site version and project locked twice, or a configured project the lock does not name and no `--local` supplies. These are checked before any network call. **`--offline`** with `--frozen` uses the cache only, as C7.
+
+**Exit codes**, as C7: `1` for the config checks above, a bad `--local` and a frozen lock that does not fit; `2` for resolution, signature, placement, lint and cross-bundle failures.
+
+**Consumers.** opmodel.dev (`pull-reference-bundles`) writes `docs` and `versions`, mounts `_versions/<v>/<project>/content` into that version's `/docs/` and reads the lock's `docs` entries and each manifest's page data. The cli's bundle carries `pins` (C15); core, library and opm-operator publish a bundle for every release the cli pins. `#Pull` and `#Lock` are closed, so an `opm-docs` older than this contract refuses a `bundles.cue` with `docs` or `versions` and a frozen lock with `docs`: the site bumps its `opm-docs` first (C12).
+
 ## C17. `cue-definitions`
 
 A `cue-definitions` source documents a CUE package's exported definitions on reference pages grouped by the author (DESIGN.md phase 2; it replaces core's `tools/refgen`). Its config is `#CueDefinitions` (C6). core's file, the lists moved verbatim from `tools/refgen/groups.go`:
@@ -1150,7 +1304,7 @@ Syntax `opm-docs <command> [args] [flags]`. Exit codes: `0` success, `1` usage e
 | `check` | `--config`, `--project` | `build` into a temporary directory, running every repository command twice (C14); exit 2 on any failure. The PR gate. |
 | `push` | `--dir` (path, required), `--registry` (string, `ghcr.io/open-platform-model/docs`) | Validate, pack deterministically, push; write the full tag for a release build; print `{"digest": ..., "tag": ...}` as JSON on stdout. |
 | `promote` | `--project` (required), `--digest` (required), `--registry` | Verify the signature of the digest (C9), then move the moving tags of its line to it (C4 rule 5). |
-| `pull` | see C7; `--config` (path, `bundles.cue`), `--out` (path, `.bundles`), `--lock` (path, `<out>/lock.json`) | Resolve, verify, unpack, lint, write each tab's `history.json` (C13), lock. |
+| `pull` | see C7; `--config` (path, `bundles.cue`), `--out` (path, `.bundles`), `--lock` (path, `<out>/lock.json`) | Resolve, verify, unpack, lint, write each tab's `history.json` (C13) and each site version's docs bundles (C16), lock. |
 | `revise` | `--project`, `--tag`, `--fix` (required), `--out` (path, `out`), `--registry` (string, `ghcr.io/open-platform-model/docs`), `--config` (path; default `docs-kit.cue` in the release tree, else the current directory) | Build the next docs revision of a published release into `out/<project>/` ("Docs revisions" below). Pushes nothing. Exit `1` for a missing flag or an invalid config, `2` when a step refuses. |
 | `version` | none | Print `opm-docs <version>`. |
 

@@ -125,7 +125,9 @@ func newPullCmd() *cobra.Command {
 		Short: "Resolve, verify, unpack and lint the bundles the site shows, and write the lock",
 		Long: "Read the pull config, list each tab's tags, verify each bundle's signature before fetching its\n" +
 			"layer, unpack it under <out>/<project>/<segment>/, lint it in bundle mode, write each tab's version\n" +
-			"history to <out>/<project>/history.json, and write the lock.",
+			"history to <out>/<project>/history.json, and write the lock. Each site version's docs bundles (the\n" +
+			"anchor, the projects it pins, the projects pulled by their own tag) unpack under\n" +
+			"<out>/_versions/<site-version>/<project>/, replaced whole once every one of them passed.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			for _, s := range locals {
@@ -152,6 +154,10 @@ func newPullCmd() *cobra.Command {
 				e := &l.Bundles[i]
 				fmt.Fprintf(cmd.ErrOrStderr(), "opm-docs pull: %s %s %s %s\n", e.Project, e.Segment, e.Version, orLocal(e.Digest))
 			}
+			for i := range l.Docs {
+				e := &l.Docs[i]
+				fmt.Fprintf(cmd.ErrOrStderr(), "opm-docs pull: %s %s (%s) %s %s\n", e.Site, e.Project, e.Role, e.Version, orLocal(e.Digest))
+			}
 			return nil
 		},
 	}
@@ -161,7 +167,7 @@ func newPullCmd() *cobra.Command {
 	f.StringVar(&o.Lock, "lock", "", "the lock to write (default <out>/lock.json)")
 	f.StringVar(&o.Frozen, "frozen", "", "pull exactly the digests this lock names")
 	f.BoolVar(&o.Offline, "offline", false, "fetch nothing: with --frozen, use only the cache")
-	f.StringArrayVar(&locals, "local", nil, "take <project>@<segment> from a local bundle tree: <project>@<segment>=<dir> (repeatable)")
+	f.StringArrayVar(&locals, "local", nil, "take <project>@<segment> (a tab's MAJOR.MINOR or edge, or a site version v<MAJOR>.<MINOR>) from a local bundle tree: <project>@<segment>=<dir> (repeatable)")
 	f.StringVar(&trustedRoot, "trusted-root", "", "a Sigstore trusted_root.json instead of the TUF-fetched one")
 	_ = f.MarkHidden("trusted-root")
 	return cmd

@@ -11,6 +11,7 @@ import (
 	slashpath "path"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"cuelang.org/go/cue"
@@ -251,13 +252,98 @@ type Signer struct {
 	Refs     []string `json:"refs"`
 }
 
+// DocsProject is a project that may be placed in a site version's /docs/,
+// and the only repository allowed to sign it.
+type DocsProject struct {
+	Repo string `json:"repo"`
+}
+
+// Anchor is the bundle that chooses a site version's pinned bundles.
+type Anchor struct {
+	Project string `json:"project"`
+	Tag     string `json:"tag"`
+}
+
+// SiteVersion is one site version's docs bundles: the anchor, the projects
+// pulled at the anchor's pins and the projects pulled by their own tag.
+type SiteVersion struct {
+	Anchor Anchor            `json:"anchor"`
+	Pinned []string          `json:"pinned"`
+	Tags   map[string]string `json:"tags"`
+}
+
+// TagProjects returns the projects pulled by their own tag, in name order.
+func (v SiteVersion) TagProjects() []string {
+	out := make([]string, 0, len(v.Tags))
+	for p := range v.Tags {
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// Role is the role a project plays in the version: "anchor", "pinned" or
+// "tag"; "" when the version does not name it.
+func (v SiteVersion) Role(project string) string {
+	switch {
+	case v.Anchor.Project == project:
+		return "anchor"
+	case slices.Contains(v.Pinned, project):
+		return "pinned"
+	}
+	if _, ok := v.Tags[project]; ok {
+		return "tag"
+	}
+	return ""
+}
+
 // Pull is a validated bundles.cue, with defaults applied.
 type Pull struct {
 	Path     string
-	Digest   string         // "sha256:<hex>" of the file's bytes
-	Registry string         `json:"registry"`
-	Signer   Signer         `json:"signer"`
-	Tabs     map[string]Tab `json:"tabs"`
+	Digest   string                 // "sha256:<hex>" of the file's bytes
+	Registry string                 `json:"registry"`
+	Signer   Signer                 `json:"signer"`
+	Tabs     map[string]Tab         `json:"tabs"`
+	Docs     map[string]DocsProject `json:"docs"`
+	Versions map[string]SiteVersion `json:"versions"`
+}
+
+// SiteVersions returns the configured site versions in numeric order.
+func (p *Pull) SiteVersions() []string {
+	out := make([]string, 0, len(p.Versions))
+	for v := range p.Versions {
+		out = append(out, v)
+	}
+	slices.SortFunc(out, CompareSiteVersions)
+	return out
+}
+
+// CompareSiteVersions orders two site versions ("v1.0") by MAJOR, then
+// MINOR, numerically.
+func CompareSiteVersions(a, b string) int {
+	am, an := splitSiteVersion(a)
+	bm, bn := splitSiteVersion(b)
+	if am != bm {
+		return cmpInt(am, bm)
+	}
+	return cmpInt(an, bn)
+}
+
+func splitSiteVersion(v string) (major, minor int) {
+	ma, mi, _ := strings.Cut(strings.TrimPrefix(v, "v"), ".")
+	major, _ = strconv.Atoi(ma)
+	minor, _ = strconv.Atoi(mi)
+	return major, minor
+}
+
+func cmpInt(a, b int) int {
+	switch {
+	case a < b:
+		return -1
+	case a > b:
+		return 1
+	}
+	return 0
 }
 
 // Projects returns the configured tabs in name order.
@@ -281,7 +367,41 @@ func LoadPull(path string) (*Pull, error) {
 	if err := v.Decode(p); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
+	if err := p.checkVersions(); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
 	return p, nil
+}
+
+// checkVersions applies the rules the schema cannot state: a project is
+// a tab or a docs project, not both; every project a site version names is
+// a docs project; and a version names a project once.
+func (p *Pull) checkVersions() error {
+	docs := make([]string, 0, len(p.Docs))
+	for d := range p.Docs {
+		docs = append(docs, d)
+	}
+	sort.Strings(docs)
+	for _, d := range docs {
+		if _, ok := p.Tabs[d]; ok {
+			return fmt.Errorf("%s is both a tab and a docs project; a project has one placement, so remove it from tabs or from docs", d)
+		}
+	}
+	for _, sv := range p.SiteVersions() {
+		v := p.Versions[sv]
+		names := append(append([]string{v.Anchor.Project}, v.Pinned...), v.TagProjects()...)
+		seen := map[string]bool{}
+		for _, n := range names {
+			if seen[n] {
+				return fmt.Errorf("versions.%q names %s twice; a project plays one role in a site version (anchor, pinned or tags)", sv, n)
+			}
+			seen[n] = true
+			if _, ok := p.Docs[n]; !ok {
+				return fmt.Errorf("versions.%q names %s, which is not in docs; add docs: %q: {repo: \"<owner>/<repo>\"}", sv, n, n)
+			}
+		}
+	}
+	return nil
 }
 
 func loadFile(path, def string) (cue.Value, []byte, error) {
