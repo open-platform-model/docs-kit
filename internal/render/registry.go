@@ -9,6 +9,7 @@ import (
 	"github.com/open-platform-model/docs-kit/internal/extract/crd"
 	"github.com/open-platform-model/docs-kit/internal/extract/cuecatalog"
 	"github.com/open-platform-model/docs-kit/internal/extract/cuedefs"
+	"github.com/open-platform-model/docs-kit/internal/extract/goapi"
 )
 
 // A Renderer turns one data file into pages. It reads the data file as
@@ -25,6 +26,7 @@ var renderers = map[string]Renderer{
 	cuedefs.SchemaID:    defsRenderer{},
 	cobra.SchemaID:      cobraRenderer{},
 	crd.SchemaID:        crdRenderer{},
+	goapi.SchemaID:      goAPIRenderer{},
 }
 
 // For returns the renderer of a data schema.
