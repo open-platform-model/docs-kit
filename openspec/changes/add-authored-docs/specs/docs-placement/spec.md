@@ -1,0 +1,23 @@
+## ADDED Requirements
+
+### Requirement: Authored docs pages ship in docs bundles
+A `markdown` source in a docs bundle SHALL copy its `dir` (all of it, or the pages `include` selects) into `content/` as written, with no link rewriting, recording each page as `generated: false` with its `source` and `lastmod`. It MAY supply a root `_index.md` and section `_index.md` pages; their uniqueness across a site version is `pull`'s check. A page path written both by an extractor and by the `markdown` source SHALL fail the build naming both, unless the extractor's page is completable.
+
+#### Scenario: core adds its authored pages
+- **WHEN** core's bundle has its `cue-definitions` source and a `markdown` source over `docs/site`, which no longer holds `reference/definitions/`
+- **THEN** the bundle holds the generated definitions pages and every authored page of `docs/site`
+
+#### Scenario: A committed generated page left behind
+- **WHEN** core's `docs/site/reference/definitions/components.md` still exists
+- **THEN** `build` exits 2 naming `content/reference/definitions/components.md`, the `cue-definitions` source and the `markdown` source
+
+### Requirement: An authored page records its file on main
+For every page with `generated: false`, `build` SHALL write `pages[].edit`, the repository-relative path of its source file, when that file exists in the main tree: the current directory when `--source` names another tree (a release or revision build in `publish.yml`), else the source tree. When the file does not exist in the main tree, `edit` SHALL be absent. A generated page SHALL have no `edit`. Source: DESIGN decision 19.
+
+#### Scenario: A page moved on main after the release
+- **WHEN** `docs/site/start/install.md` exists at tag `v1.0.0` and `main` renamed it
+- **THEN** the release bundle's page has `source` `docs/site/start/install.md` and no `edit`
+
+#### Scenario: Edge
+- **WHEN** an edge build copies `docs/site/start/install.md`
+- **THEN** its `edit` is `docs/site/start/install.md`

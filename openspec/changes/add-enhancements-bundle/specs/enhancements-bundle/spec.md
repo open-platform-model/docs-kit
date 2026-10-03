@@ -1,0 +1,34 @@
+## ADDED Requirements
+
+### Requirement: A section bundle is edge-only and unversioned
+A bundle with `placement: {kind: "section", root: "/enhancements/"}` SHALL be built only as edge (`version: "edge"`, revision 0); `build --release` and `revise` SHALL refuse it with exit 1 naming the project and that a section publishes from `main` only. Its config MAY omit `version`. Its pages SHALL publish at `<root><page URL>` with no segment. Source: DESIGN decision 18.
+
+#### Scenario: A release build of the enhancements bundle
+- **WHEN** `opm-docs build --release v1.0.0 --project enhancements` runs
+- **THEN** it exits 1 saying a section bundle builds from `main` only
+
+### Requirement: The enhancements source turns entries into dialect pages
+An `enhancements` source SHALL read every entry directory `NNNN/` and `archive/NNNN/` except `0000`, requiring a `config.yaml` whose `id` equals the directory's id, a `README.md` and exactly one file per numbered document `01-*.md` to `07-*.md`, and SHALL write `data/enhancements.json` (`docs.opmodel.dev/data/enhancements/v1`) with each entry's id, title, summary, status, category, affects, created and updated dates, relations and whether it is archived, and the pages `_index.md` (from `INDEX.md`), `graph.md` (from `GRAPH.md`), `<NNNN>/_index.md` (from the README) and `<NNNN>/<slug>.md` for `problem`, `design`, `decisions`, `graduation`, `risks`, `operational` and `questions`, each with front matter `title`, `description` and, on a leaf page, `type: explanation`. A missing or extra numbered document, or an id mismatch, SHALL fail the build with exit 2 naming the entry.
+
+#### Scenario: An archived entry keeps its URL
+- **WHEN** entry 0003 lives at `archive/0003/`
+- **THEN** its pages are `0003/_index.md` and `0003/<slug>.md`, published at `/enhancements/0003/...`
+
+#### Scenario: Two decision files
+- **WHEN** `0025/` holds `03-decisions.md` and `03-decisions-old.md`
+- **THEN** `build` exits 2 naming `0025` and both files
+
+### Requirement: Enhancement text is cleaned and its links resolved at build
+The source SHALL remove HTML comments and the first `# ` heading of each file; SHALL tag an untagged opening code fence `text`; SHALL refuse a Hugo shortcode delimiter; and SHALL resolve every relative link against the file's repository path: an entry or its README to `/enhancements/<NNNN>/`, a numbered document to `/enhancements/<NNNN>/<slug>/`, `INDEX.md` to `/enhancements/`, `GRAPH.md` to `/enhancements/graph/`, any other path that exists at the commit built to `https://github.com/<repo>/blob/<commit>/<path>` (`tree` for a directory), keeping a fragment. A link whose text is the target's file name SHALL read as the target page's title (`INDEX.md` as "the index", `GRAPH.md` as "the relationship graph"). A link naming no path at that commit, or climbing out of the repository, SHALL fail the build with exit 2 naming the file and the link.
+
+#### Scenario: A sibling document link
+- **WHEN** `0025/02-design.md` links `03-decisions.md#d11`
+- **THEN** the page links `/enhancements/0025/decisions/#d11`
+
+#### Scenario: A schema file link
+- **WHEN** `0013/02-design.md` links `schemas/target.cue`, which exists at the commit built
+- **THEN** the page links `https://github.com/open-platform-model/enhancements/blob/<commit>/0013/schemas/target.cue`
+
+#### Scenario: A dangling link
+- **WHEN** a document links `missing.md`
+- **THEN** `build` exits 2 naming the file and `missing.md`
