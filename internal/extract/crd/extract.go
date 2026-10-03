@@ -287,11 +287,17 @@ func (c *collector) refuse(at string, s props) {
 	if at == "" {
 		at = "the object"
 	}
+	// controller-gen writes an int-or-string field as an anyOf; name it
+	// as such rather than as a bare anyOf.
+	anyOf := "anyOf"
+	if s.XIntOrString {
+		anyOf = "an int-or-string field (x-kubernetes-int-or-string), which is not supported yet"
+	}
 	for _, x := range []struct {
 		name    string
 		present bool
 	}{
-		{"allOf", len(s.AllOf) > 0}, {"anyOf", len(s.AnyOf) > 0}, {"not", len(s.Not) > 0 && string(s.Not) != "null"},
+		{"allOf", len(s.AllOf) > 0}, {anyOf, len(s.AnyOf) > 0}, {"not", len(s.Not) > 0 && string(s.Not) != "null"},
 		{"nullable", s.Nullable}, {"oneOf", len(s.OneOf) > 0},
 	} {
 		if x.present {

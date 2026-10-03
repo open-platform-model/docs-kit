@@ -196,6 +196,7 @@ func TestRefusals(t *testing.T) {
 		{"bad sample", map[string]string{"c/x.yaml": crd("Widget", ""), "s/example.dev_v1_widget.yaml": "a: [\n"}, nil, "s/example.dev_v1_widget.yaml: does not parse as YAML"},
 		{"duplicate kind", map[string]string{"c/a.yaml": crd("Widget", ""), "c/b.yaml": crd("Widget", "")}, nil, "c/a.yaml and c/b.yaml both define the kind Widget"},
 		{"oneOf", map[string]string{"c/x.yaml": crd("Widget", "        oneOf:\n        - required: [a]\n")}, nil, "schema constructs the reference does not render: the object: oneOf"},
+		{"int-or-string", map[string]string{"c/x.yaml": crd("Widget", "        properties:\n          spec:\n            type: object\n            properties:\n              port:\n                anyOf:\n                - type: integer\n                - type: string\n                x-kubernetes-int-or-string: true\n")}, nil, "spec.port: an int-or-string field (x-kubernetes-int-or-string), which is not supported yet"},
 		{"stale reconciledBy", map[string]string{"c/x.yaml": crd("Widget", "")}, func(o *Options) { o.ReconciledBy = map[string]string{"Gizmo": "gizmo"} }, "reconciledBy names the kind Gizmo"},
 		{"stale order", map[string]string{"c/x.yaml": crd("Widget", "")}, func(o *Options) { o.Order = []string{"Gizmo"} }, "order names the kind Gizmo"},
 		{"leaves tree", map[string]string{"c/x.yaml": crd("Widget", "")}, func(o *Options) { o.Dir = "./../c" }, "leaves the source tree"},
