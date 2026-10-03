@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 )
@@ -16,6 +17,14 @@ func main() {
 	case "env":
 		fmt.Printf(`{"schema": "test/v1", "env": %q, "pwd": %q}`+"\n",
 			strings.Join([]string{os.Getenv("OPM_DOCS"), os.Getenv("OPM_DOCS_PROJECT"), os.Getenv("OPM_DOCS_VERSION")}, ","), cwd())
+	case "token":
+		fmt.Printf(`{"schema": "test/v1", "token": %q, "gopath": %q}`+"\n", os.Getenv("GITHUB_TOKEN")+os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"), os.Getenv("GOFLAGS"))
+	case "spawn":
+		// A child that would outlive a killed parent.
+		cmd := exec.Command("sleep", "60")
+		_ = cmd.Start()
+		fmt.Fprintf(os.Stderr, "child %d\n", cmd.Process.Pid)
+		time.Sleep(time.Minute)
 	case "fail":
 		fmt.Fprintln(os.Stderr, "failing")
 		os.Exit(1)

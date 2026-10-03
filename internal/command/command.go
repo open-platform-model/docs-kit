@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -33,6 +34,47 @@ type Runner struct {
 	Timeout   time.Duration // 0 is DefaultTimeout
 	MaxOutput int           // 0 is DefaultMaxOutput
 }
+
+// Environ keeps, of env, the variables a repository command may see: PATH,
+// HOME, TMPDIR, USER, LANG and LC_*, the proxy variables, Go's own
+// variables (GO followed by capitals and digits only, such as GOPATH,
+// GOFLAGS, GOPROXY, GOTOOLCHAIN; never GOOGLE_*), CGO_*, CUE_* and
+// OPM_DOCS*. Nothing else passes, so a token in the
+// build's environment (GITHUB_TOKEN, ACTIONS_*, a registry credential)
+// never reaches the command.
+func Environ(env []string) []string {
+	var out []string
+	for _, kv := range env {
+		name, _, _ := strings.Cut(kv, "=")
+		if allowed(name) {
+			out = append(out, kv)
+		}
+	}
+	return out
+}
+
+var allowedNames = map[string]bool{
+	"PATH": true, "HOME": true, "TMPDIR": true, "USER": true, "LANG": true,
+	"HTTP_PROXY": true, "HTTPS_PROXY": true, "NO_PROXY": true,
+	"http_proxy": true, "https_proxy": true, "no_proxy": true,
+}
+
+func allowed(name string) bool {
+	if allowedNames[name] {
+		return true
+	}
+	if reGoVar.MatchString(name) {
+		return true
+	}
+	for _, p := range []string{"CGO_", "CUE_", "OPM_DOCS", "LC_"} {
+		if strings.HasPrefix(name, p) {
+			return true
+		}
+	}
+	return false
+}
+
+var reGoVar = regexp.MustCompile(`^GO[A-Z0-9]+$`)
 
 // Error is a command that failed, ran too long or printed something other
 // than one JSON document of the expected schema.
@@ -79,11 +121,13 @@ func (r *Runner) once(ctx context.Context, argv []string, schema string) ([]byte
 	if limit == 0 {
 		limit = DefaultMaxOutput
 	}
+	parent := ctx
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...) //nolint:gosec // the repository's own command, by design (docs-kit C14)
 	cmd.Dir = r.Dir
-	cmd.Env = append(os.Environ(), "OPM_DOCS=1", "OPM_DOCS_PROJECT="+r.Project, "OPM_DOCS_VERSION="+r.Version)
+	cmd.Env = append(Environ(os.Environ()), "OPM_DOCS=1", "OPM_DOCS_PROJECT="+r.Project, "OPM_DOCS_VERSION="+r.Version)
+	ownGroup(cmd)
 	cmd.Stdin = nil
 	cmd.Stderr = r.Stderr
 	if cmd.Stderr == nil {
@@ -93,6 +137,9 @@ func (r *Runner) once(ctx context.Context, argv []string, schema string) ([]byte
 	cmd.Stdout = stdout
 	cmd.WaitDelay = time.Second
 	err := cmd.Run()
+	if perr := parent.Err(); perr != nil {
+		return nil, r.fail(argv, "stopped: the build was canceled (%v)", context.Cause(parent))
+	}
 	if ctx.Err() == context.DeadlineExceeded {
 		return nil, r.fail(argv, "ran over %s and was stopped", timeout)
 	}
