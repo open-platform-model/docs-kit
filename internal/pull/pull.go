@@ -284,15 +284,8 @@ func (p *puller) checkFrozenDocs(l *Lock) error {
 			anchors[e.Site] = e
 		}
 	}
-	// Every configured project of every site version is locked, or comes
-	// from --local.
-	for _, sv := range p.cfg.SiteVersions() {
-		v := p.cfg.Versions[sv]
-		for _, project := range versionProjects(v) {
-			if _, local := p.docsLocals[sv+"/"+project]; !local && !seen[sv+"/"+project] {
-				return usagef("--frozen %s has no entry for %s %s, which the config pulls as %s; pull again without --frozen", p.o.Frozen, sv, project, v.Role(project))
-			}
-		}
+	if err := p.checkFrozenCovers(seen); err != nil {
+		return err
 	}
 	for i := range l.Docs {
 		e := &l.Docs[i]
@@ -308,6 +301,20 @@ func (p *puller) checkFrozenDocs(l *Lock) error {
 				pin = "no version of it"
 			}
 			return usagef("--frozen %s: %s %s is locked at version %s, tag %s, and the locked anchor pins %s", p.o.Frozen, e.Site, e.Project, e.Version, e.Tag, pin)
+		}
+	}
+	return nil
+}
+
+// checkFrozenCovers refuses a frozen lock that misses a configured project
+// of a site version that no --local supplies; locked holds "<v>/<project>".
+func (p *puller) checkFrozenCovers(locked map[string]bool) error {
+	for _, sv := range p.cfg.SiteVersions() {
+		v := p.cfg.Versions[sv]
+		for _, project := range versionProjects(v) {
+			if _, local := p.docsLocals[sv+"/"+project]; !local && !locked[sv+"/"+project] {
+				return usagef("--frozen %s has no entry for %s %s, which the config pulls as %s; pull again without --frozen", p.o.Frozen, sv, project, v.Role(project))
+			}
 		}
 	}
 	return nil

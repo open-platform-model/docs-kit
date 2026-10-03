@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/open-platform-model/docs-kit/internal/bundle"
@@ -175,6 +176,9 @@ func TestSiteVersionFollowsADocsRevision(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(o.Out, VersionsDir, "v1.0", "core", "content", "concepts", "bundle.md")); err != nil {
 		t.Fatal("the revision's new page is missing")
+	}
+	if left, _ := os.ReadDir(filepath.Join(o.Out, VersionsDir)); len(left) != 1 || left[0].Name() != "v1.0" {
+		t.Fatalf("a replaced version left %v", left)
 	}
 }
 
@@ -565,10 +569,21 @@ func TestParseLocalSiteVersion(t *testing.T) {
 // A registry that denies an anonymous pull, as GHCR does for a package
 // that does not exist yet, reads as a pinned release without a bundle.
 func TestSiteVersionDeniedPinReadsAsMissing(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	// GHCR's answer for an anonymous pull of a package that does not
+	// exist: 401 with a bearer challenge, then 403 from the token service.
+	var srv *httptest.Server
+	var tokens atomic.Int32
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusForbidden)
-		_, _ = w.Write([]byte(`{"errors":[{"code":"DENIED","message":"requested access to the resource is denied"}]}`))
+		if r.URL.Path == "/token" {
+			tokens.Add(1)
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`{"errors":[{"code":"DENIED","message":"requested access to the resource is denied"}]}`))
+			return
+		}
+		w.Header().Set("WWW-Authenticate", `Bearer realm="`+srv.URL+`/token",service="registry.test",scope="repository:docs/core:pull"`)
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"errors":[{"code":"UNAUTHORIZED","message":"authentication required"}]}`))
 	}))
 	defer srv.Close()
 	e := newEnv(t)
@@ -576,7 +591,128 @@ func TestSiteVersionDeniedPinReadsAsMissing(t *testing.T) {
 	o := e.options(e.docsConfig(`versions: "v1.0": {anchor: {project: "cli", tag: "1.0"}, pinned: ["core"]}`))
 	o.Locals = []Local{{"cli", "v1.0", docsTree(t, cliSpec("1.0.0-beta.6", map[string]string{"core": "2.0.0-beta.1"}))}}
 	_, err := Run(context.Background(), o)
-	if err == nil || !strings.Contains(err.Error(), "v1.0: cli 1.0.0-beta.6 pins core 2.0.0-beta.1, and "+e.registry+"/core has no bundle for it") {
+	if err == nil || !strings.Contains(err.Error(), "v1.0: cli 1.0.0-beta.6 pins core 2.0.0-beta.1, and "+e.registry+"/core has no bundle for it (or the package is not public)") ||
+		tokens.Load() == 0 {
+		t.Fatalf("err = %v, token requests %d", err, tokens.Load())
+	}
+}
+
+// editLock rewrites a lock file through edit and returns the new path.
+func editLock(t *testing.T, path string, edit func(*Lock)) string {
+	t.Helper()
+	l, err := ReadLock(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	edit(l)
+	b, err := l.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(t.TempDir(), "lock.json")
+	if err := os.WriteFile(out, b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func docsIndex(l *Lock, project string) int {
+	for i := range l.Docs {
+		if l.Docs[i].Project == project {
+			return i
+		}
+	}
+	return -1
+}
+
+// A frozen lock that names a project twice, or misses one, is refused
+// before any network call.
+func TestSiteVersionFrozenLockShape(t *testing.T) {
+	e := newEnv(t)
+	e.publishV10()
+	o := e.options(e.docsConfig(v10))
+	if _, err := Run(context.Background(), o); err != nil {
+		t.Fatal(err)
+	}
+	e.stop()
+	for _, c := range []struct {
+		name string
+		edit func(*Lock)
+		want string
+	}{
+		{"one project twice", func(l *Lock) { l.Docs = append(l.Docs, l.Docs[docsIndex(l, "core")]) }, "locks v1.0 core twice"},
+		{"a configured project missing", func(l *Lock) {
+			i := docsIndex(l, "opm-operator")
+			l.Docs = append(l.Docs[:i], l.Docs[i+1:]...)
+		}, "has no entry for v1.0 opm-operator, which the config pulls as pinned"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			oo := o
+			oo.Frozen = editLock(t, o.Lock, c.edit)
+			if _, err := Run(context.Background(), oo); !IsUsage(err) || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+}
+
+// A frozen lock edited consistently to another core is still held to the
+// pin in the anchor's real manifest.json, which its digest fixes.
+func TestSiteVersionFrozenHeldToTheRealPin(t *testing.T) {
+	e := newEnv(t)
+	e.publishV10()
+	o := e.options(e.docsConfig(v10))
+	if _, err := Run(context.Background(), o); err != nil {
+		t.Fatal(err)
+	}
+	repo, _ := e.client.Repository(e.registry + "/core")
+	d, err := repo.Resolve(context.Background(), "2.0.0-beta.2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	o.Frozen = editLock(t, o.Lock, func(l *Lock) {
+		l.Docs[0].Pins["core"] = "2.0.0-beta.2"
+		c := &l.Docs[docsIndex(l, "core")]
+		c.Tag, c.Version, c.Digest = "2.0.0-beta.2", "2.0.0-beta.2", d.Digest.String()
+	})
+	_, err = Run(context.Background(), o)
+	if err == nil || IsUsage(err) || !strings.Contains(err.Error(), "v1.0: core 2.0.0-beta.2 (sha256:") ||
+		!strings.Contains(err.Error(), "is version 2.0.0-beta.2, and cli 1.0.0-beta.6 pins 2.0.0-beta.1; pull it at its pin") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// The signer a docs bundle must carry is docs[project].repo, not a
+// repository named after the project.
+func TestSiteVersionSignerFromDocsRepo(t *testing.T) {
+	for _, c := range []struct {
+		name, signer string
+		ok           bool
+	}{
+		{"the configured repository", "open-platform-model/core-docs", true},
+		{"the repository named after the project", "open-platform-model/core", false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			e := newEnv(t)
+			e.publishProject("core", docsTree(t, coreSpec("2.0.0-beta.1")), "2.0.0-beta.1", c.signer)
+			o := e.options(e.config(`registry: "` + e.registry + `"
+docs: {
+	cli:  {repo: "open-platform-model/cli"}
+	core: {repo: "open-platform-model/core-docs"}
+}
+versions: "v1.0": {anchor: {project: "cli", tag: "1.0"}, pinned: ["core"]}
+`))
+			o.Locals = []Local{{"cli", "v1.0", docsTree(t, cliSpec("1.0.0", map[string]string{"core": "2.0.0-beta.1"}))}}
+			l, err := Run(context.Background(), o)
+			if c.ok {
+				if err != nil || l.Docs[1].Signer.Repository != "https://github.com/open-platform-model/core-docs" {
+					t.Fatalf("err = %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), `want "https://github.com/open-platform-model/core-docs" (the only repository allowed`) {
+				t.Fatalf("err = %v", err)
+			}
+		})
 	}
 }
