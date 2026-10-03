@@ -3,6 +3,7 @@ package build
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"cuelang.org/go/cue"
 
@@ -64,6 +65,14 @@ const markdownKind = "markdown"
 var extractors = []Extractor{
 	cueCatalogExtractor{},
 }
+
+// Paths an extractor or renderer may write, checked before anything is
+// written: the manifest's #Page.path and #DataFile.path (C3), which admit
+// no "..", no absolute path and no upper case.
+var (
+	rePagePath = regexp.MustCompile(`^([a-z0-9]+(-[a-z0-9]+)*/)*(_index|[a-z0-9]+(-[a-z0-9]+)*)\.md$`)
+	reDataPath = regexp.MustCompile(`^[a-z0-9-]+\.json$`)
+)
 
 // rendererFor returns the renderer of a data schema; tests replace it.
 var rendererFor = render.For

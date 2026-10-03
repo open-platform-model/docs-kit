@@ -359,6 +359,7 @@ func (s *assembly) extract(b config.Bundle, cfgPath string, outside bool) ([]aut
 	var docs []authored
 	var gen []*extracted
 	byKind := map[string]int{}
+	dataBy := map[string]string{} // data file -> the kind that wrote it
 	for i, src := range b.Sources {
 		if src.Kind == markdownKind {
 			pages, err := s.markdown(src, cfgPath, outside)
@@ -383,6 +384,13 @@ func (s *assembly) extract(b config.Bundle, cfgPath string, outside bool) ([]aut
 		if err != nil {
 			return nil, nil, err
 		}
+		if !reDataPath.MatchString(d.File) {
+			return nil, nil, fmt.Errorf("%s wrote the data file %q; a data file is data/<lower-case-kebab>.json", src.Kind, d.File)
+		}
+		if prev, dup := dataBy[d.File]; dup {
+			return nil, nil, fmt.Errorf("data/%s is written by both %s and %s", d.File, prev, src.Kind)
+		}
+		dataBy[d.File] = src.Kind
 		if err := os.WriteFile(filepath.Join(s.dir, bundle.DataDir, d.File), d.Bytes, 0o644); err != nil { //nolint:gosec // published content
 			return nil, nil, err
 		}
@@ -397,6 +405,7 @@ func (s *assembly) extract(b config.Bundle, cfgPath string, outside bool) ([]aut
 func (s *assembly) render(gen []*extracted) (map[string]bool, error) {
 	t := s.target()
 	completable := map[string]bool{}
+	rendered := map[string]string{} // page path -> the extractor kind that rendered it
 	for _, e := range gen {
 		r, err := rendererFor(e.data.Schema)
 		if err != nil {
@@ -408,6 +417,16 @@ func (s *assembly) render(gen []*extracted) (map[string]bool, error) {
 			return nil, err
 		}
 		for _, p := range e.pages {
+			if !rePagePath.MatchString(p.Path) {
+				return nil, fmt.Errorf("%s rendered the page path %q; a page path is lower-case kebab-case segments ending in .md", e.kind, p.Path)
+			}
+			if prev, ok := rendered[p.Path]; ok {
+				if p.Completable && completable[p.Path] {
+					return nil, fmt.Errorf("content/%s is a completable page of both %s and %s; an authored page completes one generated page", p.Path, prev, e.kind)
+				}
+				return nil, fmt.Errorf("content/%s is rendered by both %s and %s", p.Path, prev, e.kind)
+			}
+			rendered[p.Path] = e.kind
 			if p.Completable {
 				completable[p.Path] = true
 			}
@@ -420,6 +439,10 @@ func (s *assembly) render(gen []*extracted) (map[string]bool, error) {
 // authored page at its path becomes the authored page completed.
 func (s *assembly) writeGenerated(e *extracted, completing map[string]markdown.Page) error {
 	for _, p := range e.pages {
+		// A completed page is still a renderer's page: it lies under owns.
+		if err := s.owned(p.Path); err != nil {
+			return err
+		}
 		if a, ok := completing[p.Path]; ok && p.Completable {
 			body, err := render.Complete(a.Body, a.Source, p)
 			if err != nil {
@@ -429,9 +452,6 @@ func (s *assembly) writeGenerated(e *extracted, completing map[string]markdown.P
 				return err
 			}
 			continue
-		}
-		if err := s.owned(p.Path); err != nil {
-			return err
 		}
 		pg := bundle.Page{Path: p.Path, Generated: true}
 		if f, ok := e.data.Sources[p.Path]; ok {

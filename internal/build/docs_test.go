@@ -19,13 +19,20 @@ const fakeSchema = "docs.opmodel.dev/data/fake/v1"
 
 // fakeExtractor writes its config's pages list as its data file; its
 // renderer turns each entry into a page, the first one completable.
-type fakeExtractor struct{ pages []string }
+type fakeExtractor struct {
+	pages []string
+	file  string // the data file; "" is fake.json
+}
 
 func (fakeExtractor) Kind() string { return "fake" }
 
 func (f fakeExtractor) Extract(context.Context, Input) (Data, error) {
 	b, err := json.Marshal(f.pages)
-	return Data{File: "fake.json", Schema: fakeSchema, Bytes: b}, err
+	file := f.file
+	if file == "" {
+		file = "fake.json"
+	}
+	return Data{File: file, Schema: fakeSchema, Bytes: b}, err
 }
 
 type fakeRenderer struct{}
@@ -58,7 +65,12 @@ const authoredOps = "---\ntitle: \"Operator resources\"\ndescription: \"x\"\ntyp
 // writing pages and a markdown source over docs/site holding files.
 func docsBuild(t *testing.T, owns, pages []string, files map[string]string) (*bundle.Manifest, string, error) {
 	t.Helper()
-	extractors = append(extractors, fakeExtractor{pages: pages})
+	return docsBuildWith(t, owns, fakeExtractor{pages: pages}, files)
+}
+
+func docsBuildWith(t *testing.T, owns []string, fake fakeExtractor, files map[string]string) (*bundle.Manifest, string, error) {
+	t.Helper()
+	extractors = append(extractors, fake)
 	rendererFor = func(s string) (render.Renderer, error) {
 		if s == fakeSchema {
 			return fakeRenderer{}, nil
@@ -149,6 +161,15 @@ func TestDocsRefusals(t *testing.T) {
 		{"generated page outside owns", []string{"reference/cli/"}, []string{"reference/cli/opm.md", "reference/commands/opm.md"},
 			map[string]string{"docs/site/guide.md": authoredOps},
 			[]string{"content/reference/commands/opm.md", "placement.owns", "reference/cli/"}},
+		{"completed page outside owns", []string{"reference/cli/"}, []string{"reference/operator-resources.md"},
+			map[string]string{"docs/site/reference/operator-resources.md": authoredOps},
+			[]string{"content/reference/operator-resources.md", "placement.owns"}},
+		{"page path with ..", []string{"reference/"}, []string{"reference/../escape.md"},
+			map[string]string{"docs/site/guide.md": authoredOps},
+			[]string{"fake rendered the page path", "reference/../escape.md"}},
+		{"page rendered twice", []string{"reference/"}, []string{"reference/a.md", "reference/a.md"},
+			map[string]string{"docs/site/guide.md": authoredOps},
+			[]string{"content/reference/a.md", "both fake and fake"}},
 		{"owning nothing", nil, []string{"reference/cli/opm.md"},
 			map[string]string{"docs/site/guide.md": authoredOps},
 			[]string{"content/reference/cli/opm.md", "owns nothing"}},
@@ -165,5 +186,15 @@ func TestDocsRefusals(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestBadDataFile(t *testing.T) {
+	for _, f := range []string{"../escape.json", "Data.json", "sub/x.json"} {
+		_, _, err := docsBuildWith(t, []string{"reference/"}, fakeExtractor{pages: []string{"reference/a.md"}, file: f},
+			map[string]string{"docs/site/guide.md": authoredOps})
+		if err == nil || !strings.Contains(err.Error(), "fake wrote the data file") {
+			t.Errorf("%s: err = %v", f, err)
+		}
 	}
 }
