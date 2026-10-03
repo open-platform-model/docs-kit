@@ -982,7 +982,7 @@ A config value of type `#Command` (C6) names a program of the repository: an arg
 
 | Aspect | Rule |
 |---|---|
-| Runs in | `build`, `check` and `revise` only; never `push`, `promote` or `pull` |
+| Runs in | `build`, `check`, `revise` and `serve` (which builds through `build`) only; never `push`, `promote` or `pull` |
 | Directory | the source tree (`--source`; a revision's patched worktree) |
 | Environment | an allowlist of the build's own: `PATH`, `HOME`, `TMPDIR`, `USER`, `LANG`, `LC_*`, `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` (either case), Go's variables (`GO` then capitals and digits only: `GOPATH`, `GOFLAGS`, `GOPROXY`, `GOTOOLCHAIN`; never `GOOGLE_*`), `CGO_*`, `CUE_*`, `OPM_DOCS*`; plus `OPM_DOCS=1`, `OPM_DOCS_PROJECT=<project>`, `OPM_DOCS_VERSION=<version or edge>`. Nothing else passes: no `GITHUB_TOKEN`, no `ACTIONS_*`, no `DOCKER_CONFIG` |
 | Credentials | none: besides the environment rule, a command never runs where a registry or git credential is on disk (in `publish.yml` the build job persists no checkout credential and never logs in, C5) |
@@ -1386,6 +1386,7 @@ These are the opmodel.dev change's to build, recorded here so docs-kit's pull ou
 
 - **Sitemap:** only the newest minor of each major is listed. Older minors and `edge` are left out (and carry `noindex`).
 - **Edge search:** `edge` gets its own Pagefind index, like every minor. It gets no alias stubs: `/catalogs/<name>/edge/` is its only address, and no alias ever resolves to it.
+- **The preview interface** (`opm-docs serve --site <dir>`): in an opmodel.dev checkout `<dir>`, `task bundles:pull` and then `task serve`, both run with `OPM_BUNDLES_LOCAL` set to the space-separated pairs `<project>@<segment>=<dir>`: a tab (or section) bundle as `<project>@edge`, a docs bundle as `<project>@<site version>` (C16 `--local`). `serve` relies on those two task names and the variable; a site change to any of them names this contract.
 - **Version history:** the data is a file written by `opm-docs pull`, at `<out>/<project>/history.json` (C13), computed from the `data/` of every segment it pulled; the site never computes history itself. What the site derives from it is listed in C13.
 
 ## Commands
@@ -1401,6 +1402,7 @@ Syntax `opm-docs <command> [args] [flags]`. Exit codes: `0` success, `1` usage e
 | `promote` | `--project` (required), `--digest` (required), `--registry` | Verify the signature of the digest (C9), then move the moving tags of its line to it (C4 rule 5). |
 | `pull` | see C7; `--config` (path, `bundles.cue`), `--out` (path, `.bundles`), `--lock` (path, `<out>/lock.json`) | Resolve, verify, unpack, lint, write each tab's `history.json` (C13) and each site version's docs bundles (C16), lock. |
 | `revise` | `--project`, `--tag`, `--fix` (required), `--out` (path, `out`), `--registry` (string, `ghcr.io/open-platform-model/docs`), `--config` (path; default `docs-kit.cue` in the release tree, else the current directory) | Build the next docs revision of a published release into `out/<project>/` ("Docs revisions" below). Pushes nothing. Exit `1` for a missing flag or an invalid config, `2` when a step refuses. |
+| `serve` | `--config`, `--project`, `--source` (path, `.`), `--port` (int, `1313`), `--site` (path, none), `--version` (site version `v<MAJOR>.<MINOR>`, none; with `--site`, required when a docs bundle is built) | Build the selected projects as edge bundles through `build` (dirty tree allowed; its repository commands and bundle-mode lint included) into a temporary directory removed on exit. Without `--site`: serve them with the host's `hugo` (0.146.0 or later) on a skeleton site embedded in `opm-docs`, on `127.0.0.1:<port>` only, a tab bundle at `<root>edge/`, a docs bundle at `/docs/`, any other placement at its root; poll each bundle's sources once a second and rebuild it on a change, copying a passing build over the served tree and keeping the last good one when a build fails. With `--site`: build once, then run the site interface ("Site decisions"). Exit `0` when interrupted; `1` for a usage error, no or too old `hugo`, no `task` with `--site`, a docs bundle without `--version`; `2` when the first build fails or `hugo` or a site task fails. |
 | `version` | none | Print `opm-docs <version>`. |
 
 `build` also takes the hidden `--revision` (int, `0`) and `--patches` (commits, repeatable) that `revise` passes: they write `revision` and `source.patches` (C3), need `--release`, and record `source.dirty` when the work tree differs from its index (the staged fixes). Run by hand, without `revise`, a patched file keeps its `lastmod` at the release commit.

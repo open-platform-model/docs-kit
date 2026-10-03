@@ -15,6 +15,6 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`. One PR, titled `
 
 ## 3. Docs and archive
 
-- [ ] 3.1 `docs/contracts.md` "Commands" (`serve`) and "Site decisions" (the site interface `--site` uses); `README.md` (preview). Verify: links resolve.
+- [x] 3.1 `docs/contracts.md` "Commands" (`serve`) and "Site decisions" (the site interface `--site` uses); `README.md` (preview). Verify: links resolve.
 - [ ] 3.2 `openspec archive add-serve-command --yes`. Verify: `task openspec:check` green.
 - [ ] 3.3 `task check` green, then commit `docs(cmd): document opm-docs serve`.
