@@ -18,7 +18,7 @@ Package gadget holds widgets.
 func Size() int
 ```
 
-Size names [widget.Fast](/docs/reference/go-api/widget/#slow), a constant of a group, and [widget.Widget.Name](/docs/reference/go-api/widget/#widget), a field.
+Size names [widget.Fast](/docs/reference/go-api/widget/#slow), a constant of a group, and [widget.Widget.Name](/docs/reference/go-api/widget/#widget), a field, and [widget.Missing](https://pkg.go.dev/example.com/widgets/lib/widget#Missing), which nothing documents.
 
 ## Types
 

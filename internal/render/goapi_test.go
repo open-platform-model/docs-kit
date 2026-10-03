@@ -166,7 +166,7 @@ func TestGoAPIRefusals(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(pages[0].Body, `- [a](/docs/reference/go-api/a/): Package a reads \<b\> and {\{ x }}, "quoted".`) {
+	if !strings.Contains(pages[0].Body, `- [a](/docs/reference/go-api/a/): Package a reads \<b\> and \{\{ x \}\}, "quoted".`) {
 		t.Errorf("index:\n%s", pages[0].Body)
 	}
 	if !strings.Contains(pages[1].Body, `description: "Package a reads <b> and {{ x }}, \"quoted\"."`) {

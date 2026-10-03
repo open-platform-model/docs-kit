@@ -16,9 +16,11 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"golang.org/x/mod/modfile"
+	"golang.org/x/mod/module"
 
 	"github.com/open-platform-model/docs-kit/internal/doctext"
 )
@@ -76,7 +78,7 @@ type pkgDir struct {
 func Extract(o Options) (*Result, error) {
 	cfg := o.Config
 	modDir := filepath.Join(o.Source, filepath.FromSlash(cfg.Module))
-	if err := checkDir(modDir, cfg.Module, "module"); err != nil {
+	if err := checkDir(o.Source, modDir, cfg.Module, "module"); err != nil {
 		return nil, err
 	}
 	gomod := filepath.Join(modDir, "go.mod")
@@ -88,9 +90,13 @@ func Extract(o Options) (*Result, error) {
 	if modPath == "" {
 		return nil, fmt.Errorf("%s holds no module line", path.Join(cfg.Module, "go.mod"))
 	}
+	// The module path becomes every import path and pkg.go.dev link.
+	if err := module.CheckPath(modPath); err != nil {
+		return nil, fmt.Errorf("%s declares module %q, which is not a valid module path: %w", path.Join(cfg.Module, "go.mod"), modPath, err)
+	}
 	root := path.Clean(cfg.Root)
 	if root != "." {
-		if err := checkDir(filepath.Join(modDir, filepath.FromSlash(root)), cfg.Root, "root"); err != nil {
+		if err := checkDir(o.Source, filepath.Join(modDir, filepath.FromSlash(root)), cfg.Root, "root"); err != nil {
 			return nil, err
 		}
 	}
@@ -114,9 +120,6 @@ func Extract(o Options) (*Result, error) {
 		if err != nil {
 			return nil, err
 		}
-		if st == nil {
-			continue // a command, which has no importable API
-		}
 		x.pkgs = append(x.pkgs, st)
 		x.byPath[st.importPath] = st
 		res.Files[cfg.Section+page+".md"] = st.files
@@ -134,6 +137,8 @@ func Extract(o Options) (*Result, error) {
 func pageName(root, rel string) (string, error) {
 	var sub string
 	switch {
+	case rel == ".":
+		return "", fmt.Errorf("./ is the module's root package, which a go-api source cannot document: a page is named by the package's directory below root; leave the root package out of packages")
 	case root == ".":
 		sub = rel
 	case rel == root:
@@ -213,8 +218,10 @@ func (w *walker) visit(p string, d fs.DirEntry, err error) error {
 	if len(which) == 0 {
 		return nil
 	}
-	files, err := goFiles(&w.ctx, p, rel)
-	if err != nil || len(files) == 0 {
+	files, pkg, err := goFiles(&w.ctx, p, rel)
+	// A command has no importable API: it is no package here, so a
+	// pattern that selects only commands matches nothing.
+	if err != nil || len(files) == 0 || pkg == "main" {
 		return err
 	}
 	for _, i := range which {
@@ -272,33 +279,61 @@ func patternRE(p string) *regexp.Regexp {
 }
 
 // goFiles lists a directory's Go files a linux/amd64 build without cgo
-// selects, test files left out; a symbolic link is refused.
-func goFiles(ctx *build.Context, dir, rel string) ([]string, error) {
+// selects (a file that imports "C" left out), test files left out, and
+// their package name; a symbolic link is refused.
+func goFiles(ctx *build.Context, dir, rel string) (files []string, pkg string, err error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	var out []string
 	for _, e := range entries {
 		name := e.Name()
 		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
 			continue
 		}
+		at := path.Join(rel, name)
 		if !e.Type().IsRegular() {
-			return nil, fmt.Errorf("./%s is not a regular file (%s); a go-api source reads only regular files", path.Join(rel, name), e.Type())
+			return nil, "", fmt.Errorf("./%s is not a regular file (%s); a go-api source reads only regular files", at, e.Type())
 		}
 		ok, err := ctx.MatchFile(dir, name)
 		if err != nil {
-			return nil, fmt.Errorf("./%s: %w", path.Join(rel, name), err)
+			return nil, "", fmt.Errorf("./%s: %w", at, err)
 		}
-		if ok {
-			out = append(out, name)
+		if !ok {
+			continue
 		}
+		src, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			return nil, "", err
+		}
+		f, err := parser.ParseFile(token.NewFileSet(), at, src, parser.ImportsOnly)
+		if err != nil {
+			return nil, "", err
+		}
+		if importsC(f) {
+			continue
+		}
+		if pkg != "" && f.Name.Name != pkg {
+			return nil, "", fmt.Errorf("./%s holds packages %s and %s; a directory holds one package", rel, pkg, f.Name.Name)
+		}
+		pkg = f.Name.Name
+		files = append(files, name)
 	}
-	return out, nil
+	return files, pkg, nil
 }
 
-func checkDir(dir, rel, option string) error {
+func importsC(f *ast.File) bool {
+	for _, im := range f.Imports {
+		if im.Path.Value == `"C"` {
+			return true
+		}
+	}
+	return false
+}
+
+// checkDir refuses a configured directory that is missing, a symbolic
+// link, not a directory, or that resolves outside the source tree.
+func checkDir(source, dir, rel, option string) error {
 	fi, err := os.Lstat(dir)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
@@ -309,6 +344,17 @@ func checkDir(dir, rel, option string) error {
 		return fmt.Errorf("%s %s is a symbolic link; name the directory itself", option, rel)
 	case !fi.IsDir():
 		return fmt.Errorf("%s %s is not a directory", option, rel)
+	}
+	top, err := filepath.EvalSymlinks(source)
+	if err != nil {
+		return err
+	}
+	resolved, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return err
+	}
+	if r, err := filepath.Rel(top, resolved); err != nil || r == ".." || strings.HasPrefix(r, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("%s %s resolves outside the source tree; name a directory inside it", option, rel)
 	}
 	return nil
 }
@@ -333,8 +379,7 @@ type pkgState struct {
 	files      []string // repo-relative
 	pkg        *doc.Package
 	parser     *comment.Parser
-	comments   map[*ast.CommentGroup]bool // the comment groups a declaration may print
-	anchors    map[string]string          // "Kernel", "Kernel.Render" -> anchor
+	anchors    map[string]string // "Kernel", "Kernel.Render" -> anchor
 }
 
 type extraction struct {
@@ -343,12 +388,17 @@ type extraction struct {
 	fset    *token.FileSet
 	pkgs    []*pkgState
 	byPath  map[string]*pkgState
+	warn    func(string) // set for the second pass, which warns
 }
 
-// load parses one package directory; a main package yields nil.
+// linker resolves a doc link to its URL and reports a link into a bundled
+// package that names nothing documented there.
+type linker func(*comment.DocLink) (url string, missing bool)
+
+// load parses one package directory.
 func (x *extraction) load(modDir string, d pkgDir, page string) (*pkgState, error) {
 	var files []*ast.File
-	st := &pkgState{rel: d.rel, page: page, comments: map[*ast.CommentGroup]bool{}}
+	st := &pkgState{rel: d.rel, page: page}
 	srcRel := func(name string) string {
 		r, _ := filepath.Rel(x.o.Source, filepath.Join(modDir, filepath.FromSlash(d.rel), name))
 		return filepath.ToSlash(r)
@@ -363,14 +413,18 @@ func (x *extraction) load(modDir string, d pkgDir, page string) (*pkgState, erro
 		if err != nil {
 			return nil, err
 		}
-		if len(files) > 0 && f.Name.Name != files[0].Name.Name {
-			return nil, fmt.Errorf("./%s holds packages %s and %s; a directory holds one package", d.rel, files[0].Name.Name, f.Name.Name)
+		// An import path reaches pages as a pkg.go.dev link.
+		for _, im := range f.Imports {
+			ip, err := strconv.Unquote(im.Path.Value)
+			if err == nil {
+				err = module.CheckImportPath(ip)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("%s imports %s, which is not a valid import path: %w", rel, im.Path.Value, err)
+			}
 		}
 		files = append(files, f)
 		st.files = append(st.files, rel)
-	}
-	if files[0].Name.Name == "main" {
-		return nil, nil
 	}
 	st.importPath = x.modPath
 	if d.rel != "." {
@@ -425,12 +479,13 @@ func (x *extraction) model() (*Model, error) {
 		Section: cfg.Section, Title: cfg.Title, Description: cfg.Description, Weight: cfg.Weight,
 	}
 	for _, st := range x.pkgs {
-		p, err := x.pkg(st, func(*comment.DocLink) string { return "" })
+		p, err := x.pkg(st, func(*comment.DocLink) (string, bool) { return "", false })
 		if err != nil {
 			return nil, err
 		}
 		st.anchors = assignAnchors(p)
 	}
+	x.warn = x.o.Warn
 	for _, st := range x.pkgs {
 		p, err := x.pkg(st, x.linkURL(st))
 		if err != nil {
@@ -443,9 +498,9 @@ func (x *extraction) model() (*Model, error) {
 }
 
 // pkg builds one package's entry, its anchors taken from st when set.
-func (x *extraction) pkg(st *pkgState, url func(*comment.DocLink) string) (*Package, error) {
+func (x *extraction) pkg(st *pkgState, url linker) (*Package, error) {
 	p := st.pkg
-	pr := &mdPrinter{policy: x.o.Policy, docURL: url, where: "package ./" + st.rel}
+	pr := &mdPrinter{policy: x.o.Policy, docURL: url, warn: x.warn, where: "package ./" + st.rel}
 	docText := dropWhyLines(p.Doc)
 	pkgDoc, err := pr.markdown(st.parser.Parse(docText), levelPackageDoc)
 	if err != nil {
@@ -501,7 +556,7 @@ func (x *extraction) pkg(st *pkgState, url func(*comment.DocLink) string) (*Pack
 	return out, nil
 }
 
-func (x *extraction) fn(st *pkgState, f *doc.Func, typ string, level int, url func(*comment.DocLink) string) (Func, error) {
+func (x *extraction) fn(st *pkgState, f *doc.Func, typ string, level int, url linker) (Func, error) {
 	key := f.Name
 	var recv *string
 	if typ != "" {
@@ -520,7 +575,7 @@ func (x *extraction) fn(st *pkgState, f *doc.Func, typ string, level int, url fu
 	return Func{Name: f.Name, Recv: recv, Anchor: st.anchors[key], Decl: decl, Doc: d}, nil
 }
 
-func (x *extraction) values(st *pkgState, vs []*doc.Value, level int, url func(*comment.DocLink) string) ([]Value, error) {
+func (x *extraction) values(st *pkgState, vs []*doc.Value, level int, url linker) ([]Value, error) {
 	var out []Value
 	for _, v := range vs {
 		if len(v.Names) == 0 {
@@ -539,8 +594,8 @@ func (x *extraction) values(st *pkgState, vs []*doc.Value, level int, url func(*
 	return out, nil
 }
 
-func (x *extraction) doc(st *pkgState, text, name string, level int, url func(*comment.DocLink) string) (string, error) {
-	pr := &mdPrinter{policy: x.o.Policy, docURL: url, where: st.pkg.Name + "." + name + " (./" + st.rel + ")"}
+func (x *extraction) doc(st *pkgState, text, name string, level int, url linker) (string, error) {
+	pr := &mdPrinter{policy: x.o.Policy, docURL: url, warn: x.warn, where: st.pkg.Name + "." + name + " (./" + st.rel + ")"}
 	return pr.markdown(st.parser.Parse(dropWhyLines(text)), level)
 }
 
@@ -559,8 +614,8 @@ func dropWhyLines(s string) string {
 // linkURL resolves a doc link: a package or symbol documented in this
 // bundle links its page and anchor (a name of a value group its group's,
 // a field its type's); anything else links pkg.go.dev.
-func (x *extraction) linkURL(from *pkgState) func(*comment.DocLink) string {
-	return func(l *comment.DocLink) string {
+func (x *extraction) linkURL(from *pkgState) linker {
+	return func(l *comment.DocLink) (string, bool) {
 		ip := l.ImportPath
 		if ip == "" {
 			ip = from.importPath
@@ -569,25 +624,27 @@ func (x *extraction) linkURL(from *pkgState) func(*comment.DocLink) string {
 		if l.Recv != "" {
 			key = l.Recv + "." + l.Name
 		}
-		if st, ok := x.byPath[ip]; ok {
-			page := "/docs/" + x.o.Config.Section + st.page + "/"
-			if l.Name == "" {
-				return page
-			}
-			if a, ok := st.anchors[key]; ok {
-				return page + "#" + a
-			}
-			// A field (no heading of its own) links its type, whose
-			// declaration shows it.
-			if a, ok := st.anchors[l.Recv]; ok && l.Recv != "" && isType(st.pkg, l.Recv) {
-				return page + "#" + a
-			}
-		}
 		u := "https://pkg.go.dev/" + ip
 		if key != "" {
 			u += "#" + key
 		}
-		return u
+		st, ok := x.byPath[ip]
+		if !ok {
+			return u, false
+		}
+		page := "/docs/" + x.o.Config.Section + st.page + "/"
+		if l.Name == "" {
+			return page, false
+		}
+		if a, ok := st.anchors[key]; ok {
+			return page + "#" + a, false
+		}
+		// A field (no heading of its own) links its type, whose
+		// declaration shows it.
+		if a, ok := st.anchors[l.Recv]; ok && l.Recv != "" && isType(st.pkg, l.Recv) {
+			return page + "#" + a, false
+		}
+		return u, true
 	}
 }
 

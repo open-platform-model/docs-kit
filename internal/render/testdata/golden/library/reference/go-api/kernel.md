@@ -34,7 +34,7 @@ A render is single-threaded and its working set grows with the module, so a rend
 
 ### One-Kernel-per-process example
 
-func renderAll(ctx context.Context, k \*kernel.Kernel, platformDir string, instanceDirs \[\]string) error { plat, err := k.AcquirePlatformFromDir(ctx, platformDir) // once; the platform is shared as data if err \!= nil { return err } var wg sync.WaitGroup errs := make(chan error, len(instanceDirs)) for \_, dir := range instanceDirs { wg.Add(1) go func(dir string) { defer wg.Done() inst, err := k.AcquireInstanceFromDir(ctx, dir) // the one Kernel, concurrently if err \!= nil { errs \<- err return } if \_, err := k.Render(ctx, kernel.RenderInput{Instance: inst, Platform: plat, RuntimeName: "opm-cli"}); err \!= nil { errs \<- err } }(dir) } wg.Wait() close(errs) for err := range errs { if err \!= nil { return err } } return nil }
+func renderAll(ctx context.Context, k \*kernel.Kernel, platformDir string, instanceDirs \[\]string) error \{ plat, err := k.AcquirePlatformFromDir(ctx, platformDir) // once; the platform is shared as data if err \!= nil \{ return err \} var wg sync.WaitGroup errs := make(chan error, len(instanceDirs)) for \_, dir := range instanceDirs \{ wg.Add(1) go func(dir string) \{ defer wg.Done() inst, err := k.AcquireInstanceFromDir(ctx, dir) // the one Kernel, concurrently if err \!= nil \{ errs \<- err return \} if \_, err := k.Render(ctx, kernel.RenderInput\{Instance: inst, Platform: plat, RuntimeName: "opm-cli"\}); err \!= nil \{ errs \<- err \} \}(dir) \} wg.Wait() close(errs) for err := range errs \{ if err \!= nil \{ return err \} \} return nil \}
 
 ### Rendering
 
@@ -44,7 +44,7 @@ The render module's own gate field agrees with the kernel: it errors exactly whe
 
 A render result carries no presentation strings. The three advisory facts a render can report are rows on the diagnostics: an unhandled optional trait on RenderDiagnostics.UnhandledTraits, a module requiring a newer build than the platform carries on a RenderDiagnostics.ResolvedVersions row with Newer set, and a demand skipped under [RenderInput.SkipUnprovided](/docs/reference/go-api/kernel/#renderinput) on a RenderDiagnostics.Skipped row. A frontend words all three:
 
-for comp, traits := range result.Diagnostics.UnhandledTraits { for \_, fqn := range traits { log.Printf("component %q: trait %q is unhandled", comp, fqn) } } for \_, r := range result.Diagnostics.ResolvedVersions { if r.Newer { log.Printf("%s: module requires %s, platform carries %s", r.Path, r.ModuleVersion, r.PlatformVersion) } } for \_, s := range result.Diagnostics.Skipped { log.Printf("component %q: skipped %s %q, no provider on this platform (component rendered: %t)", s.Component, s.Kind, s.FQN, \!s.ComponentOmitted) }
+for comp, traits := range result.Diagnostics.UnhandledTraits \{ for \_, fqn := range traits \{ log.Printf("component %q: trait %q is unhandled", comp, fqn) \} \} for \_, r := range result.Diagnostics.ResolvedVersions \{ if r.Newer \{ log.Printf("%s: module requires %s, platform carries %s", r.Path, r.ModuleVersion, r.PlatformVersion) \} \} for \_, s := range result.Diagnostics.Skipped \{ log.Printf("component %q: skipped %s %q, no provider on this platform (component rendered: %t)", s.Component, s.Kind, s.FQN, \!s.ComponentOmitted) \}
 
 A dry run is Render with the output discarded: the build evaluates every matched pair regardless, and RenderDiagnostics carries the pairing diagnosis (Pairs, Unmatched, Unresolved, Skipped, Unify, UnhandledTraits, OverSubscribed, Collisions, Routable, ResolvedVersions). There is no separate match verb.
 
@@ -52,7 +52,7 @@ A demand is unprovided when its contract declares fulfilment "provider" and no e
 
 An input's own cue.mod/local-module.cue (a developer redirecting a dependency to a directory or another module) reaches the render only under [RenderInput.LocalReplacements](/docs/reference/go-api/kernel/#renderinput). Off, the default, Render refuses before staging an input whose file carries a replacement rather than silently rendering against the published pin. On, the replacements are promoted into the render module under the precedence dependencies get (the platform's whole, the instance's only for paths the platform's dependency list does not name) and each honoured one is a [RenderDiagnostics.Replacements](/docs/reference/go-api/kernel/#renderdiagnostics) row naming the path, the target and the input that supplied it; a replaced path keeps its pinned versions on ResolvedVersions. A relative directory target is resolved against the input's own module root; a replaced path the promoted list lacks is listed with a placeholder version of its major so coverage holds; a version-less dependency no promoted replacement covers is refused naming the path and the input; the rows are path-sorted, and an input without the file renders identically under either setting. The switch is a security boundary, not an extension point: it is the one place a render may read a directory an artifact names, so a frontend sets it for a developer's checkout and never for an artifact it did not author (the operator never sets it). The frontend words the rows (an instance replacement the platform made inert is not a row, so the frontend computes the inert set from the file it read):
 
-for \_, r := range result.Diagnostics.Replacements { log.Printf("%s: served from %s (%s local-module.cue)", r.Path, r.Target, r.By) }
+for \_, r := range result.Diagnostics.Replacements \{ log.Printf("%s: served from %s (%s local-module.cue)", r.Path, r.Target, r.By) \}
 
 Render consumes the instance as processed: values are validated where they are applied. [Kernel.AcquireInstanceFromDir](/docs/reference/go-api/kernel/#kernelacquireinstancefromdir) unifies its trailing [Source](/docs/reference/go-api/kernel/#source) values inside the package build and checks them against the module's `#config` at their own positions; [Kernel.SynthesizeInstance](/docs/reference/go-api/kernel/#kernelsynthesizeinstance) does the same for [InstanceInput.Values](/docs/reference/go-api/kernel/#instanceinput), rendering them into the synthesized package; both then assert concreteness on the whole built spec. Render performs no validation pass of its own.
 
@@ -64,7 +64,7 @@ Because the sources are compiled into the schema value's own context, validating
 
 The primitive returns CUE-native errors. Walk them via [cuelang.org/go/cue/errors.Errors](https://pkg.go.dev/cuelang.org/go/cue/errors#Errors) / [cuelang.org/go/cue/errors.Positions](https://pkg.go.dev/cuelang.org/go/cue/errors#Positions), or print via [cuelang.org/go/cue/errors.Print](https://pkg.go.dev/cuelang.org/go/cue/errors#Print). Presentation belongs to the frontend — the kernel does not ship a formatter.
 
-A caller holding a \*module.Module or \*module.Instance composes its ConfigSchema() accessor with the primitive, e.g. k.ValidateConfigDetailed(m.ConfigSchema(), \[\]kernel.Source{src}).
+A caller holding a \*module.Module or \*module.Instance composes its ConfigSchema() accessor with the primitive, e.g. k.ValidateConfigDetailed(m.ConfigSchema(), \[\]kernel.Source\{src\}).
 
 ## Types
 

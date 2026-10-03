@@ -88,7 +88,7 @@ func TestSelection(t *testing.T) {
 	}
 	w := byImportPath(t, r.Model, "example.com/widgets/lib/widget")
 	for _, f := range w.Funcs {
-		if f.Name == "WindowsOnly" || f.Name == "TestOnly" || f.Name == "New" {
+		if f.Name == "WindowsOnly" || f.Name == "TestOnly" || f.Name == "CgoOnly" || f.Name == "New" {
 			t.Errorf("package funcs list %s", f.Name)
 		}
 	}
@@ -156,7 +156,7 @@ func TestPackageDoc(t *testing.T) {
 		"### Spinning",
 		"```text\nw := widget.New()",
 		`\<b\>raw HTML\</b\>`,
-		`{\{\< figure \>}}`,
+		`\{\{\< figure \>\}\}`,
 		"`cue`",
 	} {
 		if !strings.Contains(w.Doc, want) {
@@ -217,8 +217,12 @@ func TestPatternMatchesNothing(t *testing.T) {
 		o.Lenient = true
 		o.Warn = func(s string) { warned = append(warned, s) }
 	})
-	if err != nil || len(r.Model.Packages) != 3 || len(warned) != 1 {
+	if err != nil || len(r.Model.Packages) != 3 || len(warned) != 2 || !strings.Contains(warned[0], "matches no package") {
 		t.Fatalf("a backfill warns: err %v, warnings %v", err, warned)
+	}
+	// A pattern that selects only a command matches nothing.
+	if _, err := extractFixture(t, func(o *Options) { o.Config.Packages = []string{"./lib/cmd/..."} }); err == nil || !strings.Contains(err.Error(), "matches no package") {
+		t.Fatalf("a command was selected: %v", err)
 	}
 	// An internal package matches nothing: it is never documented.
 	if _, err := extractFixture(t, func(o *Options) { o.Config.Packages = []string{"./lib/internal/secret"} }); err == nil {
@@ -323,7 +327,7 @@ func TestRefusesLinkScheme(t *testing.T) {
 	// other than http and https are refused.
 	for _, u := range []string{"file:///etc/passwd", "ftp://example.com/x", "gopher://example.com", "mailto://x@example.com"} {
 		_, err := gadgetDoc(t, u)
-		if err == nil || !strings.Contains(err.Error(), "a link is http, https or relative") || !strings.Contains(err.Error(), "./lib/gadget") {
+		if err == nil || !strings.Contains(err.Error(), "a link is http or https") || !strings.Contains(err.Error(), "./lib/gadget") {
 			t.Errorf("%s: err = %v", u, err)
 		}
 	}
@@ -358,5 +362,72 @@ func TestPatternRE(t *testing.T) {
 		if got := patternRE(c.pattern).MatchString(c.path); got != c.ok {
 			t.Errorf("%s matches %s: %v, want %v", c.pattern, c.path, got, c.ok)
 		}
+	}
+}
+
+// Import and module paths reach pages as pkg.go.dev links, so a path the
+// go command would refuse is refused.
+func TestRefusesInvalidPaths(t *testing.T) {
+	src := copyFixture(t)
+	evil := "package gadget\n\nimport foo \"evil)<details open ontoggle=alert(1)>\"\n\n// Bar is [foo.Bar].\nvar Bar = foo.Bar\n"
+	if err := os.WriteFile(filepath.Join(src, "mod", "lib", "gadget", "evil.go"), []byte(evil), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := extractFixture(t, func(o *Options) { o.Source = src })
+	if err == nil || !strings.Contains(err.Error(), "mod/lib/gadget/evil.go imports \"evil)<details") || !strings.Contains(err.Error(), "not a valid import path") {
+		t.Errorf("an invalid import path: %v", err)
+	}
+	src = copyFixture(t)
+	if err := os.WriteFile(filepath.Join(src, "mod", "go.mod"), []byte("module \"example.com/x)<b>\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = extractFixture(t, func(o *Options) { o.Source = src })
+	if err == nil || !strings.Contains(err.Error(), "not a valid module path") {
+		t.Errorf("an invalid module path: %v", err)
+	}
+}
+
+// A doc link into a bundled package that names nothing documented there
+// warns, and links pkg.go.dev.
+func TestWarnsMissingSymbol(t *testing.T) {
+	var warned []string
+	r, err := extractFixture(t, func(o *Options) { o.Warn = func(s string) { warned = append(warned, s) } })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warned) != 1 || !strings.Contains(warned[0], "gadget.Size (./lib/gadget): the doc link [widget.Missing] names nothing documented in example.com/widgets/lib/widget") {
+		t.Errorf("warnings %q", warned)
+	}
+	g := byImportPath(t, r.Model, "example.com/widgets/lib/gadget")
+	if !strings.Contains(g.Funcs[0].Doc, "[widget.Missing](https://pkg.go.dev/example.com/widgets/lib/widget#Missing)") {
+		t.Errorf("doc %s", g.Funcs[0].Doc)
+	}
+}
+
+// A configured directory that resolves outside the source tree through a
+// linked parent is refused.
+func TestRefusesOutsideSource(t *testing.T) {
+	src := copyFixture(t)
+	outside := copyFixture(t)
+	if err := os.Symlink(outside, filepath.Join(src, "elsewhere")); err != nil {
+		t.Fatal(err)
+	}
+	_, err := extractFixture(t, func(o *Options) { o.Source = src; o.Config.Module = "./elsewhere/mod" })
+	if err == nil || !strings.Contains(err.Error(), "module ./elsewhere/mod resolves outside the source tree") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestRefusesModuleRootPackage(t *testing.T) {
+	src := copyFixture(t)
+	if err := os.WriteFile(filepath.Join(src, "mod", "lib", "gadget", "go.mod"), []byte("module example.com/gadget\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := extractFixture(t, func(o *Options) {
+		o.Source = src
+		o.Config.Module, o.Config.Root, o.Config.Packages = "./mod/lib/gadget", "./", []string{"./..."}
+	})
+	if err == nil || !strings.Contains(err.Error(), "./ is the module's root package, which a go-api source cannot document") {
+		t.Fatalf("err = %v", err)
 	}
 }

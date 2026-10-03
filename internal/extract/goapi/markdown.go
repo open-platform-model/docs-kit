@@ -18,8 +18,11 @@ import (
 // code spans kept, links checked, code in sized fences.
 type mdPrinter struct {
 	policy doctext.Policy
-	docURL func(*comment.DocLink) string // a doc link's URL
-	where  string                        // names the comment in errors: "kernel.New (opm/kernel/kernel.go)"
+	// docURL is a doc link's URL; missing reports a link into a bundled
+	// package that names no symbol documented there.
+	docURL func(*comment.DocLink) (url string, missing bool)
+	warn   func(string) // nil: no warnings (the first pass)
+	where  string       // names the comment in errors: "kernel.New (opm/kernel/kernel.go)"
 }
 
 // markdown prints d with its headings at level and below.
@@ -51,7 +54,7 @@ func (pr *mdPrinter) block(x comment.Block, level int) (string, error) {
 		}
 		return strings.Repeat("#", level) + " " + t, nil
 	case *comment.Code:
-		code := strings.TrimRight(x.Text, "\n")
+		code := strings.TrimRight(dropControls(x.Text), "\n")
 		f := Fence(code)
 		return f + "text\n" + code + "\n" + f, nil
 	case *comment.List:
@@ -116,9 +119,9 @@ func (pr *mdPrinter) text(xs []comment.Text, heading bool) (string, error) {
 	for _, x := range xs {
 		switch x := x.(type) {
 		case comment.Plain:
-			raw.WriteString(string(x))
+			raw.WriteString(dropControls(string(x)))
 		case comment.Italic:
-			raw.WriteString(string(x))
+			raw.WriteString(dropControls(string(x)))
 		case *comment.Link:
 			if err := checkURL(x.URL); err != nil {
 				return "", fmt.Errorf("%s: %w", pr.where, err)
@@ -132,8 +135,12 @@ func (pr *mdPrinter) text(xs []comment.Text, heading bool) (string, error) {
 			subs = append(subs, sub{md: "[" + escape(plain, heading) + "](" + encodeURL(x.URL) + ")", plain: src})
 		case *comment.DocLink:
 			plain := plainText(x.Text)
+			u, missing := pr.docURL(x)
+			if missing && pr.warn != nil {
+				pr.warn(fmt.Sprintf("%s: the doc link [%s] names nothing documented in %s; it links %s", pr.where, plain, x.ImportPath, u))
+			}
 			raw.WriteString(subMark(len(subs)))
-			subs = append(subs, sub{md: "[" + escape(plain, heading) + "](" + pr.docURL(x) + ")", plain: "[" + plain + "]"})
+			subs = append(subs, sub{md: "[" + escape(plain, heading) + "](" + encodeURL(u) + ")", plain: "[" + plain + "]"})
 		}
 	}
 	s := strings.Join(strings.Fields(raw.String()), " ")
@@ -151,7 +158,19 @@ func plainText(xs []comment.Text) string {
 			b.WriteString(string(x))
 		}
 	}
-	return strings.Join(strings.Fields(b.String()), " ")
+	return strings.Join(strings.Fields(dropControls(b.String())), " ")
+}
+
+// dropControls removes the control characters other than tab and newline:
+// none belongs in a page, and \x00 and \x01 mark placeholders while the
+// citation policy runs.
+func dropControls(s string) string {
+	return strings.Map(func(r rune) rune {
+		if (r < 0x20 && r != '\t' && r != '\n') || r == 0x7f {
+			return -1
+		}
+		return r
+	}, s)
 }
 
 // reDecisionLink matches the link the "link" citation policy writes.
@@ -171,11 +190,12 @@ func (pr *mdPrinter) inline(s string, subs []sub, heading bool) string {
 	}
 	for i := 0; i < len(s); {
 		if m := reSubMark.FindStringSubmatch(s[i:]); m != nil {
-			n, _ := strconv.Atoi(m[1])
-			flush()
-			b.WriteString(subs[n].md)
-			i += len(m[0])
-			continue
+			if n, err := strconv.Atoi(m[1]); err == nil && n < len(subs) {
+				flush()
+				b.WriteString(subs[n].md)
+				i += len(m[0])
+				continue
+			}
 		}
 		if pr.policy == doctext.Link && s[i] == '[' {
 			if m := reDecisionLink.FindString(s[i:]); m != "" {
@@ -187,11 +207,16 @@ func (pr *mdPrinter) inline(s string, subs []sub, heading bool) string {
 		}
 		if s[i] == '`' {
 			n := backtickRun(s, i)
-			// A run of three at the start of a line would open a fence.
-			if end := closingRun(s, i+n, n); end >= 0 && (i > 0 || n < 3) {
+			// A run of three at the start of a line would open a fence, and
+			// a heading keeps no code span, which could end in a "{...}"
+			// goldmark reads as the heading's attributes.
+			if end := closingRun(s, i+n, n); end >= 0 && (i > 0 || n < 3) && !heading {
 				flush()
 				inner := reSubMarkAny.ReplaceAllStringFunc(s[i+n:end], func(mk string) string {
-					k, _ := strconv.Atoi(strings.Trim(mk, "\x01"))
+					k, err := strconv.Atoi(strings.Trim(mk, "\x01"))
+					if err != nil || k >= len(subs) {
+						return ""
+					}
 					return subs[k].plain
 				})
 				b.WriteString(mdtext.Code(trimSpan(inner)))
@@ -222,12 +247,13 @@ func trimSpan(s string) string {
 
 // escaped is every character prose escapes with a backslash: what Markdown
 // reads as emphasis, a link or an image, a table cell, raw HTML or a code
-// span.
-const escaped = "\\`*_[]<>|!"
+// span, and the braces of a Hugo shortcode and of a goldmark attribute
+// block ("{.class}", "{id=x}").
+const escaped = "\\`*_[]<>|!{}"
 
-// escape backslash-escapes prose, and writes "{{" as "{\{" until none is
-// left, so no text opens a Hugo shortcode. A heading also escapes "#",
-// which would close it.
+// escape backslash-escapes prose, so no text opens markup, raw HTML, a
+// shortcode or an attribute block. A heading also escapes "#", which would
+// close it.
 func escape(s string, heading bool) string {
 	var b strings.Builder
 	for i := 0; i < len(s); i++ {
@@ -237,11 +263,7 @@ func escape(s string, heading bool) string {
 		}
 		b.WriteByte(c)
 	}
-	out := b.String()
-	for strings.Contains(out, "{{") {
-		out = strings.ReplaceAll(out, "{{", `{\{`)
-	}
-	return out
+	return b.String()
 }
 
 var reOrdered = regexp.MustCompile(`^\d+[.)]`)
@@ -265,11 +287,11 @@ func lineStart(s string) string {
 var reScheme = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9+.-]*):`)
 
 // checkURL refuses a link whose URL names a scheme other than http or
-// https: the site renders links as written, so a javascript: link would
-// run.
+// https: the site renders links as written. (The doc comment parser makes
+// links of absolute URLs only.)
 func checkURL(u string) error {
-	if m := reScheme.FindStringSubmatch(u); len(m) == 2 && !strings.EqualFold(m[1], "http") && !strings.EqualFold(m[1], "https") {
-		return fmt.Errorf("the doc comment links %q; a link is http, https or relative", u)
+	if m := reScheme.FindStringSubmatch(u); len(m) != 2 || (!strings.EqualFold(m[1], "http") && !strings.EqualFold(m[1], "https")) {
+		return fmt.Errorf("the doc comment links %q; a link is http or https", u)
 	}
 	return nil
 }
@@ -326,5 +348,5 @@ func Fence(code string) string {
 // comment's prose is escaped, code spans kept: a package synopsis on the
 // section index.
 func Prose(s string) string {
-	return (&mdPrinter{policy: doctext.Strip}).inline(s, nil, false)
+	return (&mdPrinter{policy: doctext.Strip}).inline(dropControls(s), nil, false)
 }

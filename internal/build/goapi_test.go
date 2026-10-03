@@ -1,9 +1,9 @@
 package build
 
 import (
-	"bytes"
 	"context"
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,9 +30,9 @@ const goAPIConfig = `bundles: "widgets": {
 }
 `
 
-// goAPIBuild builds the go-api extractor's fixture module as a docs
-// bundle, with files added and then run before the build.
-func goAPIBuild(t *testing.T, files map[string]string, then func(*gittest.Repo)) (*bundle.Manifest, string, error) {
+// goAPIRepo commits the go-api extractor's fixture module, with files
+// added and then run, to a repository with a docs-kit.cue.
+func goAPIRepo(t *testing.T, files map[string]string, then func(*gittest.Repo)) *gittest.Repo {
 	t.Helper()
 	t.Setenv("GITHUB_REPOSITORY", "")
 	if files["docs-kit.cue"] == "" {
@@ -46,6 +46,12 @@ func goAPIBuild(t *testing.T, files map[string]string, then func(*gittest.Repo))
 	if then != nil {
 		then(r)
 	}
+	return r
+}
+
+// goAPIBuildIn builds the repository's bundle into a new directory.
+func goAPIBuildIn(t *testing.T, r *gittest.Repo) (*bundle.Manifest, string, error) {
+	t.Helper()
 	cfg, err := config.Load(filepath.Join(r.Dir, "docs-kit.cue"))
 	if err != nil {
 		t.Fatal(err)
@@ -64,6 +70,12 @@ func goAPIBuild(t *testing.T, files map[string]string, then func(*gittest.Repo))
 		t.Fatal(err)
 	}
 	return m, dir, nil
+}
+
+// goAPIBuild builds the fixture module as a docs bundle.
+func goAPIBuild(t *testing.T, files map[string]string, then func(*gittest.Repo)) (*bundle.Manifest, string, error) {
+	t.Helper()
+	return goAPIBuildIn(t, goAPIRepo(t, files, then))
 }
 
 func TestGoAPIBundle(t *testing.T) {
@@ -108,25 +120,37 @@ func TestGoAPIBundleCompleted(t *testing.T) {
 	}
 }
 
+// Two builds of one commit write the same bundle, byte for byte.
 func TestGoAPIBundleDeterministic(t *testing.T) {
-	outs := make([][]byte, 0, 2)
+	r := goAPIRepo(t, map[string]string{}, nil)
+	trees := make([]map[string]string, 0, 2)
 	for range 2 {
-		_, dir, err := goAPIBuild(t, map[string]string{}, nil)
+		_, dir, err := goAPIBuildIn(t, r)
 		if err != nil {
 			t.Fatal(err)
 		}
-		var b bytes.Buffer
-		for _, f := range []string{"data/go-api.json", "content/reference/go-api/widget.md", "content/reference/go-api/_index.md"} {
-			data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(f)))
-			if err != nil {
-				t.Fatal(err)
+		tree := map[string]string{}
+		err = filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return err
 			}
-			b.Write(data)
+			b, err := os.ReadFile(p)
+			rel, _ := filepath.Rel(dir, p)
+			tree[filepath.ToSlash(rel)] = string(b)
+			return err
+		})
+		if err != nil {
+			t.Fatal(err)
 		}
-		outs = append(outs, b.Bytes())
+		trees = append(trees, tree)
 	}
-	if !bytes.Equal(outs[0], outs[1]) {
-		t.Fatal("two builds differ")
+	if len(trees[0]) != 7 || !maps.Equal(trees[0], trees[1]) {
+		for f, b := range trees[0] {
+			if trees[1][f] != b {
+				t.Errorf("%s differs:\n%s\n---\n%s", f, b, trees[1][f])
+			}
+		}
+		t.Fatalf("two builds differ (%d and %d files)", len(trees[0]), len(trees[1]))
 	}
 }
 
