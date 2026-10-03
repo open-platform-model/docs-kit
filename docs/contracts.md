@@ -6,7 +6,7 @@ The numbers (C1 onward) are stable; other repositories cite them as `docs-kit C5
 
 ## Doc-comment rules
 
-How every extractor turns source comments into reader-facing text (`internal/doctext`, `internal/mdtext`):
+How every extractor turns source comments into reader-facing text (`internal/doctext`, `internal/mdtext`). `cue-definitions` departs from the summary, escaping and spec-block wrapping rules where C17 says so:
 
 - **Maintainer comments.** Inside a definition, a comment group whose first line (after `//` and trimming) starts with `WHY` or with `//` (a `////` banner) is dropped. A `WHY` line inside a doc comment is dropped on its own (core's rule, adopted now).
 - **Citations.** Removed from prose and from comments in spec blocks. The pattern accepts `0010:D28`, `0010 D28`, `OQ` numbers, `:R2` and `/R1/R2` requirement suffixes, `/D9` continuations, lists joined by `,`, `;` or `and`, an optional `(see|per|enhancement)` lead and the parenthesised form; then refgen's six clean-up rewrites (empty parens, comma before paren, space after paren, space before punctuation, double spaces, trim). Also removed: `See SPEC.md § N.` sentences, inline `SPEC.md § N`, `NNNN experiment N` and `enhancements/NNNN/experiments/...` (core's rules, adopted now). A changed comment paragraph in a spec block is re-wrapped to `80 - indent - 3` columns, minimum 40; an unchanged one keeps its breaks; a trailing comment that becomes empty is removed.
@@ -343,7 +343,7 @@ package schema
 // "link" links each enhancement decision citation to its decisions page.
 #Citations: *"strip" | "link"
 
-#Source: #CueCatalog | #Markdown | #Cobra | #CRD
+#Source: #CueCatalog | #Markdown | #Cobra | #CueDefinitions | #CRD
 
 #CueCatalog: {
 	kind:   "cue-catalog"
@@ -362,6 +362,35 @@ package schema
 	// some include (or include is absent) and no exclude.
 	include?: [string, ...string]
 	exclude?: [string, ...string]
+}
+
+// A CUE package's exported definitions, parsed (never evaluated) and grouped
+// into reference pages by the author's inclusion list (docs-kit C17).
+#CueDefinitions: {
+	kind:    "cue-definitions"
+	package: =~"^\\./" & !~"(^|/)\\.\\.(/|$)" // the package directory, repo-relative: "./src"
+	skip:    *[] | [...string] // path.Match globs on file base names: ["*_pins.cue"]
+	// The directory the pages are written to, one of the bundle's owned
+	// paths: "reference/definitions/".
+	section:     =~"^([a-z0-9]+(-[a-z0-9]+)*/)+$"
+	title:       string & !="" // the section index's front matter
+	description: string & !=""
+	weight?:     int & >=1 // the section index's weight among its siblings
+	// The section index's opening paragraph, Markdown; without it the
+	// index names the package's module path.
+	intro?: string & !=""
+	pages: [#DefPage, ...#DefPage]
+	// Exported definitions left out of the pages, each with the reason.
+	exclude: [=~"^#"]: string & !=""
+	citations?: #Citations
+}
+
+// One reference page: its file under section and its definitions in order.
+#DefPage: {
+	file:        =~"^[a-z0-9]+(-[a-z0-9]+)*$"
+	title:       string & !=""
+	description: string & !=""
+	definitions: [=~"^#", ...=~"^#"]
 }
 
 // A cobra command tree, printed by the repository's own program through the
@@ -406,6 +435,7 @@ package schema
 |---|---|---|
 | `cue-catalog` | `data/catalog.json` (C10); a tab bundle only | `module`; `citations` only `"strip"` |
 | `markdown` | authored pages, copied | `dir`, `include`, `exclude` |
+| `cue-definitions` | `data/cue-definitions.json` (C17); a docs bundle only | `package`, `skip`, `section`, `title`, `description`, `weight`, `intro`, `pages`, `exclude`; `citations` |
 | `cobra` | `data/cobra.json` (C19) | `command`, `section`, `title`, `description`, `weight`, `citations` |
 | `crd` | `data/crd.json` (C18) and one completable page; a docs bundle only | `dir`, `samples`, `hideSamplesMatching`, `stripLabels`, `page`, `title`, `description`, `weight`, `order`, `reconciledBy`, `citations` |
 
@@ -960,6 +990,95 @@ bundles: opm: {
 
 **Pins** (DESIGN decision 10). When a bundle's config has `pins: {command, projects}`, `build` runs the command (C14) and requires a `docs.opmodel.dev/pins/v1` document whose `pins` keys are exactly `projects` and whose values are SemVer versions without `v` (C3's `#SemVer`); it writes them to `manifest.json` `pins`. A missing or extra project, or a malformed version, exits `2` naming it and the command. A backfilled release (config from outside the tree) whose tree cannot run the command fails: pins are a contract, never guessed.
 
+## C17. `cue-definitions`
+
+A `cue-definitions` source documents a CUE package's exported definitions on reference pages grouped by the author (DESIGN.md phase 2; it replaces core's `tools/refgen`). Its config is `#CueDefinitions` (C6). core's file, the lists moved verbatim from `tools/refgen/groups.go`:
+
+```cue
+bundles: core: {
+	placement: {kind: "docs", root: "/docs/", owns: ["reference/definitions/"]}
+	version: {from: "tag", prefix: "v"}
+	sources: [{
+		kind:        "cue-definitions"
+		package:     "./src"
+		skip:        ["*_pins.cue"]
+		section:     "reference/definitions/"
+		title:       "Definitions"
+		description: "Every OPM definition type, generated from the CUE schema in core."
+		weight:      1
+		intro:       "Every definition below belongs to `opmodel.dev/core@v2`, the CUE module every OPM artifact is typed against. ..."
+		pages: [
+			{file: "modules-and-instances", title: "Modules and instances", description: "...", definitions: ["#Module", "#ModuleInstance", "#InstanceIdentity"]},
+			// ... the other seven pages of groups.go, in order
+		]
+		exclude: {"#BlueprintMap": "map shorthand" /* ... the rest of groups.go's excluded map */}
+	}, {
+		kind: "markdown", dir: "docs/site", exclude: ["reference/definitions/"]
+	}]
+}
+```
+
+**Config checks** (exit `1`, before anything is built): a `cue-definitions` source in a bundle whose placement is not `docs`; a `skip` pattern that is not a glob; a `package` that does not start `./` or holds a `..` segment.
+
+**Extraction.** Every `.cue` file directly in `package` whose base name matches no `skip` glob (`path.Match`) is parsed with its comments; nothing is evaluated. A definition is an exported top-level field with an identifier label (`#Name`; not `_#Name`, not a quoted `"#Name"`); one declared in two files exits `2`. The module path the pages name is the `module` field of the nearest `cue.mod/module.cue` at or above `package`. Per placed definition:
+
+| Field | From |
+|---|---|
+| `summary` | the doc comment's first sentence (a leading `#Name:` or `Name:` label removed, a bare leading `Name` given its `#`, the first letter capitalised; `e.g.`, `i.e.`, `etc.` and `vs.` end no sentence); a definition has no `metadata.description`, so the member summary rule does not apply |
+| `notes` | the rest of the doc comment, one block per entry: a paragraph; `- item`, a list item; a line indented by two spaces, a preformatted line; `""`, a paragraph break |
+| `example` | the values after `Example:` (one quoted string per line) and `Usage:` (`expr => result` becomes `expr // result`) |
+| `cue` | the field formatted with four-space indents, after: hidden fields and comprehensions that only set hidden fields dropped; every comment but doc and same-line comments dropped, and so are `WHY` groups and `////` banners; a `T & {comprehensions}` value of 40 lines or more shown as `T` with "Derived in the source; the derivation is not shown here."; the definition's own doc comment removed |
+| `shape` | `struct, closed`, `struct, open` (an `...`), `map` (pattern fields only), `disjunction`, `string constraint`, `unification` or `value`, plus `` `kind: "X"` `` when the struct pins a string `kind` |
+| `embeds` | placed definitions embedded at its top level |
+| `uses` | placed definitions it refers to: an identifier in expression position that resolves to the file's top level, or to nothing in the file (declared in another file of the package); a field label, a selector's field (`x.#B`) and a reference to a nested definition of the same name do not count. A reference to an excluded definition is followed through to what that one refers to. `usedBy` is its inverse; both sorted |
+| `rules` | `by: "cue"` only: closed struct, required (`!`) fields (also inside plain structs and `if` bodies, with the condition), a field declared twice (pinned `true` beside a check, or two constraints), a string constraint's pattern (in `code`) and `strings.MinRunes`/`MaxRunes` bounds |
+
+Prose (`summary`, `notes`) follows the source's `citations` policy ("Doc-comment rules"). A spec block's comments drop every citation under both policies; a changed doc paragraph there is re-wrapped at 76 columns and a same-line comment is never wrapped (refgen's rule, kept for parity; the 80-column rule of "Doc-comment rules" is the catalog's).
+
+**Placement.** Every exported definition is on exactly one page or in `exclude`. With the config in the source tree, each of these exits `2`, all listed in one message: an unplaced definition ("`#Policy (src/policy.cue) is exported but neither placed in a page nor excluded in docs-kit.cue; add it to a page's definitions or to exclude with a reason`"), a definition on two pages, a placed name the package does not declare, an excluded name it does not declare, a name both placed and excluded, a placed definition whose doc comment yields no summary (missing, or holding only rationale or citations), two names on one page that differ only in case (their anchors collide). With the config from outside the tree (a backfill, C5), each is a `warning:` line on stderr: an unplaced definition is left out, an unknown name skipped, a second placement and a colliding name ignored, a page left empty dropped with its index row, and a definition without a summary kept with an empty one (no summary paragraph, an empty table cell).
+
+**Data model**, `data/cue-definitions.json`:
+
+```json
+{
+  "schema": "docs.opmodel.dev/data/cue-definitions/v1",
+  "modulePath": "opmodel.dev/core@v2",
+  "version": "2.0.0-beta.1",
+  "section": "reference/definitions/",
+  "title": "Definitions",
+  "description": "Every OPM definition type, generated from the CUE schema in core.",
+  "weight": 1,
+  "pages": [
+    {"file": "components", "title": "Components", "description": "...", "weight": 2, "definitions": ["#Component", "#ComponentNames"]}
+  ],
+  "definitions": [
+    {
+      "name": "#Component", "anchor": "component", "page": "components",
+      "file": "src/component.cue",
+      "summary": "<first sentence>", "notes": ["<block>"], "example": [],
+      "shape": "struct, closed, `kind: \"Component\"`", "embeds": [],
+      "cue": "<the formatted spec block>",
+      "uses": ["#Blueprint"], "usedBy": ["#Module"],
+      "rules": [{"rule": "<sentence>", "by": "cue"}, {"rule": "The string must match this regular expression:", "code": "^[a-z]+$", "by": "cue"}]
+    }
+  ],
+  "excluded": [{"name": "#BlueprintMap", "reason": "map shorthand"}]
+}
+```
+
+`weight` and `intro` are left out when unset; a rule's `code` when empty. Definitions are listed in page order, then in each page's configured order; `excluded` by name; every list is present, empty or not. A page's `weight` is its 1-based position among the pages written.
+
+**Pages.** Every page lies under `section`, and `section` lies under one of the bundle's `owns` (C15); the renderer also refuses a target that is not a docs placement:
+
+| Path | Page |
+|---|---|
+| `<section>_index.md` | front matter `title`, `description`, `weight` when set, no `type`; `intro` as configured (Markdown, written as it is), else "Every definition below belongs to `<module path>`."; `## Pages` (one line per page: link and description); `## All definitions` (a table: definition, page, summary). Completable (C15) with heading `## Pages`, so an authored index may replace the intro |
+| `<section><file>.md` | front matter `title`, `description`, `type: reference`, `weight`; "Definitions on this page: ..."; per definition `## #Name`, the summary, `**At a glance**` (Source with file and module path, Shape, Embeds, Uses, Used by), `**Spec**` (a `cue` fence), `**Example**`, `**Notes**`, `**Enforcement**` ("CUE enforces each of these rules on a value unified with `#Name`:", a list, a `code` in a `text` fence under its rule) |
+
+An anchor is the name lowercased without `#` (`#ComponentNames` is `componentnames`); a link to a definition is `/docs/<section><file>/#<anchor>`. In prose, outside code spans (a run of n backticks up to the next run of exactly n) and inline Markdown links (`[text](url)` or `[text](url "title")`, whose URL and title stay as written, so a fragment survives, and whose text has `<` and `{{` escaped), a `#Name` (or `#Name.field`) of a placed definition other than the entry's own becomes such a link, any other `#name` and `$name` a code span, and `<` and `{{` are escaped; nothing else is, since a doc comment's prose is Markdown as written. Every code fence and code span the renderer writes (spec, example, text blocks, a rule's `code`, the Source and Shape spans, rule paths and expressions) is one backtick longer than the longest backtick run in its content (a fence at least three). A link in a definition's prose whose URL names a scheme other than `http` or `https` exits `2` naming the definition and its file ("`#T (src/t.cue): the doc comment links "javascript:alert(1)"; a link is http, https or relative`"): the site renders links as written. No page carries a generator marker comment.
+
+**Parity record.** At core `main` `c5a6076` (`v2.0.0-beta.1-15`; the tag itself predates refgen) the nine pages built with core's config equal refgen's committed pages byte for byte, marker comments removed (`TestCoreDefinitionsParity`, run with `OPM_CORE_CHECKOUT`). No planned difference. CI's `core definitions parity` job checks out core at that pinned commit and runs only that test, so parity stays checkable after core retires refgen. A backfill of `v2.0.0-beta.1` with that config builds with three warnings (definitions without a doc comment).
+
 ## C18. The `crd` source and `data/crd.json`
 
 **Config.** `#CRD` in C6; a `crd` source belongs in a docs bundle (C15), and a tab bundle holding one exits `1`. `dir` holds controller-gen output; every `*.yaml` file in it is read, and every document in a file must be an `apiextensions.k8s.io/v1` `CustomResourceDefinition` with exactly one version that has a schema. `samples`, when set, holds kubebuilder samples. `order` puts kinds first in that order, the rest by name; `reconciledBy` maps a kind to the name of the controller that reconciles it (stated by the author, never inferred from code). `citations` is the source's citation policy ("Doc-comment rules"). Every CRD and sample file read must be a regular file (a symbolic link is refused). A `samples` directory that is set but missing exits `2`, except when the config came from outside the source tree (a backfill, C5), where it means no samples. opm-operator's file, as its change `publish-crd-bundle` writes it:
@@ -1027,7 +1146,7 @@ bundles: "opm-operator": {
 
 **Refusals** (exit `2`, naming the file). Decoding is strict: a field of the CRD or of a schema node that the extractor does not read is refused (`json: unknown field "conversion"; the crd extractor reads only the CRD fields its page shows`), so a deprecation, a conversion, a `title`, an `x-kubernetes-map-type` or any other unread construct never disappears silently. Accepted beside what the page shows: `metadata` `name`, `annotations`, `labels` and `creationTimestamp`; `names.listKind` and `names.singular`; a printer column's `format` and `description`. Also refused: a kind name not matching `^[A-Z][A-Za-z0-9]*$`; a `scope` other than `Namespaced` or `Cluster`; a printer-column `type` other than `integer`, `number`, `string`, `boolean` or `date`; a top-level property other than `apiVersion`, `kind`, `metadata`, `spec` and `status`, or `apiVersion`, `kind` or `metadata` carrying anything beyond their type and a description; `multipleOf`, a `format` other than `date-time`, `int32` or `int64`, a CEL `messageExpression`, `x-kubernetes-embedded-resource` and a tuple `items` anywhere in a schema; `dir` leaves the source tree or holds no `.yaml` file or no CRD; a document that is not a CRD ("config/crd/bases/x.yaml: holds a v1 ConfigMap; a crd dir holds only apiextensions.k8s.io/v1 CustomResourceDefinitions"); YAML that does not parse ("config/samples/opmodel.dev_v1alpha1_platform.yaml: does not parse as YAML: ..."); two files defining one kind; a CRD with several versions; `allOf`, `anyOf`, `oneOf`, `not` or `nullable` anywhere in a schema (the reference cannot show them, so it refuses rather than drop a rule). controller-gen's `anyOf` for an int-or-string field is among them; its message names the field and says int-or-string is not supported yet ([docs-kit#23](https://github.com/open-platform-model/docs-kit/issues/23)); `order` or `reconciledBy` naming a kind no CRD defines, or `order` naming one twice.
 
-**The page.** One page at `page`, completable (C15) with heading `## <first kind>`. Per kind, in model order: `## <Kind>`, the summary, `### At a glance` (`| Property | Value |`: Group, Version, Kind, Scope, Resource, then Short names, Categories, Subresources when present), the `kubectl get` columns table when the CRD declares columns, `### Spec` and `### Status` (`| Field | Type | Required | Description |`, with a `Default` column before Description when any row has a default), `### Example` (a `yaml` fence of backticks, three or one longer than the longest backtick or tilde run in the sample, so no sample line closes it) when a sample is shown, `### Notes`, `### Served by` ("The operator's `<controller>` controller watches every <Kind>.") when `reconciledBy` names one, and `### Enforcement` (`| Field | Rule | Enforced by |`, the rule's words, its values as code joined by `, `, then `; refused with: <message>`; "the object" for `""`; enforced by "API server"). A part with nothing to show is left out. Prose is escaped by "Doc-comment rules" plus `~` and `#`, with `{{` escaped until none is left (`{{{` too); under `"link"` each decision citation becomes `[0015:D3](/enhancements/0015/decisions/)`, the only links the renderer writes; an unpaired backtick makes the whole text prose with the backtick escaped. An authored page that holds the heading of any kind, not only the first, exits `2` (C15). Standing alone, the page's front matter is `title`, `description`, `type: reference` and `weight` when set; `manifest.json` `pages[].source` is the first CRD's file, its `lastmod` the newest commit date of every CRD and sample file read, and it has no `edit`. Completed, all three are the authored page's (C15).
+**The page.** One page at `page`, completable (C15) with heading `## <first kind>`. Per kind, in model order: `## <Kind>`, the summary, `### At a glance` (`| Property | Value |`: Group, Version, Kind, Scope, Resource, then Short names, Categories, Subresources when present), the `kubectl get` columns table when the CRD declares columns, `### Spec` and `### Status` (`| Field | Type | Required | Description |`, with a `Default` column before Description when any row has a default), `### Example` (a `yaml` fence of backticks, three or one longer than the longest backtick or tilde run in the sample, so no sample line closes it) when a sample is shown, `### Notes`, `### Served by` ("The operator's `<controller>` controller watches every <Kind>.") when `reconciledBy` names one, and `### Enforcement` (`| Field | Rule | Enforced by |`, the rule's words, its values as code joined by `, `, then `; refused with: <message>`; "the object" for `""`; enforced by "API server"). A part with nothing to show is left out. The `###` headings repeat per kind, so the site gives the second and later ones anchor suffixes (`#spec-1`, `#spec-2`) that shift when the kind order changes, as crdref's page did; link to a kind's `##` heading, not to them. Prose is escaped by "Doc-comment rules" plus `~` and `#`, with `{{` escaped until none is left (`{{{` too); under `"link"` each decision citation becomes `[0015:D3](/enhancements/0015/decisions/)`, the only links the renderer writes; an unpaired backtick makes the whole text prose with the backtick escaped. An authored page that holds the heading of any kind, not only the first, exits `2` (C15). Standing alone, the page's front matter is `title`, `description`, `type: reference` and `weight` when set; `manifest.json` `pages[].source` is the first CRD's file, its `lastmod` the newest commit date of every CRD and sample file read, and it has no `edit`. Completed, all three are the authored page's (C15).
 
 **Parity.** The page's generated body equals opm-operator `hack/crdref`'s block, byte for byte, for opm-operator `main` at `bf8d3c5` and for `v1.0.0-beta.4` (crdref run over that tag's tree), checked 2026-10-03. `TestOperatorCRDParity` runs in every test run on a copy of the operator's CRDs, samples and page at `bf8d3c5` (`internal/render/testdata/operator`), and on a live checkout with `OPM_OPERATOR_CHECKOUT=<checkout> go test ./internal/render -run TestOperatorCRDParity`. Deliberate differences, none visible for the operator: a CEL rule on `spec` or `status` itself is listed (crdref skipped it); `{{` is escaped; decoding is strict where crdref decoded strictly only the Kubernetes CRD type, and every construct crdref accepted but did not show (`multipleOf`, another `format`, `messageExpression`, `x-kubernetes-embedded-resource`, tuple `items`, `metadata` constraints, other top-level properties) is refused; the names, scope and column types above are refused; the example's fence grows past the sample's backtick and tilde runs; a decision link is built from the citation alone, never kept from the text.
 

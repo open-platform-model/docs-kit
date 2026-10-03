@@ -29,7 +29,7 @@ package schema
 // "link" links each enhancement decision citation to its decisions page.
 #Citations: *"strip" | "link"
 
-#Source: #CueCatalog | #Markdown | #Cobra | #CRD
+#Source: #CueCatalog | #Markdown | #Cobra | #CueDefinitions | #CRD
 
 #CueCatalog: {
 	kind:   "cue-catalog"
@@ -48,6 +48,35 @@ package schema
 	// some include (or include is absent) and no exclude.
 	include?: [string, ...string]
 	exclude?: [string, ...string]
+}
+
+// A CUE package's exported definitions, parsed (never evaluated) and grouped
+// into reference pages by the author's inclusion list (docs-kit C17).
+#CueDefinitions: {
+	kind:    "cue-definitions"
+	package: =~"^\\./" & !~"(^|/)\\.\\.(/|$)" // the package directory, repo-relative: "./src"
+	skip:    *[] | [...string] // path.Match globs on file base names: ["*_pins.cue"]
+	// The directory the pages are written to, one of the bundle's owned
+	// paths: "reference/definitions/".
+	section:     =~"^([a-z0-9]+(-[a-z0-9]+)*/)+$"
+	title:       string & !="" // the section index's front matter
+	description: string & !=""
+	weight?:     int & >=1 // the section index's weight among its siblings
+	// The section index's opening paragraph, Markdown; without it the
+	// index names the package's module path.
+	intro?: string & !=""
+	pages: [#DefPage, ...#DefPage]
+	// Exported definitions left out of the pages, each with the reason.
+	exclude: [=~"^#"]: string & !=""
+	citations?: #Citations
+}
+
+// One reference page: its file under section and its definitions in order.
+#DefPage: {
+	file:        =~"^[a-z0-9]+(-[a-z0-9]+)*$"
+	title:       string & !=""
+	description: string & !=""
+	definitions: [=~"^#", ...=~"^#"]
 }
 
 // A cobra command tree, printed by the repository's own program through the

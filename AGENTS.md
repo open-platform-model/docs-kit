@@ -24,12 +24,12 @@ A PR body you write stays under 250 words of prose (code blocks, URLs and traile
 
 docs-kit builds each Open Platform Model repository's documentation into a versioned, signed OCI artifact (a docs bundle) in that repository's CI, and lets the opmodel.dev site pull and assemble those bundles. It holds one Go program, `opm-docs`, and the reusable workflow that runs it.
 
-Status: phase 1 is built: `build`, `check`, `lint`, `push`, `promote`, `pull`, `revise` (docs revisions), the `cue-catalog` extractor, a `markdown` source, the publish workflow and the release pipeline. Phase 2's shared ground is built: the extractor and renderer registries, docs-placed bundles, repository commands and pins.
+Status: phase 1 is built: `build`, `check`, `lint`, `push`, `promote`, `pull`, `revise` (docs revisions), the `cue-catalog` extractor, a `markdown` source, the publish workflow and the release pipeline. Phase 2's shared ground is built: the extractor and renderer registries, docs-placed bundles, repository commands and pins; so is the `cue-definitions` extractor.
 
 ## Repository Rules
 
 - `DESIGN.md` is the approved design; its Decisions table binds every change. Cite a decision as `DESIGN decision 9`, never a bare `D9`.
-- `docs/contracts.md` fixes every contract another repository reads (C1 to C15 and C19, "Commands", "Page renderer", "Doc-comment rules"). Other repositories cite it by number (`docs-kit C5`); a change to it follows Principle II.
+- `docs/contracts.md` fixes every contract another repository reads (every numbered contract there, plus "Commands", "Page renderer" and "Doc-comment rules"). Other repositories cite it by number (`docs-kit C5`); a change to it follows Principle II.
 - `openspec/config.yaml` is the constitution (principles, gates, artifact rules). Feature work ships as an OpenSpec change (`spec-driven` schema, specs included), cut into mergeable sections that each end green and close with their own commit.
 - Never push to `main`. Every change lands by PR; the OpenSpec archive commit rides the implementing PR.
 - The bundle format, tag scheme, workflow interface, `docs-kit.cue`, pull config and lock are contracts other repositories read (constitution Principle II). A change to one names every consuming repository.
@@ -54,9 +54,10 @@ internal/mdtext/              Markdown escaping, code spans, cells, YAML strings
 internal/cuetok/              the CUE token scanner (comments skipped) shared by gitsrc and history
 internal/extract/cuecatalog/  the cue-catalog extractor: data/catalog.json
 internal/extract/crd/         the crd extractor: data/crd.json
+internal/extract/cuedefs/     the cue-definitions extractor: data/cue-definitions.json
 internal/extract/markdown/    the markdown source
 internal/extract/cobra/       the cobra source: a cobradump document to data/cobra.json
-internal/render/              the renderer registry by data schema; embedded templates: landing, kind index, member page, command reference
+internal/render/              the renderer registry by data schema; embedded templates: landing, kind index, member page, definitions index and page, command reference
 internal/render/helptext/     cobra help text (Long, Example, usage) to Markdown
 internal/dialect/             the page-dialect lint, with the conformance fixtures
 internal/command/             repository commands: argv, no shell, timeout, output cap, the check double run
