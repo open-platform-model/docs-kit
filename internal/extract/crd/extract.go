@@ -75,6 +75,9 @@ func (x *extraction) readKinds() ([]Kind, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := checkDir(dir, o.Dir, "dir"); err != nil {
+		return nil, err
+	}
 	if err := x.checkSamplesDir(); err != nil {
 		return nil, err
 	}
@@ -237,8 +240,29 @@ func (x *extraction) checkSamplesDir() error {
 		return fmt.Errorf("samples %s does not exist; create it or remove samples", x.o.Samples)
 	case err != nil:
 		return err
+	}
+	return checkMode(fi, x.o.Samples, "samples")
+}
+
+// checkDir refuses a configured directory that is missing, a symbolic
+// link or not a directory.
+func checkDir(dir, rel, option string) error {
+	fi, err := os.Lstat(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("%s %s does not exist; point %s at controller-gen's output", option, rel, option)
+	}
+	if err != nil {
+		return err
+	}
+	return checkMode(fi, rel, option)
+}
+
+func checkMode(fi fs.FileInfo, rel, option string) error {
+	switch {
+	case fi.Mode()&fs.ModeSymlink != 0:
+		return fmt.Errorf("%s %s is a symbolic link; name the directory itself", option, rel)
 	case !fi.IsDir():
-		return fmt.Errorf("samples %s is not a directory", x.o.Samples)
+		return fmt.Errorf("%s %s is not a directory", option, rel)
 	}
 	return nil
 }
@@ -303,9 +327,10 @@ func checkTopLevel(schema props, rel, kind string) error {
 			continue
 		}
 		// apiVersion and kind are plain strings and metadata a plain object;
-		// a description is allowed, the page shows none of them.
+		// a description and the ignored annotations are allowed, the page shows
+		// none of them.
 		p := schema.Properties[name]
-		p.Description = ""
+		p.Description, p.Title, p.Example, p.ExternalDocs, p.XMapType = "", "", nil, nil, nil
 		want := `{"type":"string"}`
 		if name == "metadata" {
 			want = `{"type":"object"}`

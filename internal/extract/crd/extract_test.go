@@ -220,8 +220,12 @@ func TestRefusals(t *testing.T) {
 		{"kind name", map[string]string{"c/x.yaml": crd("Widget<script>", "")}, nil, `c/x.yaml: kind "Widget<script>" is not a Kubernetes kind name`},
 		{"scope", map[string]string{"c/x.yaml": strings.Replace(crd("Widget", ""), "scope: Namespaced", "scope: <b>x</b>", 1)}, nil, `c/x.yaml: Widget: scope "<b>x</b>" is neither Namespaced nor Cluster`},
 		{"column type", map[string]string{"c/x.yaml": strings.Replace(crd("Widget", ""), "  - name: v1\n", "  - name: v1\n    additionalPrinterColumns:\n    - name: Ready\n      type: <img>\n      jsonPath: .x\n", 1)}, nil, `c/x.yaml: Widget: printer column "Ready" has type "<img>"; want one of integer, number, string, boolean, date`},
-		{"unknown CRD field", map[string]string{"c/x.yaml": strings.Replace(crd("Widget", ""), "  scope: Namespaced\n", "  scope: Namespaced\n  conversion:\n    strategy: None\n", 1)}, nil, `c/x.yaml: json: unknown field "conversion"; the crd extractor reads only the CRD fields its page shows`},
-		{"unknown schema field", map[string]string{"c/x.yaml": specField("                type: string\n                title: Port\n")}, nil, `unknown field "title"`},
+		{"unknown CRD field", map[string]string{"c/x.yaml": strings.Replace(crd("Widget", ""), "  scope: Namespaced\n", "  scope: Namespaced\n  conversion:\n    strategy: None\n", 1)}, nil, `c/x.yaml: Widget: spec.conversion: unknown field "conversion"; the crd extractor reads only the fields its page shows`},
+		{"unknown schema field", map[string]string{"c/x.yaml": specField("                type: string\n                x-kubernetes-foo: Port\n")}, nil, `c/x.yaml: Widget: spec.port: unknown field "x-kubernetes-foo"`},
+		{"unknown item field", map[string]string{"c/x.yaml": specField("                type: array\n                items:\n                  type: object\n                  properties:\n                    name:\n                      type: string\n                      dependencies: {}\n")}, nil, `c/x.yaml: Widget: spec.port[].name: unknown field "dependencies"`},
+		{"unknown root field", map[string]string{"c/x.yaml": crd("Widget", "        $schema: x\n")}, nil, `c/x.yaml: Widget: the object: unknown field "$schema"`},
+		{"unknown CEL field", map[string]string{"c/x.yaml": specField("                type: string\n                x-kubernetes-validations:\n                - rule: self != ''\n                  severity: warn\n")}, nil, `c/x.yaml: Widget: spec.port: unknown field "severity"`},
+		{"preserveUnknownFields true", map[string]string{"c/x.yaml": strings.Replace(crd("Widget", ""), "  scope: Namespaced\n", "  scope: Namespaced\n  preserveUnknownFields: true\n", 1)}, nil, "c/x.yaml: spec.preserveUnknownFields: true is not supported"},
 		{"multipleOf", map[string]string{"c/x.yaml": specField("                type: integer\n                multipleOf: 2\n")}, nil, "spec.port: multipleOf"},
 		{"format", map[string]string{"c/x.yaml": specField("                type: string\n                format: byte\n")}, nil, `spec.port: format "byte"`},
 		{"messageExpression", map[string]string{"c/x.yaml": specField("                type: string\n                x-kubernetes-validations:\n                - rule: self != ''\n                  messageExpression: self\n")}, nil, "spec.port: messageExpression"},
@@ -274,6 +278,24 @@ func TestRefusesSymlinks(t *testing.T) {
 	}
 }
 
+func TestRefusesSymlinkedDirs(t *testing.T) {
+	root := writeTree(t, map[string]string{"real/x.yaml": crdYAML("Widget", "")})
+	if err := os.Symlink(filepath.Join(root, "real"), filepath.Join(root, "c")); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Extract(Options{Root: root, Dir: "./c", Doc: doctext.Strip})
+	if err == nil || !strings.Contains(err.Error(), "dir ./c is a symbolic link; name the directory itself") {
+		t.Errorf("symlinked dir: %v", err)
+	}
+	if err := os.Symlink(filepath.Join(root, "s"), filepath.Join(root, "samples")); err != nil {
+		t.Fatal(err)
+	}
+	_, err = Extract(Options{Root: root, Dir: "./real", Samples: "./samples", Doc: doctext.Strip})
+	if err == nil || !strings.Contains(err.Error(), "samples ./samples is a symbolic link; name the directory itself") {
+		t.Errorf("symlinked samples: %v", err)
+	}
+}
+
 func TestSampleKeepsLargeIntegers(t *testing.T) {
 	root := writeTree(t, map[string]string{
 		"c/x.yaml":                     crdYAML("Widget", ""),
@@ -288,5 +310,48 @@ func TestSampleKeepsLargeIntegers(t *testing.T) {
 	}
 	if strings.Join(m.Read, ",") != "c/x.yaml,s/example.dev_v1_widget.yaml" {
 		t.Errorf("read %v", m.Read)
+	}
+}
+
+// Keys that enforce no rule the page would miss are accepted and ignored:
+// an embedded LocalObjectReference with x-kubernetes-map-type, title,
+// example, externalDocs, a CEL reason and fieldPath, the CRD's status
+// block, preserveUnknownFields: false, and a version's deprecation.
+func TestIgnoredKeys(t *testing.T) {
+	doc := strings.Replace(crdYAML("Widget", `        title: Widget
+        properties:
+          spec:
+            type: object
+            properties:
+              secretRef:
+                description: SecretRef names a Secret.
+                externalDocs:
+                  url: https://example.com
+                properties:
+                  name:
+                    default: ""
+                    description: Name of the referent.
+                    example: my-secret
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
+                x-kubernetes-validations:
+                - fieldPath: .name
+                  message: name is required
+                  reason: FieldValueRequired
+                  rule: self.name != ''
+`), "  - name: v1\n", "  - name: v1\n    deprecated: true\n    deprecationWarning: use v2\n", 1)
+	doc = strings.Replace(doc, "  scope: Namespaced\n", "  scope: Namespaced\n  preserveUnknownFields: false\n", 1)
+	doc += "status:\n  acceptedNames:\n    kind: \"\"\n    plural: \"\"\n  conditions: null\n  storedVersions: null\n"
+	m, err := Extract(Options{Root: writeTree(t, map[string]string{"c/x.yaml": doc}), Dir: "./c", Doc: doctext.Strip})
+	if err != nil {
+		t.Fatal(err)
+	}
+	k := m.Kinds[0]
+	if len(k.Spec) != 2 || k.Spec[0].Path != "spec.secretRef" || k.Spec[1].Path != "spec.secretRef.name" {
+		t.Fatalf("spec %+v", k.Spec)
+	}
+	if len(k.Rules) != 1 || k.Rules[0].Message != "name is required" {
+		t.Errorf("rules %+v", k.Rules)
 	}
 }

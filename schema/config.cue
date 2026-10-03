@@ -109,5 +109,5 @@ package schema
 	weight?:     int & >=1 // the page's weight when no authored page completes it
 	order?: [string & !="", ...string & !=""] // these kinds first, in this order; the rest by name
 	reconciledBy?: [string & !=""]: string & !="" // kind: the controller that reconciles it
-	citations: #Citations
+	citations?: #Citations
 }
