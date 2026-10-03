@@ -64,6 +64,7 @@ internal/pull/                tab resolution, cache, unpack layout, lock
 internal/revise/              docs revisions: read the newest revision's fixes, apply them and the new fix, build
 internal/gittest/, internal/ocitest/, internal/verify/sigtest/   test helpers
 docs/contracts.md             the contracts other repositories read
+docs/orchestration.md         the cross-repo plan for phases 1b, 2 and 3; deleted when they are done
 .github/workflows/            publish.yml (the reusable workflow), ci.yml, release.yml
 openspec/                     OpenSpec workspace: config.yaml (constitution), specs/, changes/
 DESIGN.md                     the approved design and its decisions
