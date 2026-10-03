@@ -102,7 +102,7 @@ opm-docs from this branch, the D2 configurations in a scratch `--config` (so the
 | opm `main` (d34f66b), `opm`, edge | 10 (the root and `start/` `_index.md` included) | clean | on all 10 |
 | catalog_opm `opm-v4.5.1` at `src/`, run from the `main` checkout, release | 58 | clean | on the 7 authored pages `main` still has; none on the 51 committed `reference/` pages `main` has since deleted (catalog_opm #127) |
 
-No problem to fix in either repository. One consequence for catalog_opm: `opm-v4.5.1` and every earlier tag still hold the committed `docs/site/reference/` pages that the Catalogs tab replaced, so a release or backfill of those tags as `catalog-opm-docs` would publish them under `/docs/reference/`. `catalog-opm-docs` starts at the first opm release cut after #127 (as the tab started, DESIGN decision 8); an earlier tag is not backfilled. opm has no release tag yet, so only its edge build was tried.
+No problem to fix in either repository. One consequence for catalog_opm: `opm-v4.5.1` and every earlier tag still hold the committed `docs/site/reference/` pages that the Catalogs tab replaced, so a release or backfill of those tags as `catalog-opm-docs` would publish them under `/docs/reference/`. `catalog-opm-docs` starts at the first opm release cut after #127, as `docs/orchestration.md` (G3.1) already plans for another reason (an older tag's `docs-kit.cue` names no `catalog-opm-docs`); an earlier tag is not backfilled. Recorded in C15. opm has no release tag yet, so only its edge build was tried.
 
 ## Risks / Trade-offs
 
@@ -110,5 +110,5 @@ No problem to fix in either repository. One consequence for catalog_opm: `opm-v4
 
 ## Durable decisions
 
-- C3: `#Page.edit`. C8: the Edit and View-source table (D1). C15: authored docs in docs bundles and the D2 configurations.
+- C3: `#Page.edit`. C8: the Edit and View-source table (D1). C15: authored docs in docs bundles, the main tree, the backfill rule and the D2 configurations. C12: `edit` joins the fields the site bumps for first.
 - `README.md`: adopting phase 3 in a repository.

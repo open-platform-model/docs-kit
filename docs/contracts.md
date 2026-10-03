@@ -153,6 +153,11 @@ import (
 	source?:   string & !=""                                                        // repo-relative file the page came from ("Edit this page", "View source")
 	lastmod?:  time.Time                                                            // that file's last commit date at the commit built, RFC 3339
 	generated: bool                                                                 // generated reference, or an authored page
+	// A docs bundle's authored page only: its source file's path on the
+	// repository's main branch, when main still has that file ("Edit this
+	// page"). Never on a generated page or a tab bundle's page, so a pull
+	// that predates it still reads every tab bundle.
+	edit?: string & !=""
 }
 
 #DataFile: {
@@ -167,6 +172,10 @@ Added by the change `generalize-build-assembly`, both optional and additive:
 
 - `placement.owns`, on a docs placement only: the paths under `content/` the bundle owns exclusively, each a directory ending `/` or a page ending `.md` (`#Owned`). Build rules: C15.
 - `pins`: the exact versions of other projects the build documents against (DESIGN decision 10), written from the config's pins command (C6, C15). A build without `pins` in its config writes none.
+
+Added by the change `add-authored-docs`, optional and additive:
+
+- `pages[].edit`, in a docs-placed bundle only, on a page with `generated: false` (a completed page included, C15): the repository-relative path of the page's source file, written when that path is a regular file in the `HEAD` of the main tree (C15, "Authored docs"), and absent when `main` no longer has it there. A file renamed or deleted on `main` since the release is not followed: the page has no `edit` rather than a guessed one (DESIGN decision 19). A generated page, and every page of a tab bundle, never has it, so a site whose `opm-docs` predates the field still pulls every tab bundle; a docs bundle carrying it needs the site's bump first (C12).
 
 `#Manifest` is closed, so an `opm-docs` older than a field refuses a bundle that carries it; C12 orders the bumps so that never happens on the site.
 
@@ -580,6 +589,17 @@ An authored page in a bundle (a `markdown` source) links into its own catalog th
 
 A docs bundle's `content/<path>` publishes at `/docs/<page URL>` under the site version that pulls it (C15): `content/reference/cli/opm-module.md` is `/docs/reference/cli/opm-module/` in every site version that holds it. Its segment (`MAJOR.MINOR` or `edge`) is not part of any URL. Its pages link other docs pages as `/docs/<section>/<page>/` and catalogs as a docs page does (the bare root or a major), and no link of a docs bundle is rewritten.
 
+**Edit and source links** (DESIGN decision 19). What the site links from a bundle's page, from `manifest.json` (C3); `<repo>` is `source.repo`, `<commit>` is `source.commit`:
+
+| Page | Edit this page | View source |
+|---|---|---|
+| a tab bundle's page (`/catalogs/...`) | none: a fix lands on `main` and reaches a released minor by a docs revision | `https://github.com/<repo>/blob/<commit>/<source>` when `source` is set |
+| a docs bundle's authored page (completed pages included) | `https://github.com/<repo>/edit/main/<edit>` when `edit` is set, whichever version the page shows; none otherwise | as above |
+| a docs bundle's generated page | none | as above, when `source` is set |
+| a section page (`/enhancements/`) | none: an entry changes through its own review | as above |
+
+"Last updated" is the page's `lastmod` (C3), the source file's last commit at the commit built, or in a docs revision the newest patch that touched it; a page without `lastmod` shows none.
+
 Aliases the site serves: `/catalogs/<name>/` and `/catalogs/<name>/<MAJOR>/` go to the newest minor (of that major), and `/catalogs/<name>/<MAJOR>/<path>/` to the same path in that minor, so docs pages can deep-link through the alias. For `catalog-opm` the contract page is the landing, so `/catalogs/opm/4/` replaces `/docs/reference/catalog-contract/`.
 
 ## C9. Signing identity
@@ -709,7 +729,7 @@ Callers and the site never `go run` or `go install` `opm-docs`: every consumer r
 - **Assets.** Every docs-kit release `vX.Y.Z` carries `opm-docs_X.Y.Z_<os>_<arch>.tar.gz` for `linux_amd64`, `linux_arm64`, `darwin_arm64` and `darwin_amd64` (each holding the `opm-docs` binary and `LICENSE`, the Apache-2.0 text at docs-kit's root; the org adopted Apache-2.0 on 2026-10-02), and `checksums.txt` (SHA-256, `sha256sum` format, one line per archive). Built by goreleaser in a draft-first release workflow, the pattern cli already uses. URL: `https://github.com/open-platform-model/docs-kit/releases/download/vX.Y.Z/<asset>`.
 - **Pinned in a build image**. A consumer may instead pin the `linux_amd64` archive by its SHA-256 in its own build image (opmodel.dev does this in `site/Dockerfile`, as it pins Hugo and Pagefind) and run `opm-docs` inside that image, with network on for the `pull` step only. The SHA-256 it pins is the archive's line in that release's `checksums.txt`. docs-kit therefore keeps shipping the `linux_amd64` archive and `checksums.txt` in every release, under the names above.
 - **Pin file.** A caller of `publish.yml`, and any consumer that runs the tool on the host (catalog_opm for its local `docs:bundle` tasks; opmodel.dev only if it does not use the image pattern), pins it in a repo-root file `.opm-docs-version`: one line, the release tag (`v0.1.0`), matching `^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$`. `publish.yml` reads the same file (C5), so every caller of `publish.yml` has one; its tag and the `publish.yml@` ref name the same release and move in one PR.
-- **The site bumps first** (since `generalize-build-assembly`). `#Manifest` is closed, so an `opm-docs` older than a manifest field refuses a bundle that carries it (`placement.owns` and `pins` came with `generalize-build-assembly`; later changes add more). **opmodel.dev's pinned `opm-docs` is never older than any producer's `.opm-docs-version`.** A docs-kit release reaches the site first (its `site/Dockerfile` bump); only then may a producer move its `.opm-docs-version` and `publish.yml@` ref to it. `docs/orchestration.md` orders every bump that way.
+- **The site bumps first** (since `generalize-build-assembly`). `#Manifest` is closed, so an `opm-docs` older than a manifest field refuses a bundle that carries it (`placement.owns` and `pins` came with `generalize-build-assembly`, `pages[].edit` with `add-authored-docs`; later changes add more). **opmodel.dev's pinned `opm-docs` is never older than any producer's `.opm-docs-version`.** A docs-kit release reaches the site first (its `site/Dockerfile` bump); only then may a producer move its `.opm-docs-version` and `publish.yml@` ref to it. `docs/orchestration.md` orders every bump that way.
 - **Verification.** Download the archive and `checksums.txt` for the host's os and arch, check with `grep ' <archive>$' checksums.txt | sha256sum -c -` (refusing an archive with no line), then extract only `opm-docs`. A failed check stops the task; nothing falls back to building from source. The install target is a gitignored repo-local directory (`.bin/` or `site/.bin/`), never a global path.
 
 ## C13. Version history, `history.json`
@@ -857,6 +877,45 @@ A bundle with `placement: {kind: "docs", root: "/docs/", owns: [...]}` merges in
 **Generated paths** (every bundle, tab or docs). Before anything is written, `build` refuses (exit `2`, naming the extractor kind and the path) a page path a renderer returns that does not match `#Page.path` (C3), a data file an extractor returns that does not match `#DataFile.path`, a page path rendered twice (by two renderers, or by one twice; two completable pages at one path name both extractor kinds), and a data file written by two extractors. Neither pattern admits `..`, an absolute path or upper case.
 
 **Completable pages.** A renderer may mark a page completable, with the heading its generated body opens with. When a `markdown` source of the same bundle supplies a page at that path, the bundle's page is the authored front matter and body, unchanged, then one blank line, then the generated body without front matter, recorded as `generated: false` with the authored file as `source`. An authored body that already holds the heading exits `2` naming the file. Without an authored page, the generated page stands alone with its own front matter, `generated: true`. The catalog landing is the first completable page (heading `## Catalog members`; output unchanged).
+
+**Authored docs** (`add-authored-docs`, DESIGN decisions 19 to 21). A repository has one docs-placed bundle (C1's naming rule). Its authored `docs/site/` is a `markdown` source of that bundle, beside any extractor source: core, cli, library and opm-operator ship both from their adoption on (DESIGN decision 20); catalog_opm's `docs/site/` and opm's follow as their own docs bundles. The rules:
+
+- The `markdown` source copies its `dir` (all of it, or what `include` and `exclude` select, C6) into `content/` as written: no link is rewritten, and docs-mode link rules apply in bundle-mode lint (above). Each page is `generated: false` with its `source` and `lastmod`. Figure shortcodes pass as in dialect `1` (C11).
+- It may supply a root `_index.md` and section `_index.md` pages. Each section page under `/docs/` has one owner across a site version (opm owns `_index.md` and `start/_index.md`); that uniqueness is the site version's `pull` check (`pull-docs-placement`), not `build`'s.
+- A page path written both by an extractor and by the `markdown` source fails the build (exit `2`, "content/reference/definitions/components.md is written by both markdown docs/site and cue-definitions"), unless the extractor's page is completable, when the authored page completes it (above). Committed generated pages are therefore excluded (`exclude: ["reference/definitions/"]`) until the site reads the bundle, then deleted.
+- **The main tree.** `build` writes `pages[].edit` (C3) from the main tree: the current directory when it is a git work tree of the repository built (the same `owner/name`; `publish.yml` runs every mode in the caller's checkout of `main`, the release tree beside it at `src/`, C5), else the source tree (a local edge build). `revise` passes its checkout of `main`, so a revision's pages link the files `main` has, a page the fix added included.
+- **Backfills** (C5, C6). A release whose tag has no `docs-kit.cue` builds with `main`'s config and the tag's sources. Then, and only then, a missing `markdown` `dir` yields no pages and an `include` or `exclude` pattern matching nothing is ignored; in every other build each fails with exit `2`. `edit` still comes from `main`, so a backfilled page whose file `main` has since moved has no Edit link.
+
+The configurations, as the phase-2 and phase-3 changes write them:
+
+```cue
+// core, after its committed reference is deleted (until then the markdown
+// source carries exclude: ["reference/definitions/"]).
+bundles: core: {
+	placement: {kind: "docs", root: "/docs/", owns: ["reference/definitions/"]}
+	version: {from: "tag", prefix: "v"}
+	sources: [
+		{kind: "cue-definitions" /* options: the cue-definitions extractor's contract */},
+		{kind: "markdown", dir: "docs/site"},
+	]
+}
+
+// catalog_opm: the tab stays; its docs/site becomes a second, docs-placed project.
+bundles: {
+	"catalog-opm": {placement: {kind: "tab", root: "/catalogs/opm/"}, version: {from: "tag", prefix: "opm-v"}, sources: [/* unchanged */]}
+	"catalog-opm-docs": {placement: {kind: "docs", root: "/docs/"}, version: {from: "tag", prefix: "opm-v"}, sources: [{kind: "markdown", dir: "docs/site"}]}
+}
+
+// opm: authored pages only, released by release-please with tags v<semver>
+// (DESIGN decision 17), from 1.0.0-beta.1 (DESIGN decision 21).
+bundles: opm: {
+	placement: {kind: "docs", root: "/docs/"}
+	version: {from: "tag", prefix: "v"}
+	sources: [{kind: "markdown", dir: "docs/site"}]
+}
+```
+
+`catalog-opm` and `catalog-opm-docs` publish from the same release tag (`opm-v4.6.0`): catalog_opm's release job calls `publish.yml` once per project. A site version names them separately: the tab through `tabs`, the docs through `versions."v1.0".tags."catalog-opm-docs"` (a major, `"4"`). `catalog-opm-docs` starts at the first opm release cut after catalog_opm deleted its committed reference pages (catalog_opm #127); every earlier tag still holds them under `docs/site/reference/`, and its `docs-kit.cue` names no `catalog-opm-docs` (C5 reads the tree's config first), so none is backfilled. opm's site-version tag is `tags.opm`, `"1.0"` for v1.0.
 
 **Pins** (DESIGN decision 10). When a bundle's config has `pins: {command, projects}`, `build` runs the command (C14) and requires a `docs.opmodel.dev/pins/v1` document whose `pins` keys are exactly `projects` and whose values are SemVer versions without `v` (C3's `#SemVer`); it writes them to `manifest.json` `pins`. A missing or extra project, or a malformed version, exits `2` naming it and the command. A backfilled release (config from outside the tree) whose tree cannot run the command fails: pins are a contract, never guessed.
 
