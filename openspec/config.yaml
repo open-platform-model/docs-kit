@@ -181,8 +181,8 @@ rules:
     - "Focus: WHAT behavior is changing (not HOW it's implemented)"
     - "Updates when: New or changed requirements emerge"
     - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
-    - Describe observable behavior: files written, bytes pushed, tags moved, exit codes,
-      messages
+    - "Describe observable behavior: files written, bytes pushed, tags moved, exit codes,
+      messages"
     - Cite a DESIGN.md decision in a requirement's body (`DESIGN decision 6`), never inside the
       `### Requirement:` header, which tools read as the requirement's name.
     - Use ADDED/MODIFIED/REMOVED sections to show deltas from current behavior
