@@ -155,6 +155,69 @@ func TestLoadDocsPlacement(t *testing.T) {
 	}
 }
 
+// siteConfig is opmodel.dev's planned bundles.cue for phase 2, with a tab.
+const siteConfig = `tabs: "catalog-opm": {repo: "open-platform-model/catalog_opm", root: "/catalogs/opm/", from: "4.4"}
+docs: {
+	cli:            {repo: "open-platform-model/cli"}
+	core:           {repo: "open-platform-model/core"}
+	library:        {repo: "open-platform-model/library"}
+	"opm-operator": {repo: "open-platform-model/opm-operator"}
+}
+versions: "v1.0": {
+	anchor: {project: "cli", tag: "1.0"}
+	pinned: ["library", "core", "opm-operator"]
+}
+`
+
+func TestLoadPullSiteVersions(t *testing.T) {
+	p, err := LoadPull(write(t, "bundles.cue", siteConfig+`versions: "v0.10": {anchor: {project: "cli", tag: "edge"}, tags: core: "2.0.0-beta.1"}
+versions: "v0.9": {anchor: {project: "cli", tag: "0"}}
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(p.SiteVersions(), ","); got != "v0.9,v0.10,v1.0" {
+		t.Fatalf("site versions %s", got)
+	}
+	v := p.Versions["v1.0"]
+	if v.Anchor != (Anchor{"cli", "1.0"}) || strings.Join(v.Pinned, ",") != "library,core,opm-operator" || len(v.Tags) != 0 || p.Docs["core"].Repo != "open-platform-model/core" {
+		t.Fatalf("decoded %+v", v)
+	}
+	if p.Versions["v0.9"].Pinned == nil || v.Role("core") != "pinned" || v.Role("cli") != "anchor" || p.Versions["v0.10"].Role("core") != "tag" || v.Role("opm") != "" {
+		t.Fatalf("roles or default pinned: %+v", p.Versions)
+	}
+	// docs without versions is the site's state before its switch.
+	if _, err := LoadPull(write(t, "bundles.cue", `docs: cli: {repo: "open-platform-model/cli"}`)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestLoadPullSiteVersionRefusals(t *testing.T) {
+	for _, c := range []struct {
+		name, body string
+		want       []string
+	}{
+		{"undeclared project", strings.Replace(siteConfig, `core:           {repo: "open-platform-model/core"}`, "", 1), []string{`"v1.0"`, "core", "not in docs"}},
+		{"a project twice", strings.Replace(siteConfig, `["library", "core", "opm-operator"]`, `["library", "core", "cli"]`, 1), []string{`"v1.0"`, "cli twice"}},
+		{"pinned and tags", strings.Replace(siteConfig, `pinned: ["library", "core", "opm-operator"]`, `pinned: ["core"], tags: core: "2"`, 1), []string{`"v1.0"`, "core twice"}},
+		{"tab and docs", siteConfig + `docs: "catalog-opm": {repo: "open-platform-model/catalog_opm"}` + "\n", []string{"catalog-opm", "both a tab and a docs project"}},
+		{"bad site version", strings.Replace(siteConfig, `"v1.0"`, `"1.0"`, 1), []string{"versions"}},
+		{"bad tag", strings.Replace(siteConfig, `tag: "1.0"`, `tag: "v1.0"`, 1), []string{"tag"}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := LoadPull(write(t, "bundles.cue", c.body))
+			if err == nil {
+				t.Fatal("loaded")
+			}
+			for _, w := range c.want {
+				if !strings.Contains(err.Error(), w) {
+					t.Errorf("error %q does not name %q", err, w)
+				}
+			}
+		})
+	}
+}
+
 const defsConfig = `bundles: core: {
 	placement: {kind: KIND, root: ROOT, owns: ["reference/definitions/"]}
 	version: {from: "tag", prefix: "v"}

@@ -89,6 +89,13 @@ func (e *env) publish(version, signer string, edit func(*bundle.Manifest)) {
 // and promotes it.
 func (e *env) publishDir(dir, version, signer string) {
 	e.t.Helper()
+	e.publishProject(project, dir, version, signer)
+}
+
+// publishProject pushes a bundle tree of a project, signs it as signer's
+// main and promotes it.
+func (e *env) publishProject(project, dir, version, signer string) {
+	e.t.Helper()
 	ctx := context.Background()
 	res, err := publish.Push(ctx, publish.PushOptions{Dir: dir, Registry: e.registry, Client: e.client})
 	if err != nil {

@@ -24,7 +24,7 @@ A PR body you write stays under 250 words of prose (code blocks, URLs and traile
 
 docs-kit builds each Open Platform Model repository's documentation into a versioned, signed OCI artifact (a docs bundle) in that repository's CI, and lets the opmodel.dev site pull and assemble those bundles. It holds one Go program, `opm-docs`, and the reusable workflow that runs it.
 
-Status: phase 1 is built: `build`, `check`, `lint`, `push`, `promote`, `pull`, `revise` (docs revisions), the `cue-catalog` extractor, a `markdown` source, the publish workflow and the release pipeline. Phase 2's shared ground is built: the extractor and renderer registries, docs-placed bundles, repository commands and pins; so is the `cue-definitions` extractor.
+Status: phase 1 is built: `build`, `check`, `lint`, `push`, `promote`, `pull`, `revise` (docs revisions), the `cue-catalog` extractor, a `markdown` source, the publish workflow and the release pipeline. Phase 2's shared ground is built: the extractor and renderer registries, docs-placed bundles, repository commands and pins, and pulling site versions; so is the `cue-definitions` extractor.
 
 ## Repository Rules
 
@@ -66,7 +66,7 @@ internal/build/               build and check; the extractor registry, docs plac
 internal/oci/                 oras-go: push, tag, list, resolve, fetch by digest
 internal/verify/              sigstore-go: find and verify signatures under the signing policy
 internal/publish/             push and promote
-internal/pull/                tab resolution, cache, unpack layout, history.json, lock
+internal/pull/                tab and site-version resolution, cache, unpack layout, history.json, lock
 internal/history/             a tab's version history across its segments (pure)
 internal/revise/              docs revisions: read the newest revision's fixes, apply them and the new fix, build
 cobradump/                    nested Go module (own go.mod, cobra and pflag only): Write and WritePins, the CLI's hook; released as its own component
