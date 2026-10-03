@@ -1,0 +1,5 @@
+github.com/open-platform-model/library at v1.0.0-beta.1
+(02344e5913458e4411a19668f0f4424b8141d2f4): go.mod and every non-test Go
+file under opm/ outside opm/internal/, copied unchanged. The pages the
+go-api source of the library's planned docs-kit.cue renders from them are
+in ../golden/library/; TestLibraryGoAPI checks them on every run.

@@ -1,0 +1,195 @@
+package schema
+
+import (
+	"fmt"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/ast"
+	"cuelang.org/go/cue/load"
+	"cuelang.org/go/mod/module"
+
+	"github.com/open-platform-model/library/opm/internal/cueenv"
+)
+
+// DefaultSchemaModule is the module identifier used by [OCILoader.Load] when
+// [OCILoader.Module] is empty.
+//
+// It names an exact core release, never the floating "opmodel.dev/core@v2"
+// major: the release the kernel's render glue, fixtures and parity oracle
+// were verified against. 2.0.0-beta.1 is that release; it is core's first
+// beta and carries the 2.0.0-alpha.13 schema unchanged. 2.0.0-alpha.13 is
+// the first release reporting contract collisions on the derived
+// #Platform.#contracts inventory (`collisions` and `collidingEntries`, with
+// `routable` false while any exist, and `defined` and `definedBy` folding
+// only keys with exactly one enabled definer), on top of the
+// per-registry-entry provider count
+// (`providedBy`, with `overSubscribed`, `unfulfilled` and `routable`
+// recounted from it), the comparable-predicate report (`comparable` and
+// `discriminated`; 0015:D5, 0015:OQ9), the 0015:D1/D2/D18 inventory, the
+// 0019:D5 registry shape (a #Platform.#registry entry embeds its catalog by
+// import and derives `version` from it) and the 0019:D12
+// transformer-context projection.
+//
+// The default is not the render floor: Kernel.Render and Platform.Contracts
+// accept every core from [ProvidedBySince] on, and a platform pinning a
+// release between the floor and [CollisionsSince] decodes an absent collision
+// report as no collision (such a core cannot evaluate a colliding platform
+// at all). The constant advances only by a deliberate change that
+// re-verifies the glue and the fixtures against the new release; a default
+// that floats ahead of the glue breaks every synthesized artifact on a cold
+// cache.
+const DefaultSchemaModule = "opmodel.dev/core@v2.0.0-beta.1"
+
+// DefaultSchemaVersion returns the exact core release [DefaultSchemaModule]
+// pins, in the canonical "v"-prefixed form a cue.mod dependency carries
+// ("v2.0.0-beta.1"). It is the version a generated platform module pins
+// core at by default (opm/helper/platformmodule): the release the render
+// glue was verified against is the release a generated platform must embed.
+func DefaultSchemaVersion() string {
+	_, version, _ := ast.SplitPackageVersion(DefaultSchemaModule)
+	return version
+}
+
+// PublicRegistry is the documented CUE_REGISTRY mapping for resolving the
+// OPM core schema from its canonical GHCR location with a fallback to
+// registry.cue.works. The library does NOT auto-apply this value as a
+// default; callers opt in by setting CUE_REGISTRY=schema.PublicRegistry
+// (or by passing it via [OCILoader.Registry]).
+//
+// Operators in restricted environments may set CUE_REGISTRY to a mirror or
+// to an inline configuration without touching this constant.
+const PublicRegistry = "opmodel.dev=ghcr.io/open-platform-model,registry.cue.works"
+
+// Loader resolves the OPM core CUE schema and returns it as a built
+// [cue.Value]. Implementations MUST return a value whose definitions
+// (#Module, #ModuleInstance, #Platform, #Resource, #Trait,
+// #ComponentTransformer, …) are reachable via LookupPath.
+//
+// The library exposes exactly one Loader implementation: [OCILoader]. Any
+// other Loader satisfying the interface is internal-only and MUST NOT
+// appear in the public API surface.
+type Loader interface {
+	Load(ctx *cue.Context) (cue.Value, error)
+}
+
+// OCILoader resolves the OPM core schema through CUE's module system. It
+// is the canonical and only public [Loader] implementation.
+//
+// The zero value is a valid Loader: empty fields resolve via process
+// environment (CUE_REGISTRY, CUE_CACHE_DIR) and the [DefaultSchemaModule]
+// identifier. Explicit field values override environment values.
+//
+// OCILoader.Load does not mutate process state (no os.Setenv); env
+// overrides are plumbed into [load.Config.Env] for the single load call.
+type OCILoader struct {
+	// Module is the schema module identifier. Empty means
+	// [DefaultSchemaModule], the pinned core release.
+	//
+	// A bare major form ("…@v0") is automatically expanded to "…@v0.latest"
+	// before calling [load.Instances]; CUE's standalone-package loader
+	// requires either a fully qualified version, "@latest", or
+	// "<major>.latest" outside a module context.
+	Module string
+
+	// Registry overrides CUE_REGISTRY for this load. Empty inherits from
+	// the process environment.
+	Registry string
+
+	// CacheDir overrides CUE_CACHE_DIR for this load. Empty inherits from
+	// the process environment (or CUE's default ~/.cache/cuelang/).
+	CacheDir string
+}
+
+// PinnedVersion reports, without any I/O, the exact core release the
+// loader's module identifier names: the version suffix of [OCILoader.Module]
+// (or of [DefaultSchemaModule] when Module is empty) and true when that
+// suffix is a full release ("v2.0.0-beta.1"), or ("", false) when the
+// identifier names a bare major ("opmodel.dev/core@v2", resolved to
+// ".latest" only by a load) or is not a module identifier at all.
+//
+// A kernel whose loader pins a release reads the core release its
+// synthesized instances import from here instead of loading the schema; a
+// bare-major loader resolves it through the schema cache.
+func (l OCILoader) PinnedVersion() (string, bool) {
+	moduleID := l.Module
+	if moduleID == "" {
+		moduleID = DefaultSchemaModule
+	}
+	// module.ParseVersion is ast.SplitPackageVersion plus CUE's own rule for
+	// a release: the version must be canonical, which a bare major is not.
+	mv, err := module.ParseVersion(moduleID)
+	if err != nil {
+		return "", false
+	}
+	return mv.Version(), true
+}
+
+// Load implements [Loader].
+func (l OCILoader) Load(ctx *cue.Context) (cue.Value, error) {
+	val, _, err := l.loadVersioned(ctx)
+	return val, err
+}
+
+// loadVersioned is the package-internal entry point used by [Cache.Get]
+// to capture the resolved schema version alongside the value. External
+// callers see only [OCILoader.Load].
+func (l OCILoader) loadVersioned(ctx *cue.Context) (cue.Value, string, error) {
+	if ctx == nil {
+		return cue.Value{}, "", fmt.Errorf("schema OCILoader: nil *cue.Context")
+	}
+
+	moduleID := l.Module
+	if moduleID == "" {
+		moduleID = DefaultSchemaModule
+	}
+
+	loadID := moduleID
+	if isBareMajorVersion(loadID) {
+		// load.Instances rejects bare major versions outside a module
+		// context; expand "…@vN" → "…@vN.latest" so the standalone-package
+		// loader resolves the latest patch within the major.
+		loadID = loadID + ".latest"
+	}
+
+	cfg := &load.Config{Env: cueenv.Override(l.Registry, l.CacheDir)}
+	instances := load.Instances([]string{loadID}, cfg)
+	if len(instances) == 0 {
+		return cue.Value{}, "", fmt.Errorf("schema OCILoader: load.Instances returned no instances for %q", moduleID)
+	}
+	if instances[0].Err != nil {
+		return cue.Value{}, "", fmt.Errorf("schema OCILoader: loading %q: %w", moduleID, instances[0].Err)
+	}
+
+	val := ctx.BuildInstance(instances[0])
+	version := resolvedVersionFromInstanceDir(instances[0].Dir)
+	return val, version, nil
+}
+
+// bareMajorRE matches a module identifier whose version suffix is just a
+// bare major like "@v0" or "@v12" (no minor / patch / .latest).
+var bareMajorRE = regexp.MustCompile(`@v\d+$`)
+
+func isBareMajorVersion(moduleID string) bool {
+	return bareMajorRE.MatchString(moduleID)
+}
+
+// versionPathRE matches a trailing "@vMAJOR.MINOR.PATCH" segment on a
+// module cache extract path. Used to recover the resolved version from
+// [build.Instance.Dir] (which CUE materializes as
+// <cacheDir>/extract/<base-path>@<version>) for diagnostics.
+var versionPathRE = regexp.MustCompile(`@v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$`)
+
+func resolvedVersionFromInstanceDir(dir string) string {
+	if dir == "" {
+		return ""
+	}
+	base := filepath.Base(dir)
+	match := versionPathRE.FindString(base)
+	if match == "" {
+		return ""
+	}
+	return strings.TrimPrefix(match, "@")
+}

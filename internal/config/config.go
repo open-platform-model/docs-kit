@@ -139,8 +139,8 @@ func Load(path string) (*Config, error) {
 }
 
 // checkBundle applies the rules the schema cannot state: owned paths that
-// do not nest, a docs bundle without a catalog, a cue-definitions source
-// in a docs bundle only, and well-formed patterns.
+// do not nest, a docs bundle without a catalog, the cue-definitions, crd
+// and go-api sources in a docs bundle only, and well-formed patterns.
 func checkBundle(project string, b Bundle) error {
 	owns := b.Placement.Owns
 	for i, a := range owns {
@@ -160,6 +160,8 @@ func checkBundle(project string, b Bundle) error {
 			return fmt.Errorf("%s: a cue-definitions source writes pages under /docs/; give the bundle placement kind \"docs\"", at)
 		case !docs && src.Kind == "crd":
 			return fmt.Errorf("%s: a crd source belongs in a docs bundle (placement kind \"docs\"); its page is a /docs/ reference page", at)
+		case !docs && src.Kind == "go-api":
+			return fmt.Errorf("%s: a go-api source writes pages under /docs/; give the bundle placement kind \"docs\"", at)
 		}
 		if err := checkGlobs(at, src); err != nil {
 			return err
