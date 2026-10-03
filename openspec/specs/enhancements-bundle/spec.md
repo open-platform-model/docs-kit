@@ -47,7 +47,7 @@ The source SHALL remove HTML comments outside code and the first `# ` heading of
 - **THEN** the page holds `\<module-path>`, which the site shows as written
 
 ### Requirement: A section page is checked as the site parses it
-Bundle-mode lint of a section bundle SHALL parse every page body with goldmark as Hugo configures it for opmodel.dev (goldmark v1.8.6, the version Hugo 0.167.0 builds with) and SHALL report, as `<file>:<line>: <message>`, any raw HTML (inline or a block), any link, image, autolink or reference definition whose destination has a scheme other than `http`, `https` or `mailto` (character references resolved) or is protocol-relative, and any heading attribute block. This check, not the text transforms, is what keeps a section's authored text from putting markup or script URLs on the site; `build`, `lint --bundle` and `pull` all apply it.
+Bundle-mode lint of a section bundle SHALL prepare every page body as Hugo 0.167.0 does (un-indenting each line that starts with Hugo's context marker `{{__hugo_ctx`), SHALL refuse that marker anywhere in the body, SHALL parse the body with goldmark as Hugo configures it for opmodel.dev (goldmark v1.8.6, the version Hugo 0.167.0 builds with), decoding each destination as goldmark's renderer does until it is stable, and SHALL report, as `<file>:<line>: <message>`, any raw HTML (inline or a block), any link, image, autolink or reference definition whose destination has a scheme other than `http`, `https` or `mailto` (character references resolved) or is protocol-relative, and any heading attribute block. This check, not the text transforms, is what keeps a section's authored text from putting markup or script URLs on the site; `build`, `lint --bundle` and `pull` all apply it.
 
 #### Scenario: A script link in a quoted reference definition
 - **WHEN** a document holds `> [r]: javascript:alert(1)` and `> [click][r]`
@@ -57,3 +57,10 @@ Bundle-mode lint of a section bundle SHALL parse every page body with goldmark a
 - **WHEN** a document's prose holds `\\<img src=x onerror=alert(1)>`
 - **THEN** the page holds no raw HTML, or `build` exits 2 naming the page and the line
 
+#### Scenario: A context marker un-indents an HTML line
+- **WHEN** a document holds the indented line `    {{__hugo_ctx/}} <svg onload=alert(1)>`
+- **THEN** `build` exits 2 naming the page and the line
+
+#### Scenario: A script scheme hidden behind escapes
+- **WHEN** a document holds `[a](javascript\:alert(1))` or `[a](javascript&#38;colon;alert(2))`
+- **THEN** `build` exits 2 naming the page and the line
