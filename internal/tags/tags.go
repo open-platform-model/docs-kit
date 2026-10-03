@@ -232,13 +232,15 @@ func Promotion(d Build, builds []Build) []string {
 // NextRevision is the revision a docs revision of v takes: one more than
 // the highest published, refused when revision 0 does not exist.
 func NextRevision(v Version, builds []Build) (int, error) {
-	highest := -1
+	highest, first := -1, false
 	for _, b := range builds {
-		if !b.Edge && Compare(b.Version, v) == 0 && b.Revision > highest {
-			highest = b.Revision
+		if b.Edge || Compare(b.Version, v) != 0 {
+			continue
 		}
+		highest = max(highest, b.Revision)
+		first = first || b.Revision == 0
 	}
-	if highest < 0 {
+	if !first {
 		return 0, fmt.Errorf("%s has no published build (%s.0); a docs revision needs the release published first", v, v)
 	}
 	return highest + 1, nil

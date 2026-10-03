@@ -99,8 +99,8 @@ import (
 		ref:    string & !=""                         // the release tag "opm-v4.4.5", or the branch built ("main" for edge)
 		dirty?: true                                  // built from a work tree with uncommitted changes; push refuses it
 		// A docs revision only: the fix commits applied to the release tree, oldest first,
-		// every earlier revision's fixes included. Phase 1 never writes it, but its pull
-		// accepts it, so a site on 0.1.0 can read later bundles.
+		// every earlier revision's fixes included. revise writes it; a pull of 0.1.0, which
+		// never wrote it, already accepts it.
 		patches?: [#SHA, ...#SHA]
 	}
 	// The source commit's committer time, RFC 3339 UTC: the tar entries' time and the
@@ -158,7 +158,7 @@ Rules:
 
 1. **Order.** Builds of released versions order by SemVer 2.0.0 precedence of `version`, then numerically by `revision`. `4.4.5.1` follows `4.4.5.0` and precedes `4.4.6.0`; `4.5.0-rc.1.0` follows `4.4.6.0`. Edge builds take no part in the order.
 2. **Full tags are immutable.** `push` refuses to write a full tag that already names a different digest ("`4.4.5.0` is already published as sha256:...; a documentation fix is a docs revision"). The same digest is a no-op, so a re-run of a failed workflow is safe.
-3. **Revision numbers.** A release's first build is revision `0`. A docs revision (change `add-docs-revisions`) takes `1 +` the highest revision published for that version, and is refused when revision `0` does not exist. Phase 1 publishes only revision `0`, but `promote` and `pull` already handle any revision.
+3. **Revision numbers.** A release's first build is revision `0`. A docs revision ("Docs revisions" below) takes `1 +` the highest revision published for that version, and is refused when revision `0` does not exist.
 4. **Edge** builds carry `version: "edge"`, `revision: 0` and no full tag; they are pushed by digest and reached only through `edge`.
 5. **Moving a tag.** `promote --digest D` moves each moving tag of D's line to D only when D is the newest build of that tag's line, and only after D's signature verifies. Just before each move it resolves the tag's current build again and skips the move when that build is newer than D, because releases of different versions may publish at once (C5, Concurrency). It never points a tag at any other digest. Promote enumerates builds from every tag of the repository that equals `<version>.<revision>` of its own manifest's annotations; other tags (moving tags, `edge`, `sha256-*`) are not builds.
    A moving tag never takes over a full tag: when the tag already names a build whose full tag is that very name (the release tag `1.0.0-beta.5` of version `1.0.0-beta.5` and the full tag of `1.0.0-beta` revision `5` are the same string), `promote` refuses and moves nothing. `edge` never moves back: when it already names an edge build whose `org.opencontainers.image.created` is later than D's, `promote` leaves it (a late run of an older commit). Both rules added in review, 2026-10-02.
@@ -189,11 +189,15 @@ on:
         type: string
         required: true
       mode:
-        description: "check | edge | release"
+        description: "check | edge | release | revision"
         type: string
         required: true
       tag:
-        description: release mode, the release's git tag (opm-v4.4.5)
+        description: release and revision modes, the release's git tag (opm-v4.4.5)
+        type: string
+        default: ""
+      fix:
+        description: revision mode, the 40-hex commit on main whose documentation change to apply
         type: string
         default: ""
       cue-registry:
@@ -214,7 +218,7 @@ No secrets are declared: the workflow uses `github.token`. `publish.yml` declare
 | Mode | `contents` | `packages` | `id-token` |
 |---|---|---|---|
 | `check` | `read` | `read` | none |
-| `edge`, `release` | `read` | `write` | `write` |
+| `edge`, `release`, `revision` | `read` | `write` | `write` |
 
 **Registry read login.** Before `build` or `check` in every mode, the job logs in to `ghcr.io` with `github.token` (`docker login ghcr.io -u ${{ github.actor }} --password-stdin`), so the extractor's CUE dependency resolution (`opmodel.dev/core@v2` and the catalog's other dependencies on GHCR) is authenticated and not rate-limited. `check` needs only `packages: read` for this; the publishing modes' `packages: write` includes it. The same login is the credential `push` and `promote` use later.
 
@@ -226,7 +230,9 @@ What each mode does (all but `check` refuse unless `github.ref` is `refs/heads/m
 | `edge` | `push` to `main` | checkout `github.sha` with full history; `build --edge`; `push`; `cosign sign`; `promote` |
 | `release` | the job that runs release-please, gated on that package's release (not on `release: published`); or `workflow_dispatch` for a release that has no bundle yet | checkout the commit of `main` the workflow runs on (`github.sha`) and, at `src/`, the tag with full history; `build --release <tag> --source src`; `push`; `cosign sign`; `promote` |
 
-`add-docs-revisions` adds a `revision` mode (`workflow_dispatch`, inputs `tag` and `fix`, the same permissions as `release`) without changing these three. A caller on `v0.1.0` gets an error naming the mode if it asks for `revision`.
+| `revision` | `workflow_dispatch`, inputs `tag` and `fix` | refuse a `fix` that is not 40 hex; checkout `github.sha` of `main` with full history (it brings `origin/main` and the tags); `revise --project P --tag <tag> --fix <fix>` ("Docs revisions" below); `push`; `cosign sign`; `promote` |
+
+The `revision` mode came with docs-kit `v0.2.0` (change `add-docs-revisions`), without changing the other three. A caller on `v0.1.0` gets an error naming the mode if it asks for `revision`.
 
 Signing: `sigstore/cosign-installer` pinned by SHA with a pinned cosign v3 release, then `cosign sign --yes --new-bundle-format=true ghcr.io/open-platform-model/docs/<project>@<digest>`. Never a tag. Every action is pinned by commit SHA with its version in a comment, like the sibling repositories' workflows.
 
@@ -236,9 +242,9 @@ Signing: `sigstore/cosign-installer` pinned by SHA with a pinned cosign v3 relea
 |---|---|---|---|
 | `check` | `docs-check-${{ inputs.project }}-${{ github.run_id }}` (alone) | `false` | writes nothing |
 | `edge` | `docs-edge-${{ inputs.project }}` | `true` | only the newest `main` matters; a cancelled run leaves at most an unpromoted digest, which the next run supersedes |
-| `release` | `docs-release-${{ inputs.project }}-${{ inputs.tag }}` | `false` | a re-run of one release waits for the running one; no other run can cancel it |
+| `release`, `revision` | `docs-release-${{ inputs.project }}-${{ inputs.tag }}` | `false` | a re-run of one release waits for the running one; no other run can cancel it; revisions of one release run one at a time, so two never take the same revision number |
 
-Groups are keyed on the workflow's inputs because the concurrency expression is evaluated before any step runs: the release tag is known then, the version derived from it is not. `add-docs-revisions` puts the `revision` mode in the same `docs-release-${{ inputs.project }}-${{ inputs.tag }}` group, so revisions of one release are serialized (their revision numbers depend on it) and a revision never cancels its release. Releases of different versions may run at once. `promote` stays correct under that: before moving a tag it resolves the tag's current build and skips the move when that build is already newer than D (C4 rule 5), so a slower, older publish never pulls `4` or `4.4` back.
+Groups are keyed on the workflow's inputs because the concurrency expression is evaluated before any step runs: the release tag is known then, the version derived from it is not. The `revision` mode shares the release's `docs-release-${{ inputs.project }}-${{ inputs.tag }}` group, so revisions of one release are serialized (their revision numbers depend on it) and a revision never cancels its release. Releases of different versions may run at once. `promote` stays correct under that: before moving a tag it resolves the tag's current build and skips the move when that build is already newer than D (C4 rule 5), so a slower, older publish never pulls `4` or `4.4` back.
 
 **Config and sources for a release cut before the repository adopted docs-kit**: `build --source src` reads `src/docs-kit.cue` when the release tree has one, and the checked-out `main`'s `docs-kit.cue` otherwise. Only the config comes from `main`: every source in it (the `cue-catalog` `module` and the `markdown` `dir`) resolves against the release tree at `src/`, so the bundle documents the release, never `main`. When the config came from `main` and a `markdown` dir does not exist in the release tree, that source yields no pages and is not an error; the bundle then has only the generated landing (C8). In every other build a missing `markdown` dir is an error, so a typo in `docs-kit.cue` fails the PR check. This is how catalog_opm publishes `4.4.5.0` for a release cut before its first `docs-kit.cue`, which DESIGN decision 8 needs.
 
@@ -634,9 +640,38 @@ Syntax `opm-docs <command> [args] [flags]`. Exit codes: `0` success, `1` usage e
 | `push` | `--dir` (path, required), `--registry` (string, `ghcr.io/open-platform-model/docs`) | Validate, pack deterministically, push; write the full tag for a release build; print `{"digest": ..., "tag": ...}` as JSON on stdout. |
 | `promote` | `--project` (required), `--digest` (required), `--registry` | Verify the signature of the digest (C9), then move the moving tags of its line to it (C4 rule 5). |
 | `pull` | see C7; `--config` (path, `bundles.cue`), `--out` (path, `.bundles`), `--lock` (path, `<out>/lock.json`) | Resolve, verify, unpack, lint, lock. |
+| `revise` | `--project`, `--tag`, `--fix` (required), `--out` (path, `out`), `--registry` (string, `ghcr.io/open-platform-model/docs`), `--config` (path; default `docs-kit.cue` in the release tree, else the current directory) | Build the next docs revision of a published release into `out/<project>/` ("Docs revisions" below). Pushes nothing. Exit `1` for a missing flag or an invalid config, `2` when a step refuses. |
 | `version` | none | Print `opm-docs <version>`. |
 
-`add-docs-revisions` adds `opm-docs revise` (and a `--revision` flag on `build`); its documentation-only check and patch handling are specified there.
+`build` also takes the hidden `--revision` (int, `0`) and `--patches` (commits, repeatable) that `revise` passes: they write `revision` and `source.patches` (C3), need `--release`, and record `source.dirty` when the work tree differs from its index (the staged fixes). Run by hand, without `revise`, a patched file keeps its `lastmod` at the release commit.
+
+## Docs revisions
+
+A published release's pages change only through a docs revision (DESIGN decision 6): its full tag is never overwritten, so the fix is built as the next revision of the same version. `opm-docs revise --project P --tag T --fix F` runs in the checkout of `main` (the workflow's `revision` mode) and takes these steps; each refusal exits `2` with the message shown:
+
+1. **The fix.** `F` is a full 40-hex (SHA-1) hash of a commit with exactly one parent that is an ancestor of `origin/main` ("the fix must land on main first"; "has 2 parents ... not a merge"), and not already in `T` ("already in the release"). A SHA-256 repository is not supported.
+2. **The release.** `T` carries the project's tag prefix (from the checkout's `docs-kit.cue`, or `--config`), and the registry holds revision `0` of its version `V` ("publish the release first: dispatch mode: release"); a later revision without revision `0` does not count. The next revision is `1 +` the highest published for `V` (C4 rule 3).
+3. **The fixes so far.** The newest published revision `n`'s `manifest.json` (its layer unpacked with every check `pull` applies) must name `V`, `n` and `T`'s commit as `source.commit`. Its `source.patches` (empty for revision `0`) are trusted only after its signature verifies under the C9 policy, with the repository from `GITHUB_REPOSITORY` (as `promote`); an unsigned newest revision is refused ("finish the run that pushed it first"). Its `source.patches` plus `F` is the new list. `F` already in the list is refused ("already applied in `V.<n>`"), except a re-run of a run that failed after its push:
+   - `F` is the last fix of revision `n`, and revision `n` is not promoted: some tag that `promote` would move to it (C4 rule 5) does not name it yet;
+   - revision `n` was built by the running `opm-docs` version (its `tool`), else refused, since another version would not rebuild the pushed bytes;
+   - when revision `n` is unsigned, revision `n-1` is signed and its fixes plus `F` are exactly revision `n`'s.
+
+   Then revision `n` is built again with the same list. The build is deterministic, so `push` finds the same digest and writes nothing, and signing and promote finish the run. Every earlier fix is checked again as in step 1.
+4. **The patched tree.** `git worktree add --detach <tmp> T`, then `git cherry-pick --no-commit` of each fix in order. A conflict is refused naming the files ("land one fix on main that makes the whole change and revise with that"). After each pick the index is written as a tree, and the paths that pick changed in it (so a file main renamed after the release counts under its release-tree name) take the pick's committer date. A work tree that differs from its index afterwards is refused, and so is an `F` that leaves the tree unchanged ("changes nothing in the release tree"). The worktree is removed on every path.
+5. **Documentation only.** `T`'s tree and the worktree's index (`git write-tree`) are compared with `git diff-tree -r -M`:
+
+   | Path | Allowed |
+   |---|---|
+   | `*.md` | added, changed, renamed (from `.md`), removed; refused when any `.cue` file of `T` declares `@extern(embed)`, since CUE can then read a Markdown file as a value |
+   | `*.cue` | changed only; both versions scanned with comments skipped give the same token sequence (a comma inserted at a line end equals a written one; interpolations resumed as the parser does) |
+   | `*.go` | changed only; both versions scanned with comments skipped give the same token sequence (an inserted semicolon equals a written one); the directive comments (`//go:build`, `//go:embed`, `//line`, `//export`, any `//word:word`, `// +build`) equal in order and each at the same place (the number of code tokens before it), so a directive moved to other code is refused; never a file that imports `"C"` |
+   | a symlink or submodule, at any path, before or after | refused |
+   | anything else, or an added, renamed or removed `.cue` or `.go` file | refused |
+
+   Layout is not compared: a comment added above a field moves the code below it, which a comparison of formatted output would refuse. A change to `metadata.description`, a default, a constraint or an attribute is a value change and refused. Every refusal is listed, one line per file, as `<path>: <why>; a change to code needs a patch release`.
+6. **The build.** `build --release T --source <tmp> --revision <n> --patches <list>` into `--out`: `source.commit` is `T`'s commit, `source.ref` is `T`, `created` is `T`'s commit time, and a patched file's `lastmod` is the committer date of the newest fix that changed it (step 4).
+
+`revise` pushes nothing: the workflow's `push`, `cosign sign` and `promote` follow, as for a release, so a tag never points at an unsigned build. Edge is never revised; it is rebuilt on every push to `main`. Revisions of one release share its concurrency group (C5): GitHub keeps one pending run per group and cancels an older pending one, so a revision dispatched while two others wait may be cancelled and must be dispatched again. A fix that changes code and documentation together is refused whole: split it, or ship a patch release.
 
 ## Page renderer
 

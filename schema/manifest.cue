@@ -17,8 +17,8 @@ import (
 		ref:    string & !=""                         // the release tag "opm-v4.4.5", or the branch built ("main" for edge)
 		dirty?: true                                  // built from a work tree with uncommitted changes; push refuses it
 		// A docs revision only: the fix commits applied to the release tree, oldest first,
-		// every earlier revision's fixes included. Phase 1 never writes it, but its pull
-		// accepts it, so a site on 0.1.0 can read later bundles.
+		// every earlier revision's fixes included. revise writes it; a pull of 0.1.0, which
+		// never wrote it, already accepts it.
 		patches?: [#SHA, ...#SHA]
 	}
 	// The source commit's committer time, RFC 3339 UTC: the tar entries' time and the

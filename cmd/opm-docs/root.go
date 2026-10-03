@@ -61,6 +61,7 @@ func newRoot(stdout, stderr io.Writer) *cobra.Command {
 		newPushCmd(),
 		newPromoteCmd(),
 		newPullCmd(),
+		newReviseCmd(),
 	)
 	return root
 }

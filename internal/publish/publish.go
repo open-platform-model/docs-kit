@@ -180,7 +180,7 @@ func Promote(ctx context.Context, o PromoteOptions) (*PromoteResult, error) {
 	}
 	builds := []tags.Build{d}
 	if !d.Edge {
-		if builds, err = releaseBuilds(ctx, repo); err != nil {
+		if builds, err = ReleaseBuilds(ctx, repo); err != nil {
 			return nil, err
 		}
 	}
@@ -246,9 +246,9 @@ func buildOf(ctx context.Context, repo *oci.Repo, desc ocispec.Descriptor) (push
 	return pushedBuild{build: b, created: m.Annotations[bundle.AnnCreated], raw: raw}, nil
 }
 
-// releaseBuilds lists the repository's release builds: every tag of the
+// ReleaseBuilds lists the repository's release builds: every tag of the
 // form <version>.<revision> whose manifest's annotations say exactly that.
-func releaseBuilds(ctx context.Context, repo *oci.Repo) ([]tags.Build, error) {
+func ReleaseBuilds(ctx context.Context, repo *oci.Repo) ([]tags.Build, error) {
 	names, err := repo.BuildTags(ctx)
 	if err != nil {
 		return nil, err

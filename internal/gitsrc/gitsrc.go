@@ -1,6 +1,8 @@
 // Package gitsrc reads what a build needs from the source repository's
 // git history: the commit built, its time, whether the work tree is dirty,
-// the repository name and each file's last commit date.
+// the repository name and each file's last commit date. For a docs
+// revision it also checks a fix commit, applies fixes to a release tree in
+// a temporary worktree and checks that they change documentation only.
 package gitsrc
 
 import (
@@ -20,8 +22,12 @@ type Repo struct {
 	Dir string
 }
 
+func (r Repo) cmd(ctx context.Context, args ...string) *exec.Cmd {
+	return exec.CommandContext(ctx, "git", append([]string{"-C", r.Dir}, args...)...) //nolint:gosec // git with arguments this package builds
+}
+
 func (r Repo) git(ctx context.Context, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", r.Dir}, args...)...) //nolint:gosec // git with arguments this package builds
+	cmd := r.cmd(ctx, args...)
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	if err := cmd.Run(); err != nil {
@@ -58,7 +64,25 @@ func (r Repo) CommitTime(ctx context.Context, commit string) (time.Time, error) 
 // included, ignoring paths under any of skip (an output directory inside
 // the tree).
 func (r Repo) Dirty(ctx context.Context, skip ...string) (bool, error) {
-	out, err := r.git(ctx, "status", "--porcelain", "--untracked-files=all")
+	return r.changed(ctx, func(statusEntry) bool { return true }, skip)
+}
+
+// Unstaged reports a work tree that differs from its index: a file
+// changed and not staged, or an untracked file, ignoring paths under any
+// of skip. After CherryPick the index holds the fixes, so this is the
+// check that nothing else is in the tree.
+func (r Repo) Unstaged(ctx context.Context, skip ...string) (bool, error) {
+	return r.changed(ctx, func(e statusEntry) bool { return e.xy[0] == '?' || e.xy[1] != ' ' }, skip)
+}
+
+// statusEntry is one entry of `git status --porcelain -z`.
+type statusEntry struct {
+	xy   string // the two status letters
+	path string // the path, the new one of a rename
+}
+
+func (r Repo) changed(ctx context.Context, counts func(statusEntry) bool, skip []string) (bool, error) {
+	entries, err := r.status(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -66,16 +90,38 @@ func (r Repo) Dirty(ctx context.Context, skip ...string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	for _, line := range strings.Split(out, "\n") {
-		if len(line) < 4 {
-			continue
-		}
-		p := filepath.Join(top, filepath.FromSlash(strings.Trim(line[3:], `"`)))
-		if !under(p, skip) {
+	for _, e := range entries {
+		if counts(e) && !under(filepath.Join(top, filepath.FromSlash(e.path)), skip) {
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+// status reads `git status --porcelain -z --untracked-files=all`: "XY
+// path", NUL-terminated, with a rename's or copy's original path as one
+// more field.
+func (r Repo) status(ctx context.Context) ([]statusEntry, error) {
+	cmd := r.cmd(ctx, "status", "--porcelain", "-z", "--untracked-files=all")
+	var out, errb bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &errb
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("git status in %s: %w: %s", r.Dir, err, strings.TrimSpace(errb.String()))
+	}
+	fields := strings.Split(strings.TrimSuffix(out.String(), "\x00"), "\x00")
+	var entries []statusEntry
+	for i := 0; i < len(fields); i++ {
+		f := fields[i]
+		if len(f) < 4 {
+			continue
+		}
+		e := statusEntry{xy: f[:2], path: f[3:]}
+		if e.xy[0] == 'R' || e.xy[0] == 'C' {
+			i++ // the original path
+		}
+		entries = append(entries, e)
+	}
+	return entries, nil
 }
 
 func under(p string, dirs []string) bool {

@@ -235,3 +235,29 @@ func TestLintViolationsFailTheBuild(t *testing.T) {
 		t.Fatalf("err = %v %+v", err, le)
 	}
 }
+
+func TestRevisionOptions(t *testing.T) {
+	r := fixtureRepo(t)
+	sha := strings.Repeat("a", 40)
+	for _, c := range []struct {
+		name string
+		o    Options
+		want string
+	}{
+		{"negative", Options{Release: "demo-v1.2.3", Revision: -1}, "a revision is 0 or more"},
+		{"patches without revision", Options{Release: "demo-v1.2.3", Patches: []string{sha}}, "--patches needs --revision"},
+		{"revision of edge", Options{Revision: 1, Patches: []string{sha}}, "needs --release"},
+		{"revision without patches", Options{Release: "demo-v1.2.3", Revision: 1}, "needs --patches"},
+		{"short patch", Options{Release: "demo-v1.2.3", Revision: 1, Patches: []string{"abc"}}, "not a full 40-hex"},
+		{"patch twice", Options{Release: "demo-v1.2.3", Revision: 1, Patches: []string{sha, sha}}, "listed twice"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			c.o.Source, c.o.Out, c.o.Tool = r.Dir, t.TempDir(), "0.1.0"
+			_, err := Run(context.Background(), c.o)
+			var ue *UsageError
+			if !errors.As(err, &ue) || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("got %v, want a usage error with %q", err, c.want)
+			}
+		})
+	}
+}

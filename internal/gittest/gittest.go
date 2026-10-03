@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -35,13 +36,25 @@ func New(t testing.TB, origin string) *Repo {
 // Git runs one git command in the repository and fails the test on error.
 func (r *Repo) Git(args ...string) string {
 	r.t.Helper()
+	return r.GitAt(Date, args...)
+}
+
+// GitAt runs one git command with date as the committer and author time.
+func (r *Repo) GitAt(date string, args ...string) string {
+	r.t.Helper()
 	cmd := exec.CommandContext(r.t.Context(), "git", append([]string{"-C", r.Dir}, args...)...) //nolint:gosec // test helper
-	cmd.Env = append(os.Environ(), "GIT_COMMITTER_DATE="+Date, "GIT_AUTHOR_DATE="+Date)
+	cmd.Env = append(os.Environ(), "GIT_COMMITTER_DATE="+date, "GIT_AUTHOR_DATE="+date)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		r.t.Fatalf("git %v: %v\n%s", args, err, out)
 	}
 	return string(out)
+}
+
+// Head is the full hash of HEAD.
+func (r *Repo) Head() string {
+	r.t.Helper()
+	return strings.TrimSpace(r.Git("rev-parse", "HEAD"))
 }
 
 // Write writes files (path relative to the repository: content).
@@ -84,6 +97,14 @@ func (r *Repo) CopyTree(src, dst string) {
 // Commit stages everything and commits it.
 func (r *Repo) Commit(msg string) {
 	r.t.Helper()
+	r.CommitAt(Date, msg)
+}
+
+// CommitAt stages everything and commits it at date (RFC 3339), returning
+// the commit's hash.
+func (r *Repo) CommitAt(date, msg string) string {
+	r.t.Helper()
 	r.Git("add", "-A")
-	r.Git("commit", "-q", "-m", msg)
+	r.GitAt(date, "commit", "-q", "-m", msg)
+	return r.Head()
 }

@@ -119,6 +119,11 @@ func TestNextRevision(t *testing.T) {
 	if _, err := NextRevision(w, bs); err == nil {
 		t.Fatal("revision of an unpublished release accepted")
 	}
+	// A revision without its revision 0 is no base for another.
+	x, _ := ParseVersion("4.4.8")
+	if _, err := NextRevision(x, append(bs, build(t, "4.4.8", 1))); err == nil {
+		t.Fatal("revision of a release without revision 0 accepted")
+	}
 }
 
 func TestTagForms(t *testing.T) {

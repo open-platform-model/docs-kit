@@ -34,6 +34,14 @@ type Options struct {
 	Source   string   // the source tree
 	Release  string   // the release tag; "" builds edge
 	Tool     string   // the opm-docs version, without "v"
+	// Revision and Patches build a docs revision of Release: Source is the
+	// release tree with Patches (the fix commits, oldest first) applied
+	// and staged, as revise leaves it. PatchDates, from revise, is each
+	// patched file's lastmod; without it a patched file keeps its date at
+	// the release commit.
+	Revision   int
+	Patches    []string
+	PatchDates map[string]string
 }
 
 // UsageError is a mistake in the invocation or the config.
@@ -61,6 +69,9 @@ type Result struct {
 
 // Run builds every selected project.
 func Run(ctx context.Context, o Options) ([]Result, error) {
+	if err := checkRevision(o); err != nil {
+		return nil, err
+	}
 	cfgPath, outside, err := configPath(o)
 	if err != nil {
 		return nil, err
@@ -82,6 +93,32 @@ func Run(ctx context.Context, o Options) ([]Result, error) {
 		out = append(out, r)
 	}
 	return out, nil
+}
+
+// checkRevision refuses a revision without its release or its patches,
+// and patches without a revision.
+func checkRevision(o Options) error {
+	switch {
+	case o.Revision < 0:
+		return &UsageError{fmt.Errorf("--revision %d: a revision is 0 or more", o.Revision)}
+	case o.Revision == 0 && len(o.Patches) > 0:
+		return &UsageError{fmt.Errorf("--patches needs --revision: revision 0 is the release itself")}
+	case o.Revision > 0 && o.Release == "":
+		return &UsageError{fmt.Errorf("--revision %d needs --release: a docs revision is of a release", o.Revision)}
+	case o.Revision > 0 && len(o.Patches) == 0:
+		return &UsageError{fmt.Errorf("--revision %d needs --patches, the fix commits applied to the release tree", o.Revision)}
+	}
+	seen := map[string]bool{}
+	for _, p := range o.Patches {
+		if !gitsrc.IsSHA(p) {
+			return &UsageError{fmt.Errorf("--patches: %q is not a full 40-hex commit hash", p)}
+		}
+		if seen[p] {
+			return &UsageError{fmt.Errorf("--patches: %s is listed twice", p)}
+		}
+		seen[p] = true
+	}
+	return nil
 }
 
 // configPath picks the config: --config when given, else the source
@@ -154,7 +191,7 @@ func resolve(ctx context.Context, o Options, b config.Bundle, project string) (*
 		id.ref = o.Release
 	}
 	var err error
-	if id.build, err = tags.NewBuild(id.version, 0, ""); err != nil {
+	if id.build, err = tags.NewBuild(id.version, o.Revision, ""); err != nil {
 		return nil, err
 	}
 	if id.commit, err = repo.Commit(ctx, rev); err != nil {
@@ -174,7 +211,12 @@ func resolve(ctx context.Context, o Options, b config.Bundle, project string) (*
 	if id.created, err = repo.CommitTime(ctx, id.commit); err != nil {
 		return nil, err
 	}
-	if id.dirty, err = repo.Dirty(ctx, o.Out); err != nil {
+	if o.Revision > 0 {
+		id.dirty, err = repo.Unstaged(ctx, o.Out)
+	} else {
+		id.dirty, err = repo.Dirty(ctx, o.Out)
+	}
+	if err != nil {
 		return nil, err
 	}
 	return id, nil
@@ -199,14 +241,14 @@ func buildProject(ctx context.Context, o Options, cfg *config.Config, project st
 		Schema:    bundle.SchemaID,
 		Project:   project,
 		Version:   id.version,
-		Revision:  0,
-		Source:    bundle.Source{Repo: id.repo, Commit: id.commit, Ref: id.ref, Dirty: id.dirty},
+		Revision:  o.Revision,
+		Source:    bundle.Source{Repo: id.repo, Commit: id.commit, Ref: id.ref, Dirty: id.dirty, Patches: o.Patches},
 		Created:   id.created.Format(time.RFC3339),
 		Tool:      o.Tool,
 		Dialect:   dialect.Version,
 		Placement: bundle.Placement{Kind: b.Placement.Kind, Root: b.Placement.Root},
 	}
-	s := &assembly{ctx: ctx, o: o, id: id, m: m, dir: dir, written: map[string]string{}, repo: gitsrc.Repo{Dir: o.Source}}
+	s := &assembly{ctx: ctx, o: o, id: id, m: m, dir: dir, written: map[string]string{}, repo: gitsrc.Repo{Dir: o.Source}, patched: o.PatchDates}
 	if err := s.sources(b, cfg.Path, outside); err != nil {
 		return Result{}, err
 	}
@@ -225,8 +267,19 @@ type assembly struct {
 	dir     string
 	repo    gitsrc.Repo
 	written map[string]string // content path -> the source that wrote it
+	patched map[string]string // a docs revision: patched file -> its newest patch's date
 	model   *cuecatalog.Model
 	landing *markdown.Page
+}
+
+// lastmod is a source file's last commit date at the commit built; in a
+// docs revision, a patched file's is the date of the newest patch that
+// touched it.
+func (s *assembly) lastmod(path string) string {
+	if d, ok := s.patched[path]; ok {
+		return d
+	}
+	return s.repo.LastMod(s.ctx, s.id.commit, path)
 }
 
 func (s *assembly) target() render.Target {
@@ -291,7 +344,7 @@ func (s *assembly) markdown(src config.Source, cfgPath string, outside bool) err
 		Segment:  s.id.build.Segment(),
 		Major:    major,
 		Optional: outside,
-		Dates:    func(ctx context.Context, p string) string { return s.repo.LastMod(ctx, s.id.commit, p) },
+		Dates:    func(_ context.Context, p string) string { return s.lastmod(p) },
 	})
 	var missing *markdown.MissingDirError
 	if errors.As(err, &missing) {
@@ -352,7 +405,7 @@ func (s *assembly) renderCatalog() error {
 		pg := bundle.Page{Path: p.Path, Generated: true}
 		if f, ok := files[p.Path]; ok {
 			pg.Source = f
-			pg.Lastmod = s.repo.LastMod(s.ctx, s.id.commit, f)
+			pg.Lastmod = s.lastmod(f)
 		}
 		if err := s.write(p.Path, p.Body, "cue-catalog", pg); err != nil {
 			return err
