@@ -123,11 +123,15 @@ For each site version, `pull` SHALL resolve, verify (C9, with the docs project's
 - **THEN** `<out>/_versions/v1.0/` holds the bundles of the previous successful pull and the pull exits 2
 
 ### Requirement: One version's docs bundles never overlap
-Across the docs bundles of one site version, `pull` SHALL fail with exit 2, naming the version, the path and both projects with their versions, when a `content/` path is in two bundles, when a bundle has a page under a path another bundle owns, or when two bundles own overlapping paths.
+Across the docs bundles of one site version, `pull` SHALL fail with exit 2, naming the version, the path and both projects with their versions, when two pages of different bundles serve one URL, when a bundle has a page under a path another bundle owns, or when two bundles own overlapping paths. Paths compare by the URL Hugo serves: `.md` dropped, then a trailing `_index` or `index`, so `cli.md` and `cli/_index.md` are one page, and an owned page `x.md` holds everything under `x/` as an owned directory `x/` does.
 
 #### Scenario: One page in two bundles
 - **WHEN** cli and core both hold `start/_index.md` and neither owns it
 - **THEN** `pull` exits 2 naming `v1.0`, `start/_index.md`, cli and core with their versions
+
+#### Scenario: Two pages that serve one URL
+- **WHEN** cli holds `guides/cli.md` and core holds `guides/cli/_index.md`
+- **THEN** `pull` exits 2 naming `v1.0`, both paths, cli and core with their versions, and the URL `/docs/guides/cli/`
 
 #### Scenario: A page under another bundle's owned directory
 - **WHEN** core's bundle holds `reference/cli/extra.md` and cli owns `reference/cli/`

@@ -36,7 +36,7 @@ A bundle placed in `/docs/` (`placement: {kind: "docs", root: "/docs/", owns: [.
 
 A local preview needs no registry: `opm-docs build` in the source repository, then point the site at the output with `opm-docs pull --local catalog-opm@edge=<repo>/out/catalog-opm`.
 
-**Site versions.** A site version's `/docs/` comes from docs bundles chosen by `bundles.cue` `versions` (docs/contracts.md C16): an anchor bundle (the cli at a tag such as `1.0`), the projects pulled at the exact versions the anchor's `manifest.json` `pins` names (through each release's tag, so docs revisions follow), and projects pulled by their own tag. A version is replaced whole or not at all: its bundles must not write the same page or a page under another bundle's owned path. `--local cli@v1.0=<cli>/out/cli` previews a cli tree with the releases it pins.
+**Site versions.** A site version's `/docs/` comes from docs bundles chosen by `bundles.cue` `versions` (docs/contracts.md C16): an anchor bundle (the cli at a tag such as `1.0`), the projects pulled at the exact versions the anchor's `manifest.json` `pins` names (through each release's tag, so docs revisions follow), and projects pulled by their own tag. A version is replaced whole or not at all: its bundles must not serve one URL twice or put a page under another bundle's owned path. `--local cli@v1.0=<cli>/out/cli` previews a cli tree with the releases it pins.
 
 ## Installing
 

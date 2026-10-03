@@ -1029,13 +1029,15 @@ Every bundle of a site version must be `placement.kind: "docs"` and its own proj
       opm-operator/  ...
 ```
 
-`_versions` cannot collide with a project (C1 names have no `_`). Every bundle of site version `v` unpacks and lints in `<out>/_versions/.incoming-<v>/<project>/`; the checks below run over that set; only once every site version, every tab, every history and the lock have passed is each `<v>` replaced whole, so a refusal leaves the previous `<out>/_versions/<v>/` and the previous lock as they were. The sweep removes every entry of `_versions/` that this run did not write, and `_versions/` itself when the config has no `versions`.
+`_versions` cannot collide with a project (C1 names have no `_`). Every bundle of site version `v` unpacks and lints in `<out>/_versions/.incoming-<v>/<project>/`; the checks below run over that set; only once every site version, every tab, every history and the lock have passed is each `<v>` replaced whole (the previous tree moves aside to `.outgoing-<v>`, the new one takes its place, then the previous one is removed), so a refusal leaves the previous `<out>/_versions/<v>/` and the previous lock as they were. The sweep removes every entry of `_versions/` that this run did not write, and `_versions/` itself when the config has no `versions`.
 
 **Checks across one site version** (exit `2`, naming the version, the path and both projects with their versions), in this order:
 
 - two owned paths that nest, one equal to or under the other ("v1.0: cli 1.0.0 owns reference/cli/ and core 2.0.0 owns reference/; ...");
 - a page under a path another bundle owns ("v1.0: core 2.0.0-beta.1 has reference/cli/x.md, under reference/cli/, which cli 1.0.0-beta.6 owns; ...");
-- one `content/` path in two bundles ("v1.0: reference/_index.md is in both cli 1.0.0-beta.6 and core 2.0.0-beta.1; ...").
+- pages that serve one URL: one `content/` path in two bundles ("v1.0: reference/_index.md is in both cli 1.0.0-beta.6 and core 2.0.0-beta.1; ..."), or two paths Hugo serves at one URL ("v1.0: guides/cli.md in cli 1.0.0 and guides/cli/_index.md in core 2.0.0 serve one URL, /docs/guides/cli/; ...").
+
+Every check compares by the URL Hugo serves: `.md` dropped, then a trailing `_index` or `index` (`cli.md`, `cli/_index.md` and `cli/index.md` are one page); an owned page `x.md` holds everything under `x/`, as an owned directory `x/` does.
 
 Links across bundles are not checked here; the site's post-build link check covers them (C15).
 
@@ -1070,7 +1072,7 @@ Links across bundles are not checked here; the site's post-build link check cove
 
 **`--local <project>@v<MAJOR>.<MINOR>=<dir>`** (a segment starting with `v` names a site version; `<MAJOR>.<MINOR>` and `edge` stay tab segments, C7): that project of that site version comes from the tree, with no signature and no Sigstore trusted root, and every other check (manifest, placement, guards, lint, the cross-bundle checks). Its version is not checked against a tag's line, so an author's edge build previews as the anchor. A local anchor's pins choose the pinned projects, each local or pulled; a local pinned tree whose version differs from its pin exits `1` naming both. A `--local` naming a site version the config lacks, a project that version does not pull, or one pair twice exits `1`. A pull whose every tab segment and every site-version project is local needs no network. Each local entry is `"local": true` in the lock.
 
-**`--frozen <lock>`**: each configured project of each site version is fetched by the digest its `docs` entry names, verified and linted again; no tag is resolved. A lock that does not fit exits `1`: an entry whose site version, project or role is not the config's, whose `repository` is not `<registry>/<project>`, whose anchor or `tags` tag differs from the config's, a pinned entry whose version or tag differs from the locked anchor's `pins`, a local entry (re-run with `--local`), or a configured project the lock does not name. **`--offline`** with `--frozen` uses the cache only, as C7.
+**`--frozen <lock>`**: each configured project of each site version is fetched by the digest its `docs` entry names, verified and linted again; no tag is resolved. A lock that does not fit exits `1`: an entry whose site version, project or role is not the config's, whose `repository` is not `<registry>/<project>`, whose anchor or `tags` tag differs from the config's, a pinned entry whose version or tag differs from the locked anchor's `pins`, a local entry (re-run with `--local`), one site version and project locked twice, or a configured project the lock does not name and no `--local` supplies. These are checked before any network call. **`--offline`** with `--frozen` uses the cache only, as C7.
 
 **Exit codes**, as C7: `1` for the config checks above, a bad `--local` and a frozen lock that does not fit; `2` for resolution, signature, placement, lint and cross-bundle failures.
 

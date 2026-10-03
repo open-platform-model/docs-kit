@@ -12,7 +12,7 @@ Contracts read: C3 (manifest, `placement.owns` and `pins` from `generalize-build
 
 ## Decisions
 
-### D1. Pull config (C7, C16)
+### Pull config (C7, C16)
 
 ```cue
 #Pull: {
@@ -54,7 +54,7 @@ versions: "v1.0": {
 
 Phase 3 adds `opm` and `catalog-opm-docs` under `docs` and, for v1.0, `tags: {opm: "1.0", "catalog-opm-docs": "4"}`.
 
-### D2. Resolution
+### Resolution
 
 Per site version, in this order:
 
@@ -64,7 +64,7 @@ Per site version, in this order:
 
 Every bundle's placement must be `kind: "docs"` (else exit 2 naming both). Edge has no special case: an anchor at `edge` pins exact releases like any other build.
 
-### D3. Layout and replacement
+### Layout and replacement
 
 ```text
 <out>/
@@ -78,19 +78,21 @@ Every bundle's placement must be `kind: "docs"` (else exit 2 naming both). Edge 
       opm-operator/  ...
 ```
 
-`_versions` cannot collide with a project (C1 names have no `_`). A site version is replaced whole: every bundle of it unpacks and lints into `<out>/_versions/.incoming-<v>/<project>/`, the checks of D4 run over the incoming set, and only then does `.incoming-<v>` replace `<v>`; any failure leaves the previous `<v>` in place and fails the pull. The sweep removes any `_versions/<v>` not in the config and any project directory not written this run.
+`_versions` cannot collide with a project (C1 names have no `_`). A site version is replaced whole: every bundle of it unpacks and lints into `<out>/_versions/.incoming-<v>/<project>/`, the checks across one version run over the incoming set, and only then does `.incoming-<v>` replace `<v>` (the previous tree moves aside to `.outgoing-<v>` first and is removed once the new one is in place); any failure leaves the previous `<v>` in place and fails the pull. The sweep removes any `_versions/<v>` not in the config and any project directory not written this run.
 
-### D4. Checks across one version
+### Checks across one version
 
 Over the docs bundles of one site version (exit 2, naming the version, the path and both projects with their versions), in this order, so the most specific message wins:
 
 - two bundles owning overlapping paths (one equal to or under the other);
 - a page under a path another bundle `owns` ("core 2.0.0-beta.1 has `reference/cli/x.md`, under `reference/cli/`, which cli owns");
-- a `content/` path present in two bundles ("`reference/_index.md` is in both cli 1.0.0-beta.6 and core 2.0.0-beta.1").
+- a `content/` path present in two bundles ("`reference/_index.md` is in both cli 1.0.0-beta.6 and core 2.0.0-beta.1"), or two paths that serve one URL (`cli.md` and `cli/_index.md`).
+
+Every comparison is by the URL Hugo serves (decided in review): `.md` is dropped, then a trailing `_index` or `index`, and an owned page `x.md` holds `x/` as an owned directory does.
 
 Links across bundles are not checked here; the site's post-build link check covers them (decided in `generalize-build-assembly`).
 
-### D5. Lock (C7, C16)
+### Lock (C7, C16)
 
 `#Lock` gains an optional key after `bundles` (and after `history` when that key exists):
 
@@ -126,15 +128,15 @@ docs?: [...#DocsLocked]
 
 Key order as listed; entries sorted by `site` (numeric MAJOR, MINOR), then role (`anchor`, `pinned`, `tag`), then `project`. The key is omitted when the config has no `versions`. Schema id stays `lock/v1`.
 
-### D6. `--local`, `--frozen`, `--offline`
+### `--local`, `--frozen`, `--offline`
 
-- `--local <project>@<site-version>=<dir>` (the segment `v<MAJOR>.<MINOR>` marks a docs project; `<MAJOR>.<MINOR>` and `edge` stay tab segments): that project of that version comes from the tree; no signature, same validation, guards, lint and D4 checks. A local tree's version is not checked against a tag's line (decided in implementation: an author's edge build previews as the anchor, and the G2-pins check runs `--local cli@v1.0` on a tree built before the release). A local anchor's pins drive the pinned projects, each of which may be local or pulled. A local pinned tree's version must equal the pin (exit 1 naming both).
+- `--local <project>@<site-version>=<dir>` (the segment `v<MAJOR>.<MINOR>` marks a docs project; `<MAJOR>.<MINOR>` and `edge` stay tab segments): that project of that version comes from the tree; no signature, same validation, guards, lint and checks across one version. A local tree's version is not checked against a tag's line (decided in implementation: an author's edge build previews as the anchor, and the pre-release pin check in `docs/orchestration.md` runs `--local cli@v1.0` on a tree built before the release). A local anchor's pins drive the pinned projects, each of which may be local or pulled. A local pinned tree's version must equal the pin (exit 1 naming both).
 - `--frozen <lock>`: each `docs` entry is fetched by digest as written; its `site`, `project` and `role` must be in the config with that role, and its `repository` must be `<registry>/<project>` (exit 1 otherwise, as C7 for tabs); an anchor or `tags` entry's tag must equal the config's, and a pinned entry's version and tag must equal the locked anchor's `pins`; a configured project the lock does not name exits 1. The config digest check (C7) runs first, so a role check fires only on a lock edited by hand. A local docs entry in a frozen lock is refused (re-run with `--local`).
 - `--offline` with `--frozen`: cache only, as C7.
 
-### D7. Commands
+### Commands
 
-No new command or flag; `pull`'s existing flags gain docs semantics (D6). Exit codes as C7: `1` for config and usage errors (D1 checks, a bad `--local`, a frozen lock that does not fit), `2` for resolution, signature, lint and D4 failures.
+No new command or flag; `pull`'s existing flags gain docs semantics (see "`--local`, `--frozen`, `--offline`"). Exit codes as C7: `1` for config and usage errors (the pull-config checks, a bad `--local`, a frozen lock that does not fit), `2` for resolution, signature, lint and cross-bundle failures.
 
 ## Research & Decisions
 
@@ -151,7 +153,7 @@ No new command or flag; `pull`'s existing flags gain docs semantics (D6). Exit c
 
 ### Site version replaced whole (decided in planning)
 
-**Context**: D4's checks span bundles, so a per-bundle swap (as tabs do per segment) could leave a version mixing old and new bundles that collide.
+**Context**: the checks across one version span bundles, so a per-bundle swap (as tabs do per segment) could leave a version mixing old and new bundles that collide.
 **Decision**: swap per version.
 
 ## Risks / Trade-offs
@@ -161,6 +163,6 @@ No new command or flag; `pull`'s existing flags gain docs semantics (D6). Exit c
 
 ## Durable decisions
 
-- C16 (new) "Site versions": D1 to D6.
+- C16 (new) "Site versions": every decision above but "Commands".
 - C7: the config's `docs` and `versions`, the `_versions/` layout, the lock's `docs` key, `--local` with a site version; its "Phase 2 adds `versions:`" note removed.
 - `README.md`: `pull` and site versions.
