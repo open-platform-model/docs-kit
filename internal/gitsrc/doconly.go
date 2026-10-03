@@ -11,12 +11,12 @@ import (
 	"os/exec"
 	"path"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
-	cuescanner "cuelang.org/go/cue/scanner"
-	cuetoken "cuelang.org/go/cue/token"
+	"github.com/open-platform-model/docs-kit/internal/cuetok"
 )
 
 // Refusal is one change the documentation-only check refuses.
@@ -222,74 +222,25 @@ func (r Repo) blob(ctx context.Context, sha string) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-// token is one scanned token: its kind and its literal.
+// token is one scanned Go token: its kind and its literal.
 type token struct {
 	kind string
 	lit  string
 }
 
 func cueCommentsOnly(name string, before, after []byte) string {
-	a, err := cueTokens(name, before)
+	a, err := cuetok.Scan(name, before)
 	if err != nil {
 		return fmt.Sprintf("the released version does not scan (%v); %s", err, patchRelease)
 	}
-	b, err := cueTokens(name, after)
+	b, err := cuetok.Scan(name, after)
 	if err != nil {
 		return fmt.Sprintf("the fixed version does not scan (%v); %s", err, patchRelease)
 	}
-	if !equalTokens(a, b) {
+	if !cuetok.Equal(a, b) {
 		return "changes CUE values, not only comments; " + patchRelease
 	}
 	return ""
-}
-
-// cueTokens scans CUE source with comments skipped. A comma the scanner
-// inserts at a line end and one written in the source are the same token.
-// An interpolation is scanned as the parser does: after the parenthesis
-// that closes an interpolated expression, the rest of the string is
-// resumed.
-func cueTokens(name string, src []byte) ([]token, error) {
-	var s cuescanner.Scanner
-	var errs []string
-	f := cuetoken.NewFile(name, 0, len(src))
-	s.Init(f, src, func(pos cuetoken.Pos, msg string, args []any) {
-		errs = append(errs, fmt.Sprintf("%s: %s", pos, fmt.Sprintf(msg, args...)))
-	}, 0)
-	var out []token
-	// The parenthesis depth each open interpolation's expression closes
-	// at. The scanner returns an interpolation's "(" as its own LPAREN.
-	var open []int
-	depth := 0
-	for len(errs) == 0 {
-		_, tok, lit := s.Scan()
-		if tok == cuetoken.EOF {
-			break
-		}
-		if tok == cuetoken.COMMA {
-			lit = ""
-		}
-		out = append(out, token{kind: tok.String(), lit: lit})
-		switch {
-		case tok == cuetoken.INTERPOLATION && strings.HasSuffix(lit, "("):
-			open = append(open, depth+1)
-		case tok == cuetoken.LPAREN:
-			depth++
-		case tok == cuetoken.RPAREN:
-			depth--
-			if n := len(open); n > 0 && open[n-1] == depth+1 {
-				open = open[:n-1]
-				rest := s.ResumeInterpolation()
-				out = append(out, token{kind: cuetoken.INTERPOLATION.String(), lit: rest})
-				if strings.HasSuffix(rest, "(") {
-					open = append(open, depth+1)
-				}
-			}
-		}
-	}
-	if len(errs) > 0 {
-		return nil, fmt.Errorf("%s", errs[0])
-	}
-	return out, nil
 }
 
 func goCommentsOnly(name string, before, after []byte) string {
@@ -304,10 +255,10 @@ func goCommentsOnly(name string, before, after []byte) string {
 	if err != nil {
 		return fmt.Sprintf("the fixed version does not scan (%v); %s", err, patchRelease)
 	}
-	if !equalTokens(a, b) {
+	if !slices.Equal(a, b) {
 		return "changes Go code, not only comments; " + patchRelease
 	}
-	if !equalTokens(da, db) {
+	if !slices.Equal(da, db) {
 		return "changes a directive comment (such as //go:build or //go:embed), which is code; " + patchRelease
 	}
 	return ""
@@ -368,16 +319,4 @@ func importsC(name string, src []byte) bool {
 		}
 	}
 	return false
-}
-
-func equalTokens(a, b []token) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }

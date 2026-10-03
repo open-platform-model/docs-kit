@@ -138,7 +138,10 @@ func stability(v string) [3]int {
 	return [3]int{level, major, minor}
 }
 
-func newer(a, b string) bool {
+// NewerAPIVersion reports whether apiVersion a is newer than b in the
+// order page paths use: the most stable level first, then the highest
+// number.
+func NewerAPIVersion(a, b string) bool {
 	x, y := stability(a), stability(b)
 	for i := range x {
 		if x[i] != y[i] {
@@ -154,7 +157,7 @@ func assignPages(mod *module) {
 	newest := map[string]string{}
 	for _, m := range mod.members {
 		k := m.kind + "/" + m.name
-		if cur, ok := newest[k]; !ok || newer(m.apiVersion, cur) {
+		if cur, ok := newest[k]; !ok || NewerAPIVersion(m.apiVersion, cur) {
 			newest[k] = m.apiVersion
 		}
 	}

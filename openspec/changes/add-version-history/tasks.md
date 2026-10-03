@@ -4,10 +4,10 @@ Gate: none in docs-kit (starts on `main` at `v0.2.1` or later). One PR, titled `
 
 ## 1. The history computation
 
-- [ ] 1.1 `internal/cuetok`: move the CUE token scanner (`cueTokens`, `equalTokens`) out of `internal/gitsrc/doconly.go`; `gitsrc` calls it. Verify: `go test ./internal/gitsrc/...` unchanged and green.
-- [ ] 1.2 `schema/history.cue` (`#History`, design.md D4), embedded beside the other schemas; `schema.ValidateJSON("#History", ...)` accepts the D4 example and refuses a `segments` list of one. Verify: `go test ./schema/...`.
-- [ ] 1.3 `internal/history`: `Compute(project, tool string, segs []Segment) (*History, error)` per D1 to D4, `Encode` per D4's serialization. Verify: table tests over synthetic `cuecatalog.Model`s for every row of D3's table, `firstIsFloor`, an edge-only member, a removal with `lastIn`/`page`, lineage order, the `paths` mode under different tool minors, a doc-only change (no change), and two encodes byte-identical.
-- [ ] 1.4 `task check` green, then commit `feat(pull): compute version history across a tab's segments`.
+- [x] 1.1 `internal/cuetok`: move the CUE token scanner (`cueTokens`, `equalTokens`) out of `internal/gitsrc/doconly.go`; `gitsrc` calls it. Verify: `go test ./internal/gitsrc/...` unchanged and green.
+- [x] 1.2 `schema/history.cue` (`#History`, design.md D4), embedded beside the other schemas; `schema.ValidateJSON("#History", ...)` accepts the D4 example and refuses a `segments` list of one. Verify: `go test ./schema/...`.
+- [x] 1.3 `internal/history`: `Compute(project, tool string, segs []Segment) (*History, error)` per D1 to D4, `Encode` per D4's serialization. Verify: table tests over synthetic `cuecatalog.Model`s for every row of D3's table, `firstIsFloor`, an edge-only member, a removal with `lastIn`/`page`, lineage order, the `paths` mode under different tool minors, a doc-only change (no change), and two encodes byte-identical.
+- [x] 1.4 `task check` green, then commit `feat(pull): compute version history across a tab's segments`.
 
 ## 2. Pull writes the file and the lock records it
 
