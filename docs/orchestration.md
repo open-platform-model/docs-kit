@@ -68,6 +68,7 @@ Sibling plans cite the gates below by name, never by another repository's sectio
 | G2-site | `pull-docs-placement` and `add-authored-docs` are released |
 | G2-pins | release-mode backfills have published the bundles of core `v2.0.0-beta.1`, library `v1.0.0-beta.1` and opm-operator `v1.0.0-beta.4` (exactly what cli `main` pins), and then the cli release that first carries the hook (`v1.0.0-beta.6`) has published its bundle with those pins. Before the cli release PR merges: `opm-docs pull --local cli@v1.0=<cli out>` with a scratch `bundles.cue` holding opmodel.dev's planned `versions."v1.0"` (C16) resolves every pin; after: the same pull without `--local` succeeds anonymously (owner decision, 2026-10-03) |
 | G2-switch | opmodel.dev `pull-reference-bundles`' v1.0 switch is merged (v1.0 reads core, cli, library and opm-operator from bundles) |
+| G2-edge | opmodel.dev `add-edge-build` section 2 is merged: its CI-only `sources-main` job reads core, cli, library and opm-operator `main` from their `edge` bundles and opm and catalog_opm from `main`, so deleting a committed generated page breaks no check of every `main` together (owner decision 2026-10-04 on `pull-reference-bundles` OQ1) |
 | G3.0 | `add-authored-docs` is released (phase 3 starts) |
 | G3.1 | the first `catalog-opm-docs` release bundle is published, by the `publish-docs` job of the next opm release after catalog_opm's adoption (no dispatch: an older tag's tree holds a `docs-kit.cue` without `catalog-opm-docs`, and C5 reads the tree's config first) |
 | G3.2 | `docs/opm` holds the `1.0.0-beta.1` bundle (opm's first release) |
@@ -134,6 +135,7 @@ core, cli, library and opm-operator ship their whole `docs/site/` in the same bu
                                                                             G2-pins check ──────────────► 7 v1.0 switch (G2-pins)
                                 8 retire: generators, committed        ◄── 8 retire: cmdref, pages ◄──── merge (G2-switch)
                                   pages and exclude                         and exclude                  9 workspace docs (G2-switch)
+                                  (after G2-switch and G2-edge)             (G2-switch, G2-edge) ◄────── 7b add-edge-build (G2-edge)
 ```
 
 1. **docs-kit `generalize-build-assembly`** (one PR). Gate for everything else in phase 2.
@@ -145,7 +147,8 @@ core, cli, library and opm-operator ship their whole `docs/site/` in the same bu
 5. **cli adopts**, then the owner merges its release PR (cli#276, `v1.0.0-beta.6`, the first cli release with the hook) only when the cli's adoption has merged and the G2-pins check passes. This is the hard gate of phase 2: a cli bundle whose pins lack bundles breaks every site pull (C16 D2).
 6. **opmodel.dev `pull-reference-bundles`, support** can merge from G2-site, before any product bundle exists, tested with fixture bundles; v1.0 still reads git.
 7. **opmodel.dev `pull-reference-bundles`, v1.0 switch** once G2-pins holds; its merge is G2-switch.
-8. **core, cli and opm-operator retire** (after G2-switch): delete the generator, the committed generated pages and the `exclude`; the library has none. These land on `main` only; released bundles are unaffected.
+7b. **opmodel.dev `add-edge-build`** (any time; section 2's merge is G2-edge): a CI-only build of every repository's `main` reading the four products' `edge` bundles. No docs-kit change: C16 pulls an anchor at `edge` with every other project under `tags` (verified 2026-10-04 at `v0.6.0`).
+8. **core, cli and opm-operator retire** (after G2-switch and G2-edge): delete the generator, the committed generated pages and the `exclude`; the library has none. These land on `main` only; released bundles are unaffected.
 9. **Workspace docs** (a workspace PR at G2-switch): root `AGENTS.md`'s release-branch bullet ("A docs-only fix in `core` or `catalog_opm` cuts no release: `opmodel.dev` builds their docs from the release branch head ...") becomes: a docs fix reaches a released version through a docs revision (`mode: revision` in the repository's `Docs` workflow), never through a branch push. `STYLE.md`'s "Reference facts are generated in the owning repository" bullet drops "its output is committed under `docs/site/reference/` with a check that fails when it is stale" and the marker-comment sentence: generated reference is built in the owning repository's CI and published in its docs bundle, never committed.
 
 Done (phase 2): no repository commits generated pages; v1.0's reference and the four repositories' authored pages come from bundles; the site's two Reference placeholders are gone.
@@ -174,7 +177,7 @@ Common to the four product siblings' adoption, each with its own project from C1
 
 Then (owner): verify the new GHCR package `docs/<project>` is public and linked to the repository (the phase-1 spike found new packages inherit the public repository's visibility), dispatch the backfill (or, for the cli, merge the release PR) and confirm the full, release, minor and major tags verify (`cosign verify` with C9's flags or an anonymous `opm-docs pull`). Record run URLs in the change.
 
-Retire (after G2-switch): remove the generator, its tests, tasks and CI steps, the committed generated pages and the `exclude`.
+Retire (after G2-switch and G2-edge): remove the generator, its tests, tasks and CI steps, the committed generated pages and the `exclude`.
 
 ### core: `publish-definitions-bundle`
 
