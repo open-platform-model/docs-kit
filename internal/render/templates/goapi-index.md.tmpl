@@ -1,0 +1,11 @@
+---
+title: {{yaml .Title}}
+description: {{yaml .Description}}
+{{- if .Weight}}
+weight: {{.Weight}}
+{{- end}}
+---
+
+{{.Intro}}
+
+{{.Tail}}

@@ -32,7 +32,7 @@ package schema
 // "link" links each enhancement decision citation to its decisions page.
 #Citations: *"strip" | "link"
 
-#Source: #CueCatalog | #Markdown | #Cobra | #CueDefinitions | #CRD | #Enhancements
+#Source: #CueCatalog | #Markdown | #Cobra | #CueDefinitions | #CRD | #GoAPI | #Enhancements
 
 #CueCatalog: {
 	kind:   "cue-catalog"
@@ -114,6 +114,30 @@ package schema
 	reconciledBy?: [string & !=""]: string & !="" // kind: the controller that reconciles it
 	citations?: #Citations
 }
+
+// The go-api source (docs-kit C20): a Go module's exported packages, parsed
+// (never built or type-checked) and rendered from their doc comments.
+#GoAPI: {
+	kind:   "go-api"
+	module: #GoPath // the directory holding go.mod, repo-relative: "./"
+	// Page names are package directories relative to root, which is
+	// relative to module: "./opm" makes opm/helper/objectset the page
+	// helper-objectset.
+	root: #GoPath
+	// Package patterns relative to module: "./opm/..."; "..." matches any
+	// string, and a trailing "/..." also matches the directory itself.
+	packages: [#GoPath, ...#GoPath]
+	// The directory the pages go in, one of the bundle's owned paths:
+	// "reference/go-api/".
+	section:     =~"^([a-z0-9]+(-[a-z0-9]+)*/)+$"
+	title:       string & !="" // the section index's front matter
+	description: string & !=""
+	weight?:     int & >=1 // the section index's weight among its siblings
+	citations?:  #Citations
+}
+
+// A slash path that starts "./" and holds no ".." segment.
+#GoPath: =~"^\\./" & !~"(^|/)\\.\\.(/|$)"
 
 // The enhancements repository's entries, INDEX.md and GRAPH.md, as the
 // /enhancements/ section (docs-kit C21); a section bundle only. Its text is

@@ -75,7 +75,7 @@ func (x *extraction) readKinds() ([]Kind, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := checkDir(dir, o.Dir, "dir"); err != nil {
+	if err := checkDir(o.Root, dir, o.Dir, "dir"); err != nil {
 		return nil, err
 	}
 	if err := x.checkSamplesDir(); err != nil {
@@ -241,12 +241,15 @@ func (x *extraction) checkSamplesDir() error {
 	case err != nil:
 		return err
 	}
-	return checkMode(fi, x.o.Samples, "samples")
+	if err := checkMode(fi, x.o.Samples, "samples"); err != nil {
+		return err
+	}
+	return inside(x.o.Root, dir, x.o.Samples, "samples")
 }
 
 // checkDir refuses a configured directory that is missing, a symbolic
-// link or not a directory.
-func checkDir(dir, rel, option string) error {
+// link, not a directory, or that resolves outside the source tree.
+func checkDir(root, dir, rel, option string) error {
 	fi, err := os.Lstat(dir)
 	if errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("%s %s does not exist; point %s at controller-gen's output", option, rel, option)
@@ -254,7 +257,27 @@ func checkDir(dir, rel, option string) error {
 	if err != nil {
 		return err
 	}
-	return checkMode(fi, rel, option)
+	if err := checkMode(fi, rel, option); err != nil {
+		return err
+	}
+	return inside(root, dir, rel, option)
+}
+
+// inside refuses a directory that resolves outside the source tree
+// through a linked parent.
+func inside(root, dir, rel, option string) error {
+	top, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return err
+	}
+	resolved, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return err
+	}
+	if r, err := filepath.Rel(top, resolved); err != nil || r == ".." || strings.HasPrefix(r, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("%s %s resolves outside the source tree; name a directory inside it", option, rel)
+	}
+	return nil
 }
 
 func checkMode(fi fs.FileInfo, rel, option string) error {

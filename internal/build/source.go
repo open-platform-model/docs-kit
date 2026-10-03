@@ -73,6 +73,7 @@ var extractors = []Extractor{
 	cueDefinitionsExtractor{},
 	cobraExtractor{},
 	crdExtractor{},
+	goAPIExtractor{},
 	enhancementsExtractor{},
 }
 

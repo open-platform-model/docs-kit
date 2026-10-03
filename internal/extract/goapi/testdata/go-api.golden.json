@@ -1,0 +1,171 @@
+{
+  "schema": "docs.opmodel.dev/data/go-api/v1",
+  "modulePath": "example.com/widgets",
+  "version": "1.2.3",
+  "section": "reference/go-api/",
+  "title": "Go API",
+  "description": "Every exported package.",
+  "weight": 4,
+  "packages": [
+    {
+      "importPath": "example.com/widgets/lib/gadget",
+      "name": "gadget",
+      "page": "gadget",
+      "synopsis": "Package gadget holds widgets.",
+      "doc": "Package gadget holds widgets.",
+      "consts": [],
+      "vars": [],
+      "funcs": [
+        {
+          "name": "Size",
+          "recv": null,
+          "anchor": "size",
+          "decl": "func Size() int",
+          "doc": "Size names [widget.Fast](/docs/reference/go-api/widget/#slow), a constant of a group, and [widget.Widget.Name](/docs/reference/go-api/widget/#widget), a field, and [widget.Missing](https://pkg.go.dev/example.com/widgets/lib/widget#Missing), which nothing documents."
+        }
+      ],
+      "types": [
+        {
+          "name": "Gadget",
+          "anchor": "gadget",
+          "decl": "type Gadget struct{}",
+          "doc": "Gadget holds a [widget.Widget](/docs/reference/go-api/widget/#widget); see [widget](/docs/reference/go-api/widget/) and [errors.New](https://pkg.go.dev/errors#New).",
+          "consts": [],
+          "vars": [],
+          "funcs": [],
+          "methods": []
+        }
+      ],
+      "files": [
+        "mod/lib/gadget/gadget.go"
+      ]
+    },
+    {
+      "importPath": "example.com/widgets/lib/sub/deep",
+      "name": "deep",
+      "page": "sub-deep",
+      "synopsis": "Package deep is nested two levels down.",
+      "doc": "Package deep is nested two levels down.",
+      "consts": [],
+      "vars": [],
+      "funcs": [],
+      "types": [
+        {
+          "name": "Deep",
+          "anchor": "deep",
+          "decl": "type Deep string",
+          "doc": "Deep is deep.",
+          "consts": [],
+          "vars": [],
+          "funcs": [],
+          "methods": []
+        }
+      ],
+      "files": [
+        "mod/lib/sub/deep/deep.go"
+      ]
+    },
+    {
+      "importPath": "example.com/widgets/lib/widget",
+      "name": "widget",
+      "page": "widget",
+      "synopsis": "Package widget makes widgets.",
+      "doc": "Package widget makes widgets. It is the fixture of the go-api extractor.\n\nA [Widget](/docs/reference/go-api/widget/#widget) comes from [New](/docs/reference/go-api/widget/#new) and spins with [Widget.Spin](/docs/reference/go-api/widget/#widgetspin-1); a [gadget.Gadget](/docs/reference/go-api/gadget/#gadget) holds one. Every call takes a [context.Context](https://pkg.go.dev/context#Context). Values are `cue` values, and \\<b\\>raw HTML\\</b\\> and \\{\\{\\< figure \\>\\}\\} stay text.\n\n### Spinning\n\nSpin a widget:\n\n```text\nw := widget.New()\nw.Spin() // `once`\n```\n\nThe rules:\n\n- a widget spins once;\n- 1\\. is not a list here.\n\nSee [the docs](https://example.com/docs?a=%28b%29) for more.",
+      "consts": [
+        {
+          "names": [
+            "Version"
+          ],
+          "anchor": "version",
+          "decl": "const Version = \"1.0\"",
+          "doc": "Version is the widget version."
+        }
+      ],
+      "vars": [
+        {
+          "names": [
+            "Default"
+          ],
+          "anchor": "default",
+          "decl": "var Default = New()",
+          "doc": "Default is the default widget."
+        }
+      ],
+      "funcs": [
+        {
+          "name": "Undocumented",
+          "recv": null,
+          "anchor": "undocumented",
+          "decl": "func Undocumented()",
+          "doc": ""
+        },
+        {
+          "name": "WidgetSpin",
+          "recv": null,
+          "anchor": "widgetspin",
+          "decl": "func WidgetSpin()",
+          "doc": "WidgetSpin collides with the anchor of [Widget.Spin](/docs/reference/go-api/widget/#widgetspin-1)."
+        }
+      ],
+      "types": [
+        {
+          "name": "Mode",
+          "anchor": "mode",
+          "decl": "type Mode int",
+          "doc": "Mode is how a widget spins.",
+          "consts": [
+            {
+              "names": [
+                "Slow",
+                "Fast"
+              ],
+              "anchor": "slow",
+              "decl": "const (\n\t// Slow spins slowly.\n\tSlow Mode = iota\n\tFast      // spins fast\n)",
+              "doc": "The modes."
+            }
+          ],
+          "vars": [],
+          "funcs": [],
+          "methods": []
+        },
+        {
+          "name": "Widget",
+          "anchor": "widget",
+          "decl": "type Widget struct {\n\t// Name names the widget.\n\tName string\n\n\tSize int // in mm\n\t// contains filtered or unexported fields\n}",
+          "doc": "Widget is a thing that spins.",
+          "consts": [],
+          "vars": [],
+          "funcs": [
+            {
+              "name": "New",
+              "recv": null,
+              "anchor": "new",
+              "decl": "func New() *Widget",
+              "doc": "New returns a [Widget](/docs/reference/go-api/widget/#widget)."
+            }
+          ],
+          "methods": [
+            {
+              "name": "Spin",
+              "recv": "*Widget",
+              "anchor": "widgetspin-1",
+              "decl": "func (w *Widget) Spin(ctx context.Context) error",
+              "doc": "Spin spins w; see [Widget.Stop](/docs/reference/go-api/widget/#widgetstop) and [WidgetSpin](/docs/reference/go-api/widget/#widgetspin)."
+            },
+            {
+              "name": "Stop",
+              "recv": "Widget",
+              "anchor": "widgetstop",
+              "decl": "func (w Widget) Stop()",
+              "doc": "Stop stops w."
+            }
+          ]
+        }
+      ],
+      "files": [
+        "mod/lib/widget/doc.go",
+        "mod/lib/widget/widget.go"
+      ]
+    }
+  ]
+}

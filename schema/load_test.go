@@ -19,7 +19,7 @@ func TestSourceKinds(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Each kind is checked on its own, so changes adding kinds merge.
-	for _, k := range []string{"cobra", "crd", "cue-catalog", "cue-definitions", "markdown"} {
+	for _, k := range []string{"cobra", "crd", "cue-catalog", "cue-definitions", "go-api", "markdown"} {
 		if !slices.Contains(kinds, k) {
 			t.Errorf("kinds %v lack %s", kinds, k)
 		}

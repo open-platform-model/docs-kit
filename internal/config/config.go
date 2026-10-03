@@ -144,20 +144,15 @@ func Load(path string) (*Config, error) {
 }
 
 // checkBundle applies the rules the schema cannot state: owned paths that
-// do not nest, a docs bundle without a catalog, a cue-definitions source
-// in a docs bundle only, an enhancements source in a section bundle and
-// nothing else there, and well-formed patterns.
+// do not nest, a docs bundle without a catalog, the cue-definitions, crd
+// and go-api sources in a docs bundle only, an enhancements source in a
+// section bundle and nothing else there, and well-formed patterns.
 func checkBundle(project string, b Bundle) error {
 	if err := checkSection(project, b); err != nil {
 		return err
 	}
-	owns := b.Placement.Owns
-	for i, a := range owns {
-		for _, o := range owns[i+1:] {
-			if Nests(a, o) || Nests(o, a) {
-				return fmt.Errorf("bundles.%q.placement.owns: %s and %s nest; list the outer path alone", project, a, o)
-			}
-		}
+	if err := checkOwns(project, b.Placement.Owns); err != nil {
+		return err
 	}
 	docs := b.Placement.Kind == "docs"
 	for i, src := range b.Sources {
@@ -169,9 +164,23 @@ func checkBundle(project string, b Bundle) error {
 			return fmt.Errorf("%s: a cue-definitions source writes pages under /docs/; give the bundle placement kind \"docs\"", at)
 		case !docs && src.Kind == "crd":
 			return fmt.Errorf("%s: a crd source belongs in a docs bundle (placement kind \"docs\"); its page is a /docs/ reference page", at)
+		case !docs && src.Kind == "go-api":
+			return fmt.Errorf("%s: a go-api source writes pages under /docs/; give the bundle placement kind \"docs\"", at)
 		}
 		if err := checkGlobs(at, src); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// checkOwns refuses owned paths that nest.
+func checkOwns(project string, owns []string) error {
+	for i, a := range owns {
+		for _, o := range owns[i+1:] {
+			if Nests(a, o) || Nests(o, a) {
+				return fmt.Errorf("bundles.%q.placement.owns: %s and %s nest; list the outer path alone", project, a, o)
+			}
 		}
 	}
 	return nil
