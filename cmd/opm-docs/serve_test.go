@@ -1,0 +1,43 @@
+package main
+
+import (
+	"bytes"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+const serveConfig = `bundles: cli: {
+	placement: {kind: "docs", root: "/docs/"}
+	version: {from: "tag", prefix: "v"}
+	sources: [{kind: "markdown", dir: "docs/site"}]
+}
+`
+
+func TestServeUsage(t *testing.T) {
+	cfg := filepath.Join(t.TempDir(), "docs-kit.cue")
+	if err := os.WriteFile(cfg, []byte(serveConfig), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", t.TempDir()) // no hugo, no task
+	cases := []struct {
+		name   string
+		args   []string
+		stderr string
+	}{
+		{"unknown flag", []string{"serve", "--nope"}, "--nope"},
+		{"no hugo", []string{"serve", "--config", cfg}, "no hugo on PATH"},
+		{"bad port", []string{"serve", "--config", cfg, "--port", "0"}, "--port 0"},
+		{"unknown project", []string{"serve", "--config", cfg, "--project", "core"}, "--project core"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var out, errb bytes.Buffer
+			code := run(c.args, &out, &errb)
+			if code != exitUsage || !strings.Contains(errb.String(), c.stderr) {
+				t.Fatalf("exit %d (want 1)\nstderr: %s", code, errb.String())
+			}
+		})
+	}
+}

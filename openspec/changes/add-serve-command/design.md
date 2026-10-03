@@ -41,6 +41,21 @@ Exit codes: `0` when stopped by an interrupt, `1` usage (unknown flag, missing `
 
 With `--site <dir>`: build once into a temporary directory, then run `task bundles:pull` and `task serve` with working directory `<dir>` and `OPM_BUNDLES_LOCAL` set to the space-separated pairs `<project>@edge=<tree>` (tab and section bundles) and `<project>@<--version>=<tree>` (docs bundles; `pull-docs-placement` D6), and wait for `task serve`. No watching: the site's own preview is not designed for a changing local tree. This relies on opmodel.dev keeping those two task names and the variable; the interface is recorded in `docs/contracts.md` "Site decisions" so a site change names it.
 
+## Departures in implementation (2026-10-03)
+
+docs-kit `main` moved after this design was written (authored docs and edit paths, four extractors, site versions in `pull`, the C14 runner). Re-read against it, the implementation departs as follows; the decisions above stand otherwise.
+
+- **D1.** `--version` without `--site` and a `--port` outside 1 to 65535 exit `1`. `hugo server` exiting on its own (a port in use) exits `2` and says to pass `--port`. The address is fixed: there is no `--bind` flag, the skeleton listens on `127.0.0.1` only.
+- **D2, the config.** The skeleton's config is `hugo.json`, written with `encoding/json`, instead of `hugo.toml`: mount paths are absolute temporary paths, and JSON needs no hand-written quoting. It also passes `--baseURL http://127.0.0.1:<port>/ --appendPort=false`.
+- **D2, templates.** Hugo 0.146's layout: `layouts/baseof.html`, `single.html`, `list.html`, and one `layouts/_markup/render-blockquote.html` that renders the five alert types (and a plain blockquote), instead of a separate `render-blockquote-alert.html`.
+- **D2, figures.** Dialect 1 now allows nine figure names, not seven. The placeholder shortcodes are not embedded files: `serve` writes one per name from the dialect's own list (`dialect.Figures`), so a figure added to the dialect is previewed without a change here.
+- **D2, sections.** C21 (`section` placement) is not on `main` yet. Mounting is "a tab at `<root>edge/`, a docs bundle at `/docs/`, any other placement at its root", so a section bundle mounts at `/enhancements/` when `add-enhancements-bundle` lands, with no change to `serve`.
+- **D3, the swap.** A passing rebuild is copied file by file over the served tree (a changed file rewritten, a removed one deleted) instead of swapping the directory: Hugo watches the mounted directory, and a replaced mount root loses its watch.
+- **D3, what is watched.** Per source kind: a `markdown` `dir`, a `cue-catalog` `module`, a `cue-definitions` `package`, a `crd` `dir` and `samples`. A `cobra` source, a bundle with `pins` (both run a repository command), and a kind `serve` does not know (the extractors in flight) watch the whole source tree. `docs-kit.cue` is always watched; directories starting with `.` (`.git`, `.cue-cache`) never are. After a rebuild the roots are read again, so a source added to the config is watched.
+- **The lint.** Every preview build is `build.Run`, unchanged: the same extractors, repository commands (C14, run once per build as `build` runs them) and bundle-mode dialect lint. A page `build` refuses is never served; while watching, its violations print as `build` prints them and the last good build stays. C14's "Runs in" row and the `repository-commands` spec gain `serve`.
+- **Shared code.** Two additions, each in a file of its own so parallel changes merge cleanly: `build.Selected` (the config and projects `Run` would build, with `Run`'s usage errors, so `serve` refuses a bad flag before it builds or looks for `hugo`) and `dialect.Figures`.
+- **Dependencies.** None added: polling (D3's decision), `os/exec` for `hugo` and `task` (no shell, fixed argv), `encoding/json` for the config, `go:embed` for the skeleton.
+
 ## Research & Decisions
 
 ### Embedded skeleton versus the site's theme (decided in planning)

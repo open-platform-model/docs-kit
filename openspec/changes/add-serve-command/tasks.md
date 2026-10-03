@@ -4,9 +4,9 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`. One PR, titled `
 
 ## 1. Serve on the embedded site
 
-- [ ] 1.1 `internal/serve`: the embedded skeleton site (design.md D2), the Hugo process with version check, mounts per placement, the polling watcher with last-good fallback (D3). Verify: unit tests for the mount config per placement and the watcher (fake clock, fake builder); a test that runs `hugo` when it is on `PATH`, else skips, and fetches one page over HTTP.
-- [ ] 1.2 `cmd/opm-docs/serve.go`: flags and exit codes (D1). Verify: `opm-docs serve --nope` exits 1; a missing `hugo` exits 1 naming it.
-- [ ] 1.3 `task check` green, then commit `feat(cmd): serve a repository's bundles on a local Hugo`.
+- [x] 1.1 `internal/serve`: the embedded skeleton site (design.md D2), the Hugo process with version check, mounts per placement, the polling watcher with last-good fallback (D3). Verify: unit tests for the mount config per placement and the watcher (fake clock, fake builder); a test that runs `hugo` when it is on `PATH`, else skips, and fetches one page over HTTP.
+- [x] 1.2 `cmd/opm-docs/serve.go`: flags and exit codes (D1). Verify: `opm-docs serve --nope` exits 1; a missing `hugo` exits 1 naming it.
+- [x] 1.3 `task check` green, then commit `feat(cmd): serve a repository's bundles on a local Hugo`.
 
 ## 2. The site mode
 
