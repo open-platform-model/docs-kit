@@ -119,3 +119,20 @@ func TestEnhancementsLinkAtTheCommit(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+// A repository with no GitHub origin builds as a preview, with a warning.
+func TestEnhancementsSectionLocalPreview(t *testing.T) {
+	t.Setenv("GITHUB_REPOSITORY", "")
+	r := gittest.New(t, "")
+	r.CopyTree(filepath.Join("..", "extract", "enhancements", "testdata", "repo"), ".")
+	r.Write(map[string]string{"docs-kit.cue": enhancementsSectionConfig})
+	r.Commit("entries")
+	var stderr bytes.Buffer
+	out := filepath.Join(t.TempDir(), "out")
+	if _, err := Run(context.Background(), Options{Source: r.Dir, Out: out, Tool: "0.5.0", Stderr: &stderr}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stderr.String(), "has no GitHub origin, so the repository is named local/") || !strings.Contains(stderr.String(), "push refuses it") {
+		t.Fatalf("stderr %q", stderr.String())
+	}
+}

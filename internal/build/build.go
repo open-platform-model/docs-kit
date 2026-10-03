@@ -268,6 +268,13 @@ func buildProject(ctx context.Context, o Options, cfg *config.Config, project st
 		Dialect:   dialect.Version,
 		Placement: bundle.Placement{Kind: b.Placement.Kind, Root: b.Placement.Root, Owns: b.Placement.Owns},
 	}
+	if gitsrc.IsLocal(id.repo) {
+		w := o.Stderr
+		if w == nil {
+			w = os.Stderr
+		}
+		fmt.Fprintf(w, "opm-docs build: %s: %s has no GitHub origin, so the repository is named %s and every source link names it; this bundle is a preview, and push refuses it\n", project, o.Source, id.repo)
+	}
 	s := &assembly{ctx: ctx, o: o, id: id, m: m, dir: dir, cfgPath: cfg.Path, written: map[string]string{}, repo: gitsrc.Repo{Dir: o.Source}, patched: o.PatchDates}
 	if s.docs = b.Placement.Kind == render.KindDocs; s.docs && o.Edits == nil {
 		s.main = mainTree(ctx, o, id.repo)

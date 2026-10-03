@@ -189,6 +189,13 @@ func (r Repo) Branch(ctx context.Context) string {
 
 var reGitHub = regexp.MustCompile(`github\.com[:/]([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$`)
 
+// LocalOwner is the owner Name gives a repository with no GitHub origin:
+// a bundle built there is a preview, which push refuses.
+const LocalOwner = "local/"
+
+// IsLocal reports a repository name Name made up, "local/<directory>".
+func IsLocal(name string) bool { return strings.HasPrefix(name, LocalOwner) }
+
 // Name is the repository's "owner/name": GITHUB_REPOSITORY in GitHub
 // Actions, else parsed from the origin remote, else "local/<directory>".
 func (r Repo) Name(ctx context.Context) string {
@@ -205,7 +212,7 @@ func (r Repo) Name(ctx context.Context) string {
 		top = r.Dir
 	}
 	name := regexp.MustCompile(`[^A-Za-z0-9_.-]`).ReplaceAllString(filepath.Base(top), "-")
-	return "local/" + name
+	return LocalOwner + name
 }
 
 // Path kinds Tree reports, GitHub's URL forms for them.
