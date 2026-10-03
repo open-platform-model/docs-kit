@@ -30,5 +30,5 @@ The renderer SHALL write `<section>_index.md` (the configured title and descript
 - **THEN** the components page links `/docs/reference/definitions/names-paths-and-versions/#nametype`
 
 #### Scenario: Parity with refgen
-- **WHEN** core's tree at its newest tag is built with core's configuration
+- **WHEN** a core commit that carries refgen's committed pages is built with core's configuration
 - **THEN** every page equals refgen's committed page with the marker comments removed

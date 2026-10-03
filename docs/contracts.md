@@ -6,7 +6,7 @@ The numbers (C1 onward) are stable; other repositories cite them as `docs-kit C5
 
 ## Doc-comment rules
 
-How every extractor turns source comments into reader-facing text (`internal/doctext`, `internal/mdtext`):
+How every extractor turns source comments into reader-facing text (`internal/doctext`, `internal/mdtext`). `cue-definitions` departs from the summary, escaping and spec-block wrapping rules where C17 says so:
 
 - **Maintainer comments.** Inside a definition, a comment group whose first line (after `//` and trimming) starts with `WHY` or with `//` (a `////` banner) is dropped. A `WHY` line inside a doc comment is dropped on its own (core's rule, adopted now).
 - **Citations.** Removed from prose and from comments in spec blocks. The pattern accepts `0010:D28`, `0010 D28`, `OQ` numbers, `:R2` and `/R1/R2` requirement suffixes, `/D9` continuations, lists joined by `,`, `;` or `and`, an optional `(see|per|enhancement)` lead and the parenthesised form; then refgen's six clean-up rewrites (empty parens, comma before paren, space after paren, space before punctuation, double spaces, trim). Also removed: `See SPEC.md § N.` sentences, inline `SPEC.md § N`, `NNNN experiment N` and `enhancements/NNNN/experiments/...` (core's rules, adopted now). A changed comment paragraph in a spec block is re-wrapped to `80 - indent - 3` columns, minimum 40; an unchanged one keeps its breaks; a trailing comment that becomes empty is removed.
@@ -329,7 +329,7 @@ package schema
 // "link" links each enhancement decision citation to its decisions page.
 #Citations: *"strip" | "link"
 
-#Source: #CueCatalog | #Markdown
+#Source: #CueCatalog | #Markdown | #CueDefinitions
 
 #CueCatalog: {
 	kind:   "cue-catalog"
@@ -349,6 +349,32 @@ package schema
 	include?: [string, ...string]
 	exclude?: [string, ...string]
 }
+
+// A CUE package's exported definitions, parsed (never evaluated) and grouped
+// into reference pages by the author's inclusion list (docs-kit C17).
+#CueDefinitions: {
+	kind:    "cue-definitions"
+	package: =~"^\\./"       // the package directory, repo-relative: "./src"
+	skip:    *[] | [...string] // path.Match globs on file base names: ["*_pins.cue"]
+	// The directory the pages are written to, one of the bundle's owned
+	// paths: "reference/definitions/".
+	section:     =~"^([a-z0-9]+(-[a-z0-9]+)*/)+$"
+	title:       string & !="" // the section index's front matter
+	description: string & !=""
+	weight?:     int & >=1 // the section index's weight among its siblings
+	pages: [#DefPage, ...#DefPage]
+	// Exported definitions left out of the pages, each with the reason.
+	exclude: [=~"^#"]: string & !=""
+	citations?: #Citations
+}
+
+// One reference page: its file under section and its definitions in order.
+#DefPage: {
+	file:        =~"^[a-z0-9]+(-[a-z0-9]+)*$"
+	title:       string & !=""
+	description: string & !=""
+	definitions: [=~"^#", ...=~"^#"]
+}
 ```
 
 `bundles` is keyed by project because one repository can publish several, as core and cli will in phase 2 and catalog_opm would with a second catalog. A `layout` choice for catalogs is left out until a second layout has a consumer. A path in content/ written by two sources fails the build, except an authored page at the path of a completable generated page (the catalog landing is one): it does not replace the generated page, the generated body is appended to it (C15).
@@ -359,6 +385,7 @@ package schema
 |---|---|---|
 | `cue-catalog` | `data/catalog.json` (C10); a tab bundle only | `module`; `citations` only `"strip"` |
 | `markdown` | authored pages, copied | `dir`, `include`, `exclude` |
+| `cue-definitions` | `data/cue-definitions.json` (C17); a docs bundle only | `package`, `skip`, `section`, `title`, `description`, `weight`, `pages`, `exclude`; `citations` |
 
 **Adding an extractor** (one OpenSpec change per kind): an `Extractor` in `internal/build` (`Kind`, `Extract(ctx, Input) (Data, error)`), registered in its `extractors` table; a `Renderer` in `internal/render` (`Schema`, `Render(data, Target) ([]Page, error)`), registered by its data schema; its kind added to `#Source` with `citations?: #Citations` and its own options; its data file documented as a contract of its own. A renderer page may set `Completable` with its `Heading` and `Tail` (C15).
 
@@ -859,6 +886,92 @@ A bundle with `placement: {kind: "docs", root: "/docs/", owns: [...]}` merges in
 **Completable pages.** A renderer may mark a page completable, with the heading its generated body opens with. When a `markdown` source of the same bundle supplies a page at that path, the bundle's page is the authored front matter and body, unchanged, then one blank line, then the generated body without front matter, recorded as `generated: false` with the authored file as `source`. An authored body that already holds the heading exits `2` naming the file. Without an authored page, the generated page stands alone with its own front matter, `generated: true`. The catalog landing is the first completable page (heading `## Catalog members`; output unchanged).
 
 **Pins** (DESIGN decision 10). When a bundle's config has `pins: {command, projects}`, `build` runs the command (C14) and requires a `docs.opmodel.dev/pins/v1` document whose `pins` keys are exactly `projects` and whose values are SemVer versions without `v` (C3's `#SemVer`); it writes them to `manifest.json` `pins`. A missing or extra project, or a malformed version, exits `2` naming it and the command. A backfilled release (config from outside the tree) whose tree cannot run the command fails: pins are a contract, never guessed.
+
+## C17. `cue-definitions`
+
+A `cue-definitions` source documents a CUE package's exported definitions on reference pages grouped by the author (DESIGN.md phase 2; it replaces core's `tools/refgen`). Its config is `#CueDefinitions` (C6). core's file, the lists moved verbatim from `tools/refgen/groups.go`:
+
+```cue
+bundles: core: {
+	placement: {kind: "docs", root: "/docs/", owns: ["reference/definitions/"]}
+	version: {from: "tag", prefix: "v"}
+	sources: [{
+		kind:        "cue-definitions"
+		package:     "./src"
+		skip:        ["*_pins.cue"]
+		section:     "reference/definitions/"
+		title:       "Definitions"
+		description: "Every OPM definition type, generated from the CUE schema in core."
+		weight:      1
+		pages: [
+			{file: "modules-and-instances", title: "Modules and instances", description: "...", definitions: ["#Module", "#ModuleInstance", "#InstanceIdentity"]},
+			// ... the other seven pages of groups.go, in order
+		]
+		exclude: {"#BlueprintMap": "map shorthand" /* ... the rest of groups.go's excluded map */}
+	}, {
+		kind: "markdown", dir: "docs/site", exclude: ["reference/definitions/"]
+	}]
+}
+```
+
+**Extraction.** Every `.cue` file directly in `package` whose base name matches no `skip` glob (`path.Match`) is parsed with its comments; nothing is evaluated. A definition is an exported top-level field (`#Name`, not `_#Name`); one declared in two files exits `2`. The module path the pages name is the `module` field of the nearest `cue.mod/module.cue` at or above `package`. Per placed definition:
+
+| Field | From |
+|---|---|
+| `summary` | the doc comment's first sentence (a leading `#Name:` or `Name:` label removed, a bare leading `Name` given its `#`, the first letter capitalised; `e.g.`, `i.e.`, `etc.` and `vs.` end no sentence); a definition has no `metadata.description`, so the member summary rule does not apply |
+| `notes` | the rest of the doc comment, one block per entry: a paragraph; `- item`, a list item; a line indented by two spaces, a preformatted line; `""`, a paragraph break |
+| `example` | the values after `Example:` (one quoted string per line) and `Usage:` (`expr => result` becomes `expr // result`) |
+| `cue` | the field formatted with four-space indents, after: hidden fields and comprehensions that only set hidden fields dropped; every comment but doc and same-line comments dropped, and so are `WHY` groups and `////` banners; a `T & {comprehensions}` value of 40 lines or more shown as `T` with "Derived in the source; the derivation is not shown here."; the definition's own doc comment removed |
+| `shape` | `struct, closed`, `struct, open` (an `...`), `map` (pattern fields only), `disjunction`, `string constraint`, `unification` or `value`, plus `` `kind: "X"` `` when the struct pins a string `kind` |
+| `embeds` | placed definitions embedded at its top level |
+| `uses` | placed definitions it names, a reference to an excluded definition followed through to what that one names; `usedBy` is its inverse; both sorted |
+| `rules` | `by: "cue"` only: closed struct, required (`!`) fields (also inside plain structs and `if` bodies, with the condition), a field declared twice (pinned `true` beside a check, or two constraints), a string constraint's pattern (in `code`) and `strings.MinRunes`/`MaxRunes` bounds |
+
+Prose (`summary`, `notes`) follows the source's `citations` policy ("Doc-comment rules"). A spec block's comments drop every citation under both policies; a changed doc paragraph there is re-wrapped at 76 columns and a same-line comment is never wrapped (refgen's rule, kept for parity; the 80-column rule of "Doc-comment rules" is the catalog's).
+
+**Placement.** Every exported definition is on exactly one page or in `exclude`. With the config in the source tree, each of these exits `2`, all listed in one message: an unplaced definition ("`#Policy (src/policy.cue) is exported but neither placed in a page nor excluded in docs-kit.cue; add it to a page's definitions or to exclude with a reason`"), a definition on two pages, a placed name the package does not declare, an excluded name it does not declare, a name both placed and excluded, a placed definition without a doc comment. With the config from outside the tree (a backfill, C5), each is a `warning:` line on stderr: an unplaced definition is left out, an unknown name skipped, a second placement ignored, a page left empty dropped with its index row, and a definition without a doc comment has no summary.
+
+**Data model**, `data/cue-definitions.json`:
+
+```json
+{
+  "schema": "docs.opmodel.dev/data/cue-definitions/v1",
+  "modulePath": "opmodel.dev/core@v2",
+  "version": "2.0.0-beta.1",
+  "section": "reference/definitions/",
+  "title": "Definitions",
+  "description": "Every OPM definition type, generated from the CUE schema in core.",
+  "weight": 1,
+  "pages": [
+    {"file": "components", "title": "Components", "description": "...", "weight": 2, "definitions": ["#Component", "#ComponentNames"]}
+  ],
+  "definitions": [
+    {
+      "name": "#Component", "anchor": "component", "page": "components",
+      "file": "src/component.cue",
+      "summary": "<first sentence>", "notes": ["<block>"], "example": [],
+      "shape": "struct, closed, `kind: \"Component\"`", "embeds": [],
+      "cue": "<the formatted spec block>",
+      "uses": ["#Blueprint"], "usedBy": ["#Module"],
+      "rules": [{"rule": "<sentence>", "by": "cue"}, {"rule": "The string must match this regular expression:", "code": "^[a-z]+$", "by": "cue"}]
+    }
+  ],
+  "excluded": [{"name": "#BlueprintMap", "reason": "map shorthand"}]
+}
+```
+
+`weight` is left out when unset; a rule's `code` when empty. Definitions are listed in page order, then in each page's configured order; `excluded` by name; every list is present, empty or not. A page's `weight` is its 1-based position among the pages written.
+
+**Pages.** The renderer refuses a bundle whose placement is not `docs` (its links are `/docs/` links). Under `section`, which must lie under `owns` (C15):
+
+| Path | Page |
+|---|---|
+| `<section>_index.md` | front matter `title`, `description`, `weight` when set, no `type`; an intro sentence naming the module path; `## Pages` (one line per page: link and description); `## All definitions` (a table: definition, page, summary). Completable (C15) with heading `## Pages`, so an authored index may replace the intro |
+| `<section><file>.md` | front matter `title`, `description`, `type: reference`, `weight`; "Definitions on this page: ..."; per definition `## #Name`, the summary, `**At a glance**` (Source with file and module path, Shape, Embeds, Uses, Used by), `**Spec**` (a `cue` fence), `**Example**`, `**Notes**`, `**Enforcement**` ("CUE enforces each of these rules on a value unified with `#Name`:", a list, a `code` in a `text` fence under its rule) |
+
+An anchor is the name lowercased without `#` (`#ComponentNames` is `componentnames`); a link to a definition is `/docs/<section><file>/#<anchor>`. In prose, outside code spans, a `#Name` (or `#Name.field`) of a placed definition other than the entry's own becomes such a link, any other `#name` and `$name` a code span, and `<` and `{{` are escaped; nothing else is, since a doc comment's prose is Markdown as written. No page carries a generator marker comment.
+
+**Parity record.** At core `main` `c5a6076` (`v2.0.0-beta.1-15`; the tag itself predates refgen) the nine pages built with core's config equal refgen's committed pages byte for byte, marker comments removed (`TestCoreDefinitionsParity`, run with `OPM_CORE_CHECKOUT`). No planned difference. A backfill of `v2.0.0-beta.1` with that config builds with three warnings (definitions without a doc comment).
 
 ## Site decisions
 
