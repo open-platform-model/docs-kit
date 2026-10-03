@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.0](https://github.com/open-platform-model/docs-kit/compare/v0.3.0...v0.4.0) (2026-10-03)
+
+
+### Features
+
+* add the cobra extractor and cobradump ([#21](https://github.com/open-platform-model/docs-kit/issues/21)) ([2256974](https://github.com/open-platform-model/docs-kit/commit/22569742abbc094ef69b9ee76a9166573b3cf7e3))
+* add the crd extractor ([#24](https://github.com/open-platform-model/docs-kit/issues/24)) ([e854506](https://github.com/open-platform-model/docs-kit/commit/e854506a0b3db92f3d2acb8ef1bfa7048583bb1e))
+* add the cue-definitions extractor ([#22](https://github.com/open-platform-model/docs-kit/issues/22)) ([a5d6bd9](https://github.com/open-platform-model/docs-kit/commit/a5d6bd9d2ceca7252a5b7f86ecfd080f349c0d69))
+* pull docs bundles into site versions ([#25](https://github.com/open-platform-model/docs-kit/issues/25)) ([825829b](https://github.com/open-platform-model/docs-kit/commit/825829ba6d6dc93bb28717bd5d52be85ac55f399))
+* record the edit path of authored pages ([#20](https://github.com/open-platform-model/docs-kit/issues/20)) ([b184fe3](https://github.com/open-platform-model/docs-kit/commit/b184fe364dd0a56322483034cd8846118a95a46a))
+
 ## [0.3.0](https://github.com/open-platform-model/docs-kit/compare/v0.2.2...v0.3.0) (2026-10-03)
 
 
