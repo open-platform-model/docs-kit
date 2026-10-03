@@ -5,6 +5,7 @@ package schema
 	tool:   #SemVer                   // the opm-docs that wrote the lock
 	config: =~"^sha256:[0-9a-f]{64}$" // SHA-256 of the bundles.cue bytes
 	bundles: [...#Locked]
+	history?: [...{project: #Project, digest: =~"^sha256:[0-9a-f]{64}$", path: =~"^[a-z0-9]+(-[a-z0-9]+)*/history\\.json$"}] // path relative to the lock's directory
 }
 
 #Locked: #Pulled | #Local

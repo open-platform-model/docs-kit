@@ -140,6 +140,11 @@ No new command or flag. Exit codes unchanged: a history file that fails `#Histor
 **Options considered**: 1. digest in the lock - the site can check the mounted file; 2. no record, document that `--frozen` regenerates - nothing to check.
 **Decision**: option 1, as an optional key, not compared under `--frozen`.
 
+### Edge cases found in implementation (accepted 2026-10-03)
+
+- A member removed and later returned keeps its original `first`; it is listed under `removed` for the segment that dropped it, and the segment it returns in records no change for it.
+- A spec block that does not scan as CUE (the extractor never writes one) counts as changed: the member gets one `spec` change.
+
 ## Risks / Trade-offs
 
 - A change hidden behind `ref` (a shared schema) is not reported. Under-claiming is the safe direction; a later change can follow refs within the module.

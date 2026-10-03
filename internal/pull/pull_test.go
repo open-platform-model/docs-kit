@@ -82,8 +82,15 @@ func tree(t *testing.T, version string, edit func(*bundle.Manifest)) string {
 // publish pushes a build, signs it as signer's main and promotes it.
 func (e *env) publish(version, signer string, edit func(*bundle.Manifest)) {
 	e.t.Helper()
+	e.publishDir(tree(e.t, version, edit), version, signer)
+}
+
+// publishDir pushes a bundle tree of version, signs it as signer's main
+// and promotes it.
+func (e *env) publishDir(dir, version, signer string) {
+	e.t.Helper()
 	ctx := context.Background()
-	res, err := publish.Push(ctx, publish.PushOptions{Dir: tree(e.t, version, edit), Registry: e.registry, Client: e.client})
+	res, err := publish.Push(ctx, publish.PushOptions{Dir: dir, Registry: e.registry, Client: e.client})
 	if err != nil {
 		e.t.Fatal(err)
 	}

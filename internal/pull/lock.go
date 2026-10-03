@@ -88,6 +88,17 @@ type Lock struct {
 	Tool    string  `json:"tool"`
 	Config  string  `json:"config"`
 	Bundles []Entry `json:"bundles"`
+	// History records each history.json this pull wrote, so the site can
+	// check the file it mounts; left out when none was written.
+	History []HistoryEntry `json:"history,omitempty"`
+}
+
+// HistoryEntry is one tab's history.json: its SHA-256 and its path
+// relative to the lock's directory.
+type HistoryEntry struct {
+	Project string `json:"project"`
+	Digest  string `json:"digest"`
+	Path    string `json:"path"`
 }
 
 // sortEntries orders entries by project, then segment: minors by number,
@@ -102,7 +113,8 @@ func sortEntries(es []Entry) {
 }
 
 // Encode serializes the lock: two-space indent, trailing newline, entries
-// sorted, no timestamps. It validates the result against #Lock.
+// sorted (bundles by project and segment, history by project), no
+// timestamps. It validates the result against #Lock.
 func (l *Lock) Encode() ([]byte, error) {
 	c := *l
 	c.Bundles = append([]Entry{}, l.Bundles...)
@@ -110,6 +122,8 @@ func (l *Lock) Encode() ([]byte, error) {
 		c.Bundles = []Entry{}
 	}
 	sortEntries(c.Bundles)
+	c.History = append([]HistoryEntry(nil), l.History...)
+	sort.SliceStable(c.History, func(i, j int) bool { return c.History[i].Project < c.History[j].Project })
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)

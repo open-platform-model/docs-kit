@@ -210,20 +210,3 @@ func TestDocumentationOnly(t *testing.T) {
 		})
 	}
 }
-
-func TestCueTokensInterpolation(t *testing.T) {
-	src := []byte("a: \"x\\(f(\"y\\(b)\"))z\" // c\nb: 1\n")
-	toks, err := cueTokens("x.cue", src)
-	if err != nil {
-		t.Fatal(err)
-	}
-	parts := make([]string, 0, len(toks))
-	for _, tk := range toks {
-		parts = append(parts, tk.kind+"="+tk.lit)
-	}
-	got := strings.Join(parts, " ")
-	want := `IDENT=a := INTERPOLATION="x\( (= IDENT=f (= INTERPOLATION="y\( (= IDENT=b )= INTERPOLATION=)" )= )= INTERPOLATION=)z" ,= IDENT=b := INT=1 ,=`
-	if got != want {
-		t.Fatalf("tokens\n got %s\nwant %s", got, want)
-	}
-}

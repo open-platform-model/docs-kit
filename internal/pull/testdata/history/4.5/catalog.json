@@ -1,0 +1,62 @@
+{
+  "schema": "docs.opmodel.dev/data/cue-catalog/v1",
+  "modulePath": "opmodel.dev/catalogs/opm@v4",
+  "version": "4.5.0",
+  "members": [
+    {
+      "kind": "trait",
+      "name": "backup",
+      "apiVersion": "v1alpha1",
+      "fqn": "opmodel.dev/catalogs/opm/traits/backup@v1alpha1",
+      "page": "traits/backup",
+      "spec": {
+        "key": "backup",
+        "cue": "backup: {\n\tschedule!: *\"daily\" | string\n\tretention: {daily?: int}\n}",
+        "fields": [
+          {
+            "path": "schedule",
+            "type": "*\"daily\" | string",
+            "presence": "required",
+            "default": "\"daily\"",
+            "doc": "When the backup runs.",
+            "ref": null
+          },
+          {
+            "path": "retention",
+            "type": "struct",
+            "presence": "regular",
+            "default": null,
+            "doc": "",
+            "ref": null
+          },
+          {
+            "path": "retention.daily",
+            "type": "int",
+            "presence": "optional",
+            "default": null,
+            "doc": "",
+            "ref": null
+          }
+        ],
+        "linked": [],
+        "external": []
+      }
+    },
+    {
+      "kind": "trait",
+      "name": "old",
+      "apiVersion": "v1alpha1",
+      "fqn": "opmodel.dev/catalogs/opm/traits/old@v1alpha1",
+      "page": "traits/old",
+      "spec": {
+        "key": "old",
+        "cue": "old: {}",
+        "fields": [],
+        "linked": [],
+        "external": []
+      }
+    }
+  ],
+  "transformers": [],
+  "docNotes": []
+}

@@ -122,8 +122,10 @@ context: |
   - Format: type(scope): description
   - Types: feat, fix, refactor, docs, test, chore, build, ci
   - Scopes: cmd, bundle, tags, config, extract, render, lint, oci, pull, revise, workflow,
-    openspec
+    openspec, deps
   - feat and fix release `opm-docs` (release-please); docs, test, chore, build and ci do not
+  - A dependency bump that can change formatted CUE (cuelang.org/go above all) is feat(deps),
+    never fix or chore: it must release as a minor (docs/contracts.md C10, C13)
   - Commits may end with the plain `Co-Authored-By: Claude <noreply@anthropic.com>` trailer
     (optional); never a session ID/URL or generated-with footer
   - Never a bare `@name` in a commit message, PR title or PR body (AGENTS.md); PR bodies stay
