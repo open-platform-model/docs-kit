@@ -54,11 +54,6 @@ type Data struct {
 	Sources map[string]string
 }
 
-// markdownKind is the source kind that copies authored pages. It is no
-// extractor: it writes no data file, and its pages may complete a
-// renderer's completable page.
-const markdownKind = "markdown"
-
 // extractors is every extractor this opm-docs carries, in the order
 // #Source lists their kinds. An extractor change adds its kind here and to
 // #Source in schema/config.cue.

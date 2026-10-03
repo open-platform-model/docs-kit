@@ -417,12 +417,12 @@ func (s *assembly) extract(b config.Bundle, cfgPath string, outside bool) ([]aut
 	byKind := map[string]int{}
 	dataBy := map[string]string{} // data file -> the kind that wrote it
 	for i, src := range b.Sources {
-		if src.Kind == markdownKind {
+		if src.Kind == config.KindMarkdown {
 			pages, err := s.markdown(src, cfgPath, outside)
 			if err != nil {
 				return nil, nil, err
 			}
-			docs = append(docs, authored{label: "markdown " + src.Dir, pages: pages})
+			docs = append(docs, authored{label: "markdown " + src.Markdown.Dir, pages: pages})
 			continue
 		}
 		ex, ok := extractorFor(src.Kind)
@@ -504,7 +504,7 @@ func (s *assembly) writeGenerated(e *extracted, completing map[string]markdown.P
 			if err != nil {
 				return err
 			}
-			if err := s.write(p.Path, body, markdownKind, bundle.Page{Path: p.Path, Source: a.Source, Lastmod: a.Lastmod, Edit: s.edit(p.Path, a.Source)}); err != nil {
+			if err := s.write(p.Path, body, config.KindMarkdown, bundle.Page{Path: p.Path, Source: a.Source, Lastmod: a.Lastmod, Edit: s.edit(p.Path, a.Source)}); err != nil {
 				return err
 			}
 			continue
@@ -543,9 +543,9 @@ func (s *assembly) owned(page string) error {
 func (s *assembly) markdown(src config.Source, cfgPath string, outside bool) ([]markdown.Page, error) {
 	opts := markdown.Options{
 		Root:     s.o.Source,
-		Dir:      src.Dir,
-		Include:  src.Include,
-		Exclude:  src.Exclude,
+		Dir:      src.Markdown.Dir,
+		Include:  src.Markdown.Include,
+		Exclude:  src.Markdown.Exclude,
 		Optional: outside,
 		Dates:    func(_ context.Context, p string) string { return s.lastmod(p) },
 	}

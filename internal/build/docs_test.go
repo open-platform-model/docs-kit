@@ -86,7 +86,7 @@ func docsBuildWith(t *testing.T, owns []string, fake fakeExtractor, files map[st
 	cfg := &config.Config{Path: "docs-kit.cue", Bundles: map[string]config.Bundle{"cli": {
 		Placement: config.Placement{Kind: "docs", Root: "/docs/", Owns: owns},
 		Version:   config.VersionRule{From: "tag", Prefix: "v"},
-		Sources:   []config.Source{{Kind: "fake"}, {Kind: "markdown", Dir: "docs/site"}},
+		Sources:   []config.Source{{Kind: "fake"}, {Kind: config.KindMarkdown, Markdown: &config.Markdown{Dir: "docs/site"}}},
 	}}}
 	out := filepath.Join(t.TempDir(), "out")
 	_, err := buildProject(context.Background(), Options{Source: r.Dir, Out: out, Tool: "0.1.0"}, cfg, "cli", false)

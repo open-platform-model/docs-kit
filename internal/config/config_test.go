@@ -66,7 +66,7 @@ func TestLoad(t *testing.T) {
 				t.Fatal(err)
 			}
 			b := got.Bundles["catalog-opm"]
-			if b.Placement.Root != "/catalogs/opm/" || b.Version.Prefix != "opm-v" || len(b.Sources) != 2 || b.Sources[1].Dir != "docs/catalogs/opm" {
+			if b.Placement.Root != "/catalogs/opm/" || b.Version.Prefix != "opm-v" || len(b.Sources) != 2 || b.Sources[1].Markdown.Dir != "docs/catalogs/opm" {
 				t.Fatalf("decoded %+v", b)
 			}
 			if m, err := b.Sources[0].Value.LookupPath(cue.ParsePath("module")).String(); err != nil || m != "./opm" {
@@ -121,7 +121,7 @@ func TestLoadDocsPlacement(t *testing.T) {
 		t.Fatal(err)
 	}
 	b := c.Bundles["cli"]
-	if len(b.Placement.Owns) != 2 || b.Placement.Owns[1] != "reference/operator-resources.md" || len(b.Sources[0].Exclude) != 1 {
+	if len(b.Placement.Owns) != 2 || b.Placement.Owns[1] != "reference/operator-resources.md" || len(b.Sources[0].Markdown.Exclude) != 1 {
 		t.Fatalf("decoded %+v", b)
 	}
 	for _, x := range []struct{ name, body string }{
@@ -150,5 +150,50 @@ func TestLoadDocsPlacement(t *testing.T) {
 	_, err = Load(write(t, "docs-kit.cue", docs(`"reference/", "reference/cli/"`, `"x/"`)))
 	if err == nil || !strings.Contains(err.Error(), "reference/ and reference/cli/ nest") || !strings.Contains(err.Error(), "docs-kit.cue") {
 		t.Fatalf("nested owns: %v", err)
+	}
+}
+
+const defsConfig = `bundles: core: {
+	placement: {kind: KIND, root: ROOT, owns: ["reference/definitions/"]}
+	version: {from: "tag", prefix: "v"}
+	sources: [{
+		kind: "cue-definitions", package: "./src", skip: [SKIP]
+		section: "reference/definitions/", title: "Definitions", description: "d"
+		pages: [{file: "components", title: "Components", description: "d", definitions: ["#Component"]}]
+		exclude: {"#ComponentMap": "map shorthand"}
+	}, {
+		kind: "markdown", dir: "docs/site", exclude: ["reference/definitions/"]
+	}]
+}
+`
+
+func defs(kind, root, skip string) string {
+	return strings.NewReplacer("KIND", kind, "ROOT", root, "SKIP", skip).Replace(defsConfig)
+}
+
+// A cue-definitions exclude (a map) and a markdown exclude (a list) load
+// side by side: each kind decodes its own options.
+func TestLoadPerKindOptions(t *testing.T) {
+	c, err := Load(write(t, "docs-kit.cue", defs(`"docs"`, `"/docs/"`, `"*_pins.cue"`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	srcs := c.Bundles["core"].Sources
+	if srcs[0].Markdown != nil || srcs[1].Markdown == nil || srcs[1].Markdown.Exclude[0] != "reference/definitions/" {
+		t.Fatalf("sources %+v", srcs)
+	}
+	var opts struct {
+		Exclude map[string]string `json:"exclude"`
+	}
+	if err := srcs[0].Value.Decode(&opts); err != nil || opts.Exclude["#ComponentMap"] != "map shorthand" {
+		t.Fatalf("cue-definitions exclude %v: %v", opts.Exclude, err)
+	}
+	for _, x := range []struct{ name, body, want string }{
+		{"in a tab bundle", strings.Replace(defs(`"tab"`, `"/catalogs/core/"`, `"*_pins.cue"`), `, owns: ["reference/definitions/"]`, "", 1), `placement kind "docs"`},
+		{"bad skip glob", defs(`"docs"`, `"/docs/"`, `"[x"`), `sources[0].skip: "[x" is not a glob`},
+	} {
+		if _, err := Load(write(t, "docs-kit.cue", x.body)); err == nil || !strings.Contains(err.Error(), x.want) {
+			t.Errorf("%s: err = %v, want %q", x.name, err, x.want)
+		}
 	}
 }

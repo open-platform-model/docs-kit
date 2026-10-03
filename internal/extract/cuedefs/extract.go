@@ -231,11 +231,6 @@ func loadDefs(root, dir string, skip []string) (map[string]*def, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, s := range skip {
-		if _, err := path.Match(s, ""); err != nil {
-			return nil, fmt.Errorf("skip %q is not a valid glob: %w", s, err)
-		}
-	}
 	if len(files) == 0 {
 		return nil, fmt.Errorf("%s holds no .cue file", dir)
 	}

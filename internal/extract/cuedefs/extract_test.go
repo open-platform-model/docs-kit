@@ -251,9 +251,6 @@ func TestErrors(t *testing.T) {
 	if _, err := fixture(t, func(c *Config) { c.Package = "./nothing" }, Options{}); err == nil || !strings.Contains(err.Error(), "holds no .cue file") {
 		t.Errorf("missing package: %v", err)
 	}
-	if _, err := fixture(t, func(c *Config) { c.Skip = []string{"["} }, Options{}); err == nil || !strings.Contains(err.Error(), "not a valid glob") {
-		t.Errorf("bad glob: %v", err)
-	}
 }
 
 func TestText(t *testing.T) {
