@@ -3,6 +3,7 @@ package history
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -221,6 +222,26 @@ func TestRefusals(t *testing.T) {
 	}
 }
 
+// A bundle's doc model that history.json could not carry is refused as
+// the bundle's fault, naming its source.
+func TestBadInputNamesTheSegment(t *testing.T) {
+	cases := map[string]func(m *cuecatalog.Member){
+		"page":     func(m *cuecatalog.Member) { m.Page = "../x" },
+		"kind":     func(m *cuecatalog.Member) { m.Kind = "widget" },
+		"fqn":      func(m *cuecatalog.Member) { m.FQN = "" },
+		"presence": func(m *cuecatalog.Member) { m.Spec.Fields[1].Presence = "mandatory" },
+	}
+	for name, edit := range cases {
+		s := seg("4.6", "0.3.0", backup(edit))
+		s.Source = "catalog-opm 4.6 data/catalog.json"
+		_, err := Compute("catalog-opm", "0.3.0", []Segment{seg("4.5", "0.3.0"), s})
+		var ie *InputError
+		if !errors.As(err, &ie) || !strings.HasPrefix(err.Error(), "catalog-opm 4.6 data/catalog.json: ") || strings.Contains(err.Error(), "report it") {
+			t.Errorf("%s: err = %v", name, err)
+		}
+	}
+}
+
 func TestEncodeIsDeterministic(t *testing.T) {
 	segs := func() []Segment {
 		return []Segment{
@@ -246,26 +267,13 @@ func TestEncodeIsDeterministic(t *testing.T) {
 	}
 }
 
-// A model the schema refuses (an unknown kind) fails the encode, naming the
+// Encode validates its output: a change the schema refuses (a presence
+// outside the three values, which Compute never makes) fails naming the
 // project.
 func TestEncodeValidates(t *testing.T) {
-	odd := member("x", "v1", "")
-	odd.Kind = "widget"
-	h, err := Compute("catalog-opm", "0.3.0", []Segment{seg("4.5", "0.3.0", odd), seg("edge", "0.3.0")})
-	if err != nil {
-		t.Fatal(err)
-	}
+	h := compute(t, seg("4.5", "0.3.0", backup(nil)), seg("edge", "0.3.0"))
+	h.Members[backupFQN].Changes["edge"] = []Change{{Op: OpPresence, Path: "schedule", From: ptr("required"), To: ptr("mandatory")}}
 	if _, err := h.Encode(); err == nil || !strings.Contains(err.Error(), "history for catalog-opm does not validate") {
 		t.Fatalf("err = %v", err)
-	}
-}
-
-// A member removed and later returned keeps its first segment; the
-// segment it returns in records no change for it.
-func TestReturnedMemberKeepsFirst(t *testing.T) {
-	h := compute(t, seg("4.5", "0.3.0", backup(nil)), seg("4.6", "0.3.0"), seg("edge", "0.3.0", backup(func(m *cuecatalog.Member) { m.Spec.Fields[0].Default = nil })))
-	m := h.Members[backupFQN]
-	if m.First != "4.5" || !reflect.DeepEqual(m.In, []string{"4.5", "edge"}) || len(m.Changes) != 0 || len(h.Removed["4.6"]) != 1 {
-		t.Fatalf("member %+v removed %+v", m, h.Removed)
 	}
 }

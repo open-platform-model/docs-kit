@@ -75,7 +75,9 @@ type puller struct {
 	o        Options
 	cfg      *config.Pull
 	verifier *verify.Verifier
-	written  map[string]bool // "<project>/<segment>"
+	written  map[string]bool   // "<project>/<segment>", once swapped in
+	staged   map[string]string // "<project>/<segment>": its unpacked and linted tree, not yet swapped in
+	order    []string          // the staged keys, in the order they were staged
 	entries  []Entry
 }
 
@@ -91,12 +93,44 @@ func Run(ctx context.Context, o Options) (*Lock, error) {
 	if o.Warn == nil {
 		o.Warn = func(string) {}
 	}
-	p := &puller{o: o, cfg: cfg, written: map[string]bool{}}
+	p := &puller{o: o, cfg: cfg, written: map[string]bool{}, staged: map[string]string{}}
+	// A staged tree left behind by a failure is removed; a swapped one is
+	// already gone from its staging path.
+	defer p.discard()
 	locals, frozen, err := p.prepare()
 	if err != nil {
 		return nil, err
 	}
-	for _, project := range cfg.Projects() {
+	if err := p.stageAll(ctx, locals, frozen); err != nil {
+		return nil, err
+	}
+	// Everything that can refuse runs before the first segment is swapped
+	// in: a refused bundle, history or lock leaves the previous trees, the
+	// previous history.json files and the previous lock as they were.
+	histories, err := p.histories()
+	if err != nil {
+		return nil, err
+	}
+	lock := &Lock{Schema: LockSchema, Tool: o.Tool, Config: cfg.Digest, Bundles: p.entries}
+	for _, h := range histories {
+		if h.data != nil {
+			lock.History = append(lock.History, h.entry)
+		}
+	}
+	data, err := lock.Encode()
+	if err != nil {
+		return nil, err
+	}
+	if err := p.commit(histories, data); err != nil {
+		return nil, err
+	}
+	return lock, nil
+}
+
+// stageAll unpacks and lints every segment of every tab, from local trees,
+// a frozen lock or the registry.
+func (p *puller) stageAll(ctx context.Context, locals map[string][]Local, frozen *Lock) error {
+	for _, project := range p.cfg.Projects() {
 		var err error
 		switch {
 		case len(locals[project]) > 0:
@@ -107,28 +141,28 @@ func Run(ctx context.Context, o Options) (*Lock, error) {
 			err = p.resolve(ctx, project)
 		}
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
+	return nil
+}
+
+// commit swaps the staged segments in, sweeps, and writes the histories
+// and the lock.
+func (p *puller) commit(histories []pendingHistory, lock []byte) error {
+	if err := p.swap(); err != nil {
+		return err
+	}
 	if err := p.sweep(); err != nil {
-		return nil, err
+		return err
 	}
-	histories, err := p.histories()
-	if err != nil {
-		return nil, err
+	if err := writeHistories(histories); err != nil {
+		return err
 	}
-	lock := &Lock{Schema: LockSchema, Tool: o.Tool, Config: cfg.Digest, Bundles: p.entries, History: histories}
-	data, err := lock.Encode()
-	if err != nil {
-		return nil, err
+	if err := os.MkdirAll(filepath.Dir(p.o.Lock), 0o750); err != nil {
+		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(o.Lock), 0o750); err != nil {
-		return nil, err
-	}
-	if err := os.WriteFile(o.Lock, data, 0o644); err != nil { //nolint:gosec // the lock is a build output the site reads
-		return nil, err
-	}
-	return lock, nil
+	return os.WriteFile(p.o.Lock, lock, 0o644) //nolint:gosec // the lock is a build output the site reads
 }
 
 // prepare groups the --local trees by project and reads a frozen lock.
@@ -235,22 +269,28 @@ func checkBundle(m *bundle.Manifest, project string, tab config.Tab) error {
 	return nil
 }
 
-// unpack replaces <out>/<project>/<segment> with the layer and lints it in
-// bundle mode. what names the source in errors.
-func (p *puller) unpack(project, segment string, layer []byte, what string) (dir, rel string, err error) {
-	if dir, rel, err = p.segmentDir(project, segment); err != nil {
+// unpack unpacks the layer beside <out>/<project>/<segment> and lints it
+// in bundle mode, and stages it: swap moves it into place only once every
+// bundle, the history and the lock have passed, so a refusal leaves the
+// previous segment in place. It returns the staged tree and the lock's dir
+// for the segment. what names the source in errors.
+func (p *puller) unpack(project, segment string, layer []byte, what string) (staged, rel string, err error) {
+	dir, rel, err := p.segmentDir(project, segment)
+	if err != nil {
 		return "", "", err
 	}
 	if err := os.MkdirAll(filepath.Dir(dir), 0o750); err != nil {
 		return "", "", err
 	}
-	// Unpack and lint beside the segment, and swap it in only when both
-	// pass: a refused bundle leaves the previous segment in place.
 	incoming := filepath.Join(filepath.Dir(dir), ".incoming-"+segment)
 	if err := os.RemoveAll(incoming); err != nil {
 		return "", "", err
 	}
-	defer os.RemoveAll(incoming)
+	key := project + "/" + segment
+	if _, ok := p.staged[key]; !ok {
+		p.order = append(p.order, key)
+	}
+	p.staged[key] = incoming // discard removes it if anything below fails
 	if _, err := bundle.Unpack(bytes.NewReader(layer), incoming, bundle.DefaultLimits); err != nil {
 		return "", "", fmt.Errorf("%s: %w", what, err)
 	}
@@ -261,14 +301,32 @@ func (p *puller) unpack(project, segment string, layer []byte, what string) (dir
 	if len(vs) > 0 {
 		return "", "", &LintError{What: what, Violations: vs}
 	}
-	if err := os.RemoveAll(dir); err != nil {
-		return "", "", err
+	return incoming, rel, nil
+}
+
+// swap moves every staged tree into its segment directory.
+func (p *puller) swap() error {
+	for _, key := range p.order {
+		project, segment, _ := strings.Cut(key, "/")
+		dir := filepath.Join(p.o.Out, project, segment)
+		if err := os.RemoveAll(dir); err != nil {
+			return err
+		}
+		if err := os.Rename(p.staged[key], dir); err != nil {
+			return err
+		}
+		p.written[key] = true
 	}
-	if err := os.Rename(incoming, dir); err != nil {
-		return "", "", err
+	return nil
+}
+
+// discard removes every staged tree that was not swapped in.
+func (p *puller) discard() {
+	for _, key := range p.order {
+		if !p.written[key] {
+			_ = os.RemoveAll(p.staged[key])
+		}
 	}
-	p.written[project+"/"+segment] = true
-	return dir, rel, nil
 }
 
 // LintError is a pulled bundle that breaks the page dialect.
@@ -563,13 +621,21 @@ func (p *puller) sweep() error {
 	return nil
 }
 
-// histories writes <out>/<project>/history.json for every tab with two
+// pendingHistory is one tab's history.json, computed and not yet written;
+// data is nil when the file is to be removed.
+type pendingHistory struct {
+	file  string
+	data  []byte
+	entry HistoryEntry
+}
+
+// histories computes <out>/<project>/history.json for every tab with two
 // segments or more holding a cue-catalog doc model, from the trees this
-// run unpacked, and removes it from a tab with fewer. It is recomputed on
-// every run, since a docs revision changes a segment's data after the
-// fact. It returns the lock's record of each file written.
-func (p *puller) histories() ([]HistoryEntry, error) {
-	var out []HistoryEntry
+// run staged, and marks it for removal from a tab with fewer. It is
+// recomputed on every run, since a docs revision changes a segment's data
+// after the fact. It writes nothing.
+func (p *puller) histories() ([]pendingHistory, error) {
+	var out []pendingHistory
 	for _, project := range p.cfg.Projects() {
 		segs, err := p.catalogSegments(project)
 		if err != nil {
@@ -577,9 +643,7 @@ func (p *puller) histories() ([]HistoryEntry, error) {
 		}
 		file := filepath.Join(p.o.Out, project, history.FileName)
 		if len(segs) < 2 {
-			if err := os.Remove(file); err != nil && !errors.Is(err, fs.ErrNotExist) {
-				return nil, err
-			}
+			out = append(out, pendingHistory{file: file})
 			continue
 		}
 		h, err := history.Compute(project, p.o.Tool, segs)
@@ -590,20 +654,36 @@ func (p *puller) histories() ([]HistoryEntry, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := os.WriteFile(file, data, 0o644); err != nil { //nolint:gosec // the history is a build output the site reads
-			return nil, err
-		}
 		rel, err := p.relToLock(file)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, HistoryEntry{Project: project, Digest: digest.FromBytes(data).String(), Path: rel})
+		if rel != project+"/"+history.FileName {
+			return nil, usagef("--lock %s: the lock records %s as %s, and a lock with history must sit in --out %s (the default <out>/lock.json)", p.o.Lock, file, rel, p.o.Out)
+		}
+		out = append(out, pendingHistory{file: file, data: data, entry: HistoryEntry{Project: project, Digest: digest.FromBytes(data).String(), Path: rel}})
 	}
 	return out, nil
 }
 
+// writeHistories writes or removes each tab's history.json.
+func writeHistories(hs []pendingHistory) error {
+	for _, h := range hs {
+		if h.data == nil {
+			if err := os.Remove(h.file); err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return err
+			}
+			continue
+		}
+		if err := os.WriteFile(h.file, h.data, 0o644); err != nil { //nolint:gosec // the history is a build output the site reads
+			return err
+		}
+	}
+	return nil
+}
+
 // catalogSegments reads the doc model of every segment of a project this
-// run unpacked. A segment whose manifest lists no cue-catalog data file
+// run staged. A segment whose manifest lists no cue-catalog data file
 // takes no part.
 func (p *puller) catalogSegments(project string) ([]history.Segment, error) {
 	var segs []history.Segment
@@ -612,7 +692,7 @@ func (p *puller) catalogSegments(project string) ([]history.Segment, error) {
 		if e.Project != project {
 			continue
 		}
-		dir := filepath.Join(p.o.Out, project, e.Segment)
+		dir := p.staged[project+"/"+e.Segment]
 		m, err := bundle.Read(dir)
 		if err != nil {
 			return nil, err
@@ -620,16 +700,16 @@ func (p *puller) catalogSegments(project string) ([]history.Segment, error) {
 		if !slices.Contains(m.Data, bundle.DataFile{Path: cuecatalog.DataFile, Schema: cuecatalog.SchemaID}) {
 			continue
 		}
-		file := filepath.Join(dir, bundle.DataDir, cuecatalog.DataFile)
-		b, err := os.ReadFile(file)
+		source := fmt.Sprintf("%s %s %s/%s", project, e.Segment, bundle.DataDir, cuecatalog.DataFile)
+		b, err := os.ReadFile(filepath.Join(dir, bundle.DataDir, cuecatalog.DataFile))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%s: %w", source, err)
 		}
 		model, err := cuecatalog.Decode(b)
 		if err != nil {
-			return nil, fmt.Errorf("%s %s: reading %s: %w", project, e.Segment, file, err)
+			return nil, fmt.Errorf("%s: %w", source, err)
 		}
-		segs = append(segs, history.Segment{Name: e.Segment, Tool: m.Tool, Model: model})
+		segs = append(segs, history.Segment{Name: e.Segment, Tool: m.Tool, Source: source, Model: model})
 	}
 	return segs, nil
 }

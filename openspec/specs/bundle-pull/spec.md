@@ -88,3 +88,10 @@ When `pull` writes a history file, the lock SHALL carry an optional top-level `h
 #### Scenario: Digest recorded
 - **WHEN** `pull` writes `catalog-opm/history.json`
 - **THEN** the lock's `history` holds `{project: "catalog-opm", digest: "sha256:<hex of the file>", path: "catalog-opm/history.json"}`
+
+### Requirement: A refused history or lock swaps nothing in
+`pull` SHALL stage every unpacked and linted segment, compute and encode every tab's history and encode the lock before it swaps any segment into place, so that a refusal at any of them leaves the previous segment trees, `history.json` files and lock unchanged.
+
+#### Scenario: A bundle's data refused by the history
+- **WHEN** a previous pull succeeded and the next pull's 4.6 bundle carries a member page that is not `<kind>s/<name>`
+- **THEN** the pull exits 2 naming `catalog-opm 4.6 data/catalog.json`, and every file under `<out>/` is as the previous pull left it

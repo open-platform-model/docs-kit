@@ -204,3 +204,65 @@ func TestLockSortsHistory(t *testing.T) {
 		t.Fatal("Encode reordered the caller's entries")
 	}
 }
+
+// A history that refuses a bundle's data fails the pull before anything
+// is swapped in: the previous segments, history.json and lock stay as
+// they were, and the error names the segment's data file.
+func TestRefusedHistoryKeepsThePreviousPull(t *testing.T) {
+	e := newEnv(t)
+	o := e.options(e.config(""))
+	e.stop()
+	o.Locals = historyLocals(t)
+	if _, err := Run(context.Background(), o); err != nil {
+		t.Fatal(err)
+	}
+	snapshot := func() map[string]string {
+		files := map[string]string{}
+		_ = filepath.WalkDir(o.Out, func(p string, d os.DirEntry, err error) error {
+			if err == nil && !d.IsDir() {
+				b, _ := os.ReadFile(p)
+				files[p] = string(b)
+			}
+			return err
+		})
+		return files
+	}
+	before := snapshot()
+	bad := historyTree(t, "4.6.2", "4.6", "0.3.2")
+	catalog := filepath.Join(bad, "data", "catalog.json")
+	b, _ := os.ReadFile(catalog)
+	_ = os.WriteFile(catalog, bytes.Replace(b, []byte(`"page": "traits/backup-v1alpha1"`), []byte(`"page": "../escape"`), 1), 0o600)
+	o.Locals = []Local{o.Locals[0], {project, "4.6", bad}, o.Locals[2]}
+	_, err := Run(context.Background(), o)
+	if err == nil || IsUsage(err) || !strings.Contains(err.Error(), "catalog-opm 4.6 data/catalog.json") || strings.Contains(err.Error(), "report it") {
+		t.Fatalf("err = %v", err)
+	}
+	after := snapshot()
+	if len(after) != len(before) {
+		t.Fatalf("files %d, want %d", len(after), len(before))
+	}
+	for p, want := range before {
+		if after[p] != want {
+			t.Errorf("%s changed", p)
+		}
+	}
+	if left, _ := filepath.Glob(filepath.Join(o.Out, project, ".incoming-*")); len(left) != 0 {
+		t.Fatalf("left %v", left)
+	}
+}
+
+// A lock outside --out cannot record a history path; the pull says so
+// before anything is swapped in.
+func TestHistoryNeedsTheLockInOut(t *testing.T) {
+	e := newEnv(t)
+	o := e.options(e.config(""))
+	e.stop()
+	o.Lock = filepath.Join(e.work, "elsewhere", "lock.json")
+	o.Locals = historyLocals(t)
+	if _, err := Run(context.Background(), o); !IsUsage(err) || !strings.Contains(err.Error(), "must sit in --out") {
+		t.Fatalf("err = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(o.Out, project, "4.5")); !os.IsNotExist(err) {
+		t.Fatal("a segment was swapped in")
+	}
+}

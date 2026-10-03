@@ -36,11 +36,14 @@ func TestHistoryValidates(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases := map[string]string{
-		"one segment": strings.Replace(history, "%s", `["4.5"]`, 1),
-		"bad mode":    strings.Replace(ok, `"mode": "paths"`, `"mode": "none"`, 1),
-		"bad op":      strings.Replace(ok, `"op": "presence"`, `"op": "renamed"`, 1),
-		"edge floor":  strings.Replace(ok, `"floor": "4.5"`, `"floor": "edge"`, 1),
-		"extra key":   strings.Replace(ok, `"tool": "0.3.0",`, `"tool": "0.3.0", "at": "now",`, 1),
+		"one segment":   strings.Replace(history, "%s", `["4.5"]`, 1),
+		"bad mode":      strings.Replace(ok, `"mode": "paths"`, `"mode": "none"`, 1),
+		"bad op":        strings.Replace(ok, `"op": "presence"`, `"op": "renamed"`, 1),
+		"edge floor":    strings.Replace(ok, `"floor": "4.5"`, `"floor": "edge"`, 1),
+		"extra key":     strings.Replace(ok, `"tool": "0.3.0",`, `"tool": "0.3.0", "at": "now",`, 1),
+		"presence":      strings.Replace(ok, `"to": "required"`, `"to": "mandatory"`, 1),
+		"null presence": strings.Replace(ok, `"to": "required"`, `"to": null`, 1),
+		"bad page":      strings.Replace(ok, `"page": "traits/old"`, `"page": "../traits/old"`, 1),
 	}
 	for name, doc := range cases {
 		if _, err := ValidateJSON("#History", "history.json", []byte(doc)); err == nil {

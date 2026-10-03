@@ -27,13 +27,19 @@ package schema
 	path: string // a spec.fields path; "" for op "spec"
 	from: string | null
 	to:   string | null
+	if op == "presence" {
+		from: #Presence
+		to:   #Presence
+	}
 }
+
+#Presence: "regular" | "optional" | "required"
 
 #Removed: {
 	fqn:        string
 	kind:       "resource" | "trait" | "blueprint"
 	name:       string
 	apiVersion: string
-	lastIn:     #Segment // the last segment that had it: the site links <root><lastIn>/<page>/
-	page:       string   // its page in lastIn, "traits/backup-v1alpha1"
+	lastIn:     #Segment                                                   // the last segment that had it: the site links <root><lastIn>/<page>/
+	page:       =~"^(resources|traits|blueprints)/[a-z0-9]+(-[a-z0-9]+)*$" // its page in lastIn, "traits/backup-v1alpha1"
 }

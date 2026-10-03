@@ -59,3 +59,10 @@ A member present in the previous segment and absent from the current one SHALL b
 #### Scenario: Two pulls agree
 - **WHEN** `pull` runs twice over the same digests with the same tool
 - **THEN** both runs write the same `history.json` bytes
+
+### Requirement: A bundle's doc model is checked before it is compared
+Before comparing, `pull` SHALL check every member of each segment's doc model for an `fqn`, a `kind` of `resource`, `trait` or `blueprint`, a `page` matching `^(resources|traits|blueprints)/[a-z0-9]+(-[a-z0-9]+)*$`, and a field `presence` of `regular`, `optional` or `required`, and SHALL fail a member that breaks one naming the segment and its data file, not as a tool bug. The schema SHALL constrain a `presence` change's `from` and `to` to those three values and a removed member's `page` to that pattern.
+
+#### Scenario: A bad page in a bundle
+- **WHEN** the 4.6 bundle's doc model has a member whose page is `../x`
+- **THEN** the pull fails naming `catalog-opm 4.6 data/catalog.json` and the member, and does not say to report it against opm-docs

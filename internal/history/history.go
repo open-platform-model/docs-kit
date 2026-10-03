@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"slices"
 	"sort"
 
@@ -47,11 +48,61 @@ const (
 
 // Segment is one segment's input: its name ("4.5" or "edge"), the
 // opm-docs version that built its bundle (manifest.json's tool) and its
-// doc model.
+// doc model. Source names the doc model in errors, such as
+// "catalog-opm 4.6 data/catalog.json".
 type Segment struct {
-	Name  string
-	Tool  string
-	Model *cuecatalog.Model
+	Name   string
+	Tool   string
+	Source string
+	Model  *cuecatalog.Model
+}
+
+// InputError is a doc model a bundle carries that history cannot use: the
+// bundle's fault, not opm-docs'.
+type InputError struct {
+	Source string
+	Err    error
+}
+
+func (e *InputError) Error() string { return e.Source + ": " + e.Err.Error() }
+func (e *InputError) Unwrap() error { return e.Err }
+
+var (
+	kinds     = []string{"resource", "trait", "blueprint"}
+	presences = []string{"regular", "optional", "required"}
+	// rePage is a member page path (C8): "<kind>s/<name>" or
+	// "<kind>s/<name>-<apiVersion>".
+	rePage = regexp.MustCompile(`^(resources|traits|blueprints)/[a-z0-9]+(-[a-z0-9]+)*$`)
+)
+
+// checkModel refuses a doc model whose members the history file could not
+// carry, naming the member and the value.
+func checkModel(s Segment) error {
+	src := s.Source
+	if src == "" {
+		src = "segment " + s.Name
+	}
+	for i := range s.Model.Members {
+		m := &s.Model.Members[i]
+		var err error
+		switch {
+		case m.FQN == "":
+			err = fmt.Errorf("member %d (%s %s) has no fqn", i, m.Kind, m.Name)
+		case !slices.Contains(kinds, m.Kind):
+			err = fmt.Errorf("member %s: kind %q is not resource, trait or blueprint", m.FQN, m.Kind)
+		case !rePage.MatchString(m.Page):
+			err = fmt.Errorf("member %s: page %q is not <kind>s/<name> (C8)", m.FQN, m.Page)
+		}
+		for _, f := range m.Spec.Fields {
+			if err == nil && !slices.Contains(presences, f.Presence) {
+				err = fmt.Errorf("member %s: field %s has presence %q, not regular, optional or required", m.FQN, f.Path, f.Presence)
+			}
+		}
+		if err != nil {
+			return &InputError{Source: src, Err: err}
+		}
+	}
+	return nil
 }
 
 // History is history.json. Field order is the file's key order.
@@ -152,6 +203,9 @@ func order(segs []Segment) ([]Segment, error) {
 		}
 		if s.Model == nil {
 			return nil, fmt.Errorf("segment %s has no doc model", s.Name)
+		}
+		if err := checkModel(s); err != nil {
+			return nil, err
 		}
 	}
 	sort.SliceStable(ordered, func(i, j int) bool { return tags.CompareMinor(ordered[i].Name, ordered[j].Name) < 0 })
@@ -304,8 +358,8 @@ func fieldsByPath(fs []cuecatalog.Field) map[string]*cuecatalog.Field {
 }
 
 // sameSpecText compares two spec blocks by their CUE tokens with comments
-// skipped. A block that does not scan, which the extractor never writes,
-// is compared as text instead.
+// skipped. Two different blocks of which either does not scan, which the
+// extractor never writes, count as changed.
 func sameSpecText(a, b string) bool {
 	if a == b {
 		return true
@@ -330,7 +384,8 @@ func str(s string) *string { return &s }
 // Encode serializes the history: two-space indent, a trailing newline,
 // struct keys in schema order, map keys sorted, no timestamps, so the same
 // segments and tool give the same bytes. It validates the result against
-// #History; a failure is a bug in opm-docs.
+// #History. Compute has already refused a bundle's bad data, so a failure
+// here is a bug in opm-docs.
 func (h *History) Encode() ([]byte, error) {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
