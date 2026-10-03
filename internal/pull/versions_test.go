@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -515,5 +517,24 @@ func TestParseLocalSiteVersion(t *testing.T) {
 		if _, err := ParseLocal(bad); err == nil {
 			t.Errorf("%s parsed", bad)
 		}
+	}
+}
+
+// A registry that denies an anonymous pull, as GHCR does for a package
+// that does not exist yet, reads as a pinned release without a bundle.
+func TestSiteVersionDeniedPinReadsAsMissing(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"errors":[{"code":"DENIED","message":"requested access to the resource is denied"}]}`))
+	}))
+	defer srv.Close()
+	e := newEnv(t)
+	e.registry = strings.TrimPrefix(srv.URL, "http://") + "/docs"
+	o := e.options(e.docsConfig(`versions: "v1.0": {anchor: {project: "cli", tag: "1.0"}, pinned: ["core"]}`))
+	o.Locals = []Local{{"cli", "v1.0", docsTree(t, cliSpec("1.0.0-beta.6", map[string]string{"core": "2.0.0-beta.1"}))}}
+	_, err := Run(context.Background(), o)
+	if err == nil || !strings.Contains(err.Error(), "v1.0: cli 1.0.0-beta.6 pins core 2.0.0-beta.1, and "+e.registry+"/core has no bundle for it") {
+		t.Fatalf("err = %v", err)
 	}
 }

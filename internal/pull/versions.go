@@ -5,12 +5,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
 
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"oras.land/oras-go/v2/registry/remote/errcode"
 
 	"github.com/open-platform-model/docs-kit/internal/build"
 	"github.com/open-platform-model/docs-kit/internal/bundle"
@@ -152,6 +154,17 @@ func pageTwice(set []*docsBundle) string {
 	return ""
 }
 
+// absent reports an answer that means the tag is not there for an
+// anonymous pull: not found, or denied, which is how GHCR answers for a
+// package that does not exist yet (or is not public).
+func absent(err error) bool {
+	if oci.IsNotFound(err) {
+		return true
+	}
+	var re *errcode.ErrorResponse
+	return errors.As(err, &re) && (re.StatusCode == http.StatusUnauthorized || re.StatusCode == http.StatusForbidden)
+}
+
 // missingTagError is a tag the registry does not have.
 type missingTagError struct {
 	sv, repo, tag string
@@ -159,7 +172,7 @@ type missingTagError struct {
 }
 
 func (e *missingTagError) Error() string {
-	return fmt.Sprintf("%s: %s has no tag %s; publish a build in that line, or name a tag that exists in the config (%v)", e.sv, e.repo, e.tag, e.err)
+	return fmt.Sprintf("%s: %s has no tag %s, or is not public; publish a build in that line, or name a tag that exists in the config (%v)", e.sv, e.repo, e.tag, e.err)
 }
 
 func (e *missingTagError) Unwrap() error { return e.err }
@@ -171,7 +184,7 @@ func pinError(err error, sv string, anchor *docsBundle, project, pin string) err
 	if !errors.As(err, &mt) {
 		return err
 	}
-	return fmt.Errorf("%s: %s pins %s %s, and %s has no bundle for it; publish it: run %s's docs workflow in release mode for its %s release",
+	return fmt.Errorf("%s: %s pins %s %s, and %s has no bundle for it (or the package is not public); publish it: run %s's docs workflow in release mode for its %s release",
 		sv, anchor.what, project, pin, mt.repo, project, pin)
 }
 
@@ -191,7 +204,7 @@ func (p *puller) docsBundle(ctx context.Context, sv, project, role, tag string, 
 	}
 	desc, err := repo.Resolve(ctx, tag)
 	if err != nil {
-		if oci.IsNotFound(err) {
+		if absent(err) {
 			return nil, &missingTagError{sv: sv, repo: repo.Name, tag: tag, err: err}
 		}
 		return nil, fmt.Errorf("%s %s %s: %w", sv, project, tag, err)
