@@ -42,7 +42,7 @@ content/how-to/x.md:12: raw HTML other than an HTML comment a browser closes whe
 
 (`an HTML block other than ...` for a block). A node goldmark reads as a comment but a browser closes earlier is exactly the case where the allowance would put live markup on the page, so it is refused, not trusted.
 
-The comments themselves reach the published HTML (goldmark's unsafe renderer writes them out), so they are visible in the page source. That is a content choice for each repository, not a safety one, and stays as it is (Non-Goals).
+This is the case the site turned raw HTML on for: its `hugo.toml` sets `renderer.unsafe = true` so that source pages may carry planning comments, and `minifyOutput = true`, whose HTML minifier drops them, so they never reach a published page. Goldmark, the minifier and a browser agree on where an allowed comment ends, since it holds no `--!>` before its first `-->` and does not close abruptly.
 
 ### D3. Braces in rendered prose (docs-kit#37)
 

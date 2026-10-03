@@ -10,10 +10,10 @@ One PR closing docs-kit#27 and docs-kit#37; its `feat` commits release `v0.6.0`.
 
 ## 2. Two rule sets in the markup check
 
-- [ ] 2.1 `internal/mdsafe`: `Authored` allows a raw HTML node made only of comments a browser closes where goldmark does; `Generated` keeps every rule (design.md D2). Verify: `TestCheckRefuses` and `TestCheckAllows` cases per mode, including `--!>`, `<!-->`, `<!--->`, text after `-->`, an unclosed comment and a well-formed block and inline comment.
-- [ ] 2.2 `internal/build`: a section page is checked as `Generated` (it was `Authored`, which no longer means the full check). Verify: the existing section tests pass unchanged.
-- [ ] 2.3 `internal/mdsafe` tests: the tokenizer-based detector replaces `reActive`; `TestProbesWithHugo` fails on a probe Hugo cannot build unless `hugoBuildFails` names it; every probe runs under both modes; comment probes added; `TestProbesWithSite` renders the probes through Hextra and the site's `_markup` hooks when `OPM_DOCS_SITE_DIR` is set (design.md D4). Verify: `OPM_DOCS_REQUIRE_HUGO=1 go test -run 'TestProbes' ./internal/mdsafe/` with Hugo 0.167.0, and with `OPM_DOCS_SITE_DIR` pointing at an opmodel.dev `site/` checkout.
-- [ ] 2.4 `task check` green, then commit `feat(lint): let authored pages keep HTML comments a browser closes where goldmark does`.
+- [x] 2.1 `internal/mdsafe`: `Authored` allows a raw HTML node made only of comments a browser closes where goldmark does; `Generated` keeps every rule (design.md D2). Verify: `TestCheckRefuses` and `TestCheckAllows` cases per mode, including `--!>`, `<!-->`, `<!--->`, text after `-->`, an unclosed comment and a well-formed block and inline comment.
+- [x] 2.2 `internal/build`: a section page is checked as `Generated` (it was `Authored`, which no longer means the full check). Verify: the existing section tests pass unchanged.
+- [x] 2.3 `internal/mdsafe` tests: the tokenizer-based detector replaces `reActive`; `TestProbesWithHugo` fails on a probe Hugo cannot build unless `hugoBuildFails` names it; every probe runs under both modes; comment probes added; `TestProbesWithSite` renders the probes through Hextra and the site's `_markup` hooks when `OPM_DOCS_SITE_DIR` is set (design.md D4). Verify: `OPM_DOCS_REQUIRE_HUGO=1 go test -run 'TestProbes' ./internal/mdsafe/` with Hugo 0.167.0, and with `OPM_DOCS_SITE_DIR` pointing at an opmodel.dev `site/` checkout.
+- [x] 2.4 `task check` green, then commit `feat(lint): let authored pages keep HTML comments a browser closes where goldmark does`.
 
 ## 3. Check every page of every bundle
 

@@ -717,7 +717,7 @@ func safeMarkup(dir string, pages []string) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		for _, v := range mdsafe.Check(mdsafe.Page{Path: file, Body: body}, mdsafe.Authored) {
+		for _, v := range mdsafe.Check(mdsafe.Page{Path: file, Body: body}, mdsafe.Generated) {
 			out = append(out, v.String())
 		}
 	}
