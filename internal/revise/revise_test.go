@@ -63,13 +63,19 @@ const owner = "example/demo"
 // and an empty registry.
 func newEnv(t *testing.T) *env {
 	t.Helper()
+	return newEnvWith(t, docsKit)
+}
+
+// newEnvWith is newEnv with cfg as the repository's docs-kit.cue.
+func newEnvWith(t *testing.T, cfg string) *env {
+	t.Helper()
 	t.Setenv("GITHUB_REPOSITORY", "")
 	t.Setenv("GITHUB_REF_TYPE", "")
 	r := gittest.New(t, "https://github.com/example/demo.git")
 	r.Write(map[string]string{"README.md": "# Demo\n"})
 	r.Commit("start")
 	r.CopyTree("../extract/cuecatalog/testdata/catalog", ".")
-	r.Write(map[string]string{"docs-kit.cue": docsKit, landing: landingPage, ".gitignore": "/out/\n"})
+	r.Write(map[string]string{"docs-kit.cue": cfg, landing: landingPage, ".gitignore": "/out/\n"})
 	r.Commit("catalog")
 	r.Git("tag", tag)
 	host := ocitest.Registry(t)
@@ -319,6 +325,39 @@ func TestRerun(t *testing.T) {
 	_, dir = e.built(fixB, 2, fixA, fixB)
 	e.push(dir)
 	e.refused(fixA, "already applied in 1.2.3.2")
+}
+
+// A docs bundle of the same name: authored pages only, so they get edit.
+const docsKitDocs = `bundles: "catalog-demo": {
+	placement: {kind: "docs", root: "/docs/"}
+	version: {from: "tag", prefix: "demo-v"}
+	sources: [{kind: "markdown", dir: "docs/catalogs/demo"}]
+}
+`
+
+// A rerun after main renamed a page rebuilds the pushed bytes: the
+// rebuilt revision keeps the edit it recorded instead of reading main.
+func TestRerunKeepsEdit(t *testing.T) {
+	e := newEnvWith(t, docsKitDocs)
+	e.publishRelease()
+	fixA := e.fix(fixDateA, map[string][2]string{landing: {"Every member is listed below.", "Every member is listed here."}})
+	m, dir := e.built(fixA, 1, fixA)
+	if p := m.Pages[0]; p.Edit != landing {
+		t.Fatalf("page %+v, want edit %s", p, landing)
+	}
+	first := e.push(dir).Digest
+
+	e.r.Git("mv", landing, "docs/catalogs/demo/contract.md")
+	e.r.Commit("rename the landing on main")
+	e.syncMain()
+
+	m, dir = e.built(fixA, 1, fixA)
+	if p := m.Pages[0]; p.Edit != landing {
+		t.Fatalf("rebuilt page %+v, want the recorded edit %s", p, landing)
+	}
+	if again := e.push(dir); !again.Existing || again.Digest != first {
+		t.Fatalf("the rebuilt revision is %s (existing %v), want %s unchanged", again.Digest, again.Existing, first)
+	}
 }
 
 func TestNoOpFix(t *testing.T) {

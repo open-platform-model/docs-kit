@@ -172,3 +172,33 @@ func TestEditNotInTabBundle(t *testing.T) {
 		}
 	}
 }
+
+// A release build with no checkout of main writes no edit and says so; it
+// never reads the tag tree as main.
+func TestEditReleaseWithoutMain(t *testing.T) {
+	r := editRepo(t)
+	var stderr strings.Builder
+	// The test's directory is another repository, and no Main is given.
+	pages := editBuild(t, Options{Source: tagTree(t, r), Release: "v1.0.0", Stderr: &stderr}, "docs")
+	for path, p := range pages {
+		if p.Edit != "" {
+			t.Errorf("%s: edit %q without a main tree", path, p.Edit)
+		}
+	}
+	if !strings.Contains(stderr.String(), "get no edit path") || !strings.Contains(stderr.String(), "v1.0.0") {
+		t.Errorf("stderr %q", stderr.String())
+	}
+}
+
+// Options.Edits, set by revise for a rebuild, replaces the main tree.
+func TestEditFixed(t *testing.T) {
+	r := editRepo(t)
+	pages := editBuild(t, Options{Source: tagTree(t, r), Main: r.Dir, Release: "v1.0.0",
+		Edits: map[string]string{"start/install.md": "docs/site/start/install.md"}}, "docs")
+	wantEdits(t, pages, map[string]string{
+		"start/install.md":                "docs/site/start/install.md",
+		"guide.md":                        "",
+		"reference/operator-resources.md": "",
+		"reference/generated.md":          "",
+	})
+}

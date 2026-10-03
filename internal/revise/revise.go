@@ -119,6 +119,7 @@ func Run(ctx context.Context, o Options) (*Result, error) {
 		Out:        o.Out,
 		Source:     w.Dir,
 		Main:       o.Repo, // the checkout of main: a docs page's edit path
+		Edits:      p.edits(),
 		Release:    o.Tag,
 		Tool:       o.Tool,
 		Revision:   p.next,
@@ -224,6 +225,22 @@ func (p *plan) read(ctx context.Context) error {
 	}
 	p.next, p.prior, p.rebuilt = p.newest.revision, patches[:i], true
 	return nil
+}
+
+// edits is what a rebuilt revision's pages recorded as edit, so building
+// it again gives the pushed bytes even after main moved; nil (read main)
+// for a new revision.
+func (p *plan) edits() map[string]string {
+	if !p.rebuilt {
+		return nil
+	}
+	out := map[string]string{}
+	for _, pg := range p.newest.manifest.Pages {
+		if pg.Edit != "" {
+			out[pg.Path] = pg.Edit
+		}
+	}
+	return out
 }
 
 // trustedBefore accepts the fixes of an unsigned revision n when revision
