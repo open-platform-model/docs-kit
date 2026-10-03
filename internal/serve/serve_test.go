@@ -515,32 +515,26 @@ func TestRunStoppedDuringFirstBuild(t *testing.T) {
 	}
 }
 
-func TestSweepStale(t *testing.T) {
-	tmp := t.TempDir()
-	done := exec.CommandContext(context.Background(), "true")
-	if err := done.Run(); err != nil {
-		t.Skip("no true program:", err)
+func TestRunRefusesATakenPort(t *testing.T) {
+	r := cliRepo(t)
+	t.Cleanup(func() { lookPath = defaultLookPath; buildRun = build.Run })
+	hugo := fakeProgram(t, "hugo", "echo 'hugo v0.167.0 linux/amd64'\n")
+	lookPath = func(string) (string, error) { return hugo, nil }
+	built := false
+	buildRun = func(context.Context, build.Options) ([]build.Result, error) {
+		built = true
+		return nil, errors.New("unreachable")
 	}
-	dead := done.Process.Pid
-	dirs := map[string]string{
-		tempPrefix + "dead":  strconv.Itoa(dead),
-		tempPrefix + "live":  strconv.Itoa(os.Getppid()),
-		tempPrefix + "owner": "",
-		"other-dir":          strconv.Itoa(dead),
+	l, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", Bind+":0")
+	if err != nil {
+		t.Fatal(err)
 	}
-	for d, pid := range dirs {
-		if err := os.MkdirAll(filepath.Join(tmp, d), 0o750); err != nil {
-			t.Fatal(err)
-		}
-		if pid != "" {
-			write(t, filepath.Join(tmp, d, ownerFile), pid)
-		}
-	}
-	sweepStale(tmp)
-	for d := range dirs {
-		_, err := os.Stat(filepath.Join(tmp, d))
-		if gone := err != nil; gone != (d == tempPrefix+"dead") {
-			t.Errorf("%s: gone %v", d, gone)
-		}
+	defer l.Close()
+	port := l.Addr().(*net.TCPAddr).Port
+	var logs syncBuffer
+	err = Run(context.Background(), Options{Build: build.Options{Source: r.Dir, Stderr: io.Discard}, Port: port, Stderr: &logs}, nil)
+	var ue *UsageError
+	if !errors.As(err, &ue) || !strings.Contains(err.Error(), strconv.Itoa(port)+" is not free") || built || logs.String() != "" {
+		t.Fatalf("got %v (built %v, printed %q)", err, built, logs.String())
 	}
 }

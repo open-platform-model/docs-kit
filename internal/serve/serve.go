@@ -85,10 +85,14 @@ func Run(ctx context.Context, o Options, report Report) error {
 	if err != nil {
 		return err
 	}
-	tmp, err := makeTemp()
+	if err := portFree(ctx, o.Port); err != nil {
+		return err
+	}
+	tmp, release, err := makeTemp()
 	if err != nil {
 		return err
 	}
+	defer release() // after the removal: the lock keeps a sweep away until then
 	defer os.RemoveAll(tmp)
 	s := &server{o: o, stage: filepath.Join(tmp, "stage"), live: filepath.Join(tmp, "live"), report: report}
 	s.build = s.buildOne
@@ -202,6 +206,18 @@ func (s *server) hugo(ctx context.Context, hugo, siteDir string, restart <-chan 
 			fmt.Fprintf(s.o.Stderr, "opm-docs serve: pages were added or removed; restarting hugo\n")
 		}
 	}
+}
+
+// portFree refuses a port another process holds, before anything is
+// built or printed. hugo binds it again a moment later; a process taking
+// it in between still makes hugo fail, which ends serve with that error.
+func portFree(ctx context.Context, port int) error {
+	addr := Bind + ":" + strconv.Itoa(port)
+	l, err := (&net.ListenConfig{}).Listen(ctx, "tcp", addr)
+	if err != nil {
+		return usage("%s is not free (%v): pass another port with --port", addr, err)
+	}
+	return l.Close()
 }
 
 // ended reports a context that is done: the author stopped serve.

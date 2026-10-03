@@ -38,10 +38,11 @@ func RunSite(ctx context.Context, o Options) error {
 	if err != nil {
 		return err
 	}
-	tmp, err := makeTemp()
+	tmp, release, err := makeTemp()
 	if err != nil {
 		return err
 	}
+	defer release() // after the removal: the lock keeps a sweep away until then
 	defer os.RemoveAll(tmp)
 	if strings.ContainsAny(tmp, " \t\n:,") {
 		return usage("the build directory %s holds a space, ':' or ','; the site cannot mount it: set TMPDIR to a path without one", tmp)
