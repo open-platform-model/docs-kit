@@ -258,3 +258,29 @@ func TestUnpackRefuses(t *testing.T) {
 		})
 	}
 }
+
+// A page's edit is optional: a bundle written before it parses, and one
+// carrying it keeps it.
+func TestPageEdit(t *testing.T) {
+	raw, _ := os.ReadFile("testdata/tree/manifest.json")
+	m, err := Parse("manifest.json", raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range m.Pages {
+		if p.Edit != "" {
+			t.Fatalf("an older bundle's page has edit %q", p.Edit)
+		}
+	}
+	with := strings.Replace(string(raw), `"generated": true`, `"generated": false, "edit": "docs/catalogs/opm/_index.md"`, 1)
+	if with == string(raw) {
+		t.Fatal("replacement did not apply")
+	}
+	m, err = Parse("manifest.json", []byte(with))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Pages[0].Edit != "docs/catalogs/opm/_index.md" {
+		t.Fatalf("pages %+v", m.Pages)
+	}
+}

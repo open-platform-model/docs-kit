@@ -87,6 +87,23 @@ No new command or flag. No new error beyond the existing collision message (C6).
 **Context**: the site could link `edit/main/<source>` blindly.
 **Decision**: the producer decides, because only it has `main` beside the release tree (C5); a blind link 404s after a rename and the site has no git to check against in phase 3.
 
+### The main tree when the current directory is another repository (decided in implementation)
+
+**Context**: D1 says the main tree is the current directory whenever `--source` names another tree. A local build run from an unrelated work tree (`opm-docs build --source ../opm` from the workspace root) would then check the wrong repository's `HEAD`.
+**Decision**: the current directory is the main tree only when it is a git work tree of the repository built (the same `owner/name`, which `GITHUB_REPOSITORY` fixes in CI); otherwise the source tree is. `build.Options.Main` names it explicitly, and `revise` passes its checkout of `main`. In `publish.yml` nothing changes: every mode runs in the caller's checkout of `main`.
+
+### Trial builds (task 1.3, 2026-10-03)
+
+opm-docs from this branch, the D2 configurations in a scratch `--config` (so the backfill leniency applied; nothing relied on it), outside the test suite:
+
+| Build | Pages | Lint (bundle mode) | `edit` |
+|---|---|---|---|
+| catalog_opm `main` (8b17436), `catalog-opm-docs`, edge | 7 | clean | on all 7 |
+| opm `main` (d34f66b), `opm`, edge | 10 (the root and `start/` `_index.md` included) | clean | on all 10 |
+| catalog_opm `opm-v4.5.1` at `src/`, run from the `main` checkout, release | 58 | clean | on the 7 authored pages `main` still has; none on the 51 committed `reference/` pages `main` has since deleted (catalog_opm #127) |
+
+No problem to fix in either repository. One consequence for catalog_opm: `opm-v4.5.1` and every earlier tag still hold the committed `docs/site/reference/` pages that the Catalogs tab replaced, so a release or backfill of those tags as `catalog-opm-docs` would publish them under `/docs/reference/`. `catalog-opm-docs` starts at the first opm release cut after #127 (as the tab started, DESIGN decision 8); an earlier tag is not backfilled. opm has no release tag yet, so only its edge build was tried.
+
 ## Risks / Trade-offs
 
 - A section page under `/docs/` written by two repositories (two `start/_index.md`) fails the site version's pull (C16 D4); the owning repository is the one whose `_index.md` exists today (opm owns `start/_index.md`), and the phase-3 siblings keep it so.

@@ -118,6 +118,7 @@ func Run(ctx context.Context, o Options) (*Result, error) {
 		Projects:   []string{o.Project},
 		Out:        o.Out,
 		Source:     w.Dir,
+		Main:       o.Repo, // the checkout of main: a docs page's edit path
 		Release:    o.Tag,
 		Tool:       o.Tool,
 		Revision:   p.next,

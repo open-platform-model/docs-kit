@@ -61,6 +61,11 @@ import (
 	source?:   string & !=""                                                        // repo-relative file the page came from ("Edit this page", "View source")
 	lastmod?:  time.Time                                                            // that file's last commit date at the commit built, RFC 3339
 	generated: bool                                                                 // generated reference, or an authored page
+	// A docs bundle's authored page only: its source file's path on the
+	// repository's main branch, when main still has that file ("Edit this
+	// page"). Never on a generated page or a tab bundle's page, so a pull
+	// that predates it still reads every tab bundle.
+	edit?: string & !=""
 }
 
 #DataFile: {

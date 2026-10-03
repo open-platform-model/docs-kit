@@ -155,6 +155,25 @@ func (r Repo) LastMod(ctx context.Context, commit, path string) string {
 	return t.UTC().Format(time.RFC3339)
 }
 
+// HasFile reports whether path, relative to Dir, is a regular file
+// (executable or not) in rev's tree; a directory, a symlink, a submodule
+// or a path rev does not have is not.
+func (r Repo) HasFile(ctx context.Context, rev, path string) bool {
+	out, err := r.git(ctx, "--literal-pathspecs", "ls-tree", "-z", rev, "--", path)
+	if err != nil || out == "" {
+		return false
+	}
+	for _, e := range strings.Split(strings.TrimSuffix(out, "\x00"), "\x00") {
+		meta, name, ok := strings.Cut(e, "\t")
+		if !ok || name != path {
+			continue
+		}
+		mode, _, _ := strings.Cut(meta, " ")
+		return mode == "100644" || mode == "100755"
+	}
+	return false
+}
+
 // Branch is the branch checked out: GITHUB_REF_NAME for a branch build in
 // GitHub Actions (whose checkout is detached), else the symbolic HEAD.
 func (r Repo) Branch(ctx context.Context) string {

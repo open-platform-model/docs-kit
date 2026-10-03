@@ -33,8 +33,13 @@ type Options struct {
 	Projects []string // empty: every project
 	Out      string   // output root; each project goes to <out>/<project>
 	Source   string   // the source tree
-	Release  string   // the release tag; "" builds edge
-	Tool     string   // the opm-docs version, without "v"
+	// Main is a work tree whose HEAD is the repository's main branch, for
+	// a docs bundle's pages[].edit. "" is the current directory when it is
+	// a work tree of the same repository (publish.yml's checkout of main
+	// beside a release tree), else the source tree.
+	Main    string
+	Release string // the release tag; "" builds edge
+	Tool    string // the opm-docs version, without "v"
 	// Revision and Patches build a docs revision of Release: Source is the
 	// release tree with Patches (the fix commits, oldest first) applied
 	// and staged, as revise leaves it. PatchDates, from revise, is each
@@ -255,6 +260,9 @@ func buildProject(ctx context.Context, o Options, cfg *config.Config, project st
 		Placement: bundle.Placement{Kind: b.Placement.Kind, Root: b.Placement.Root, Owns: b.Placement.Owns},
 	}
 	s := &assembly{ctx: ctx, o: o, id: id, m: m, dir: dir, cfgPath: cfg.Path, written: map[string]string{}, repo: gitsrc.Repo{Dir: o.Source}, patched: o.PatchDates}
+	if b.Placement.Kind == render.KindDocs {
+		s.main = mainTree(ctx, o, id.repo)
+	}
 	s.commands = &command.Runner{Dir: o.Source, Project: project, Version: id.version, Twice: o.Check, Stderr: o.Stderr}
 	if err := s.pins(b.Pins); err != nil {
 		return Result{}, err
@@ -278,6 +286,7 @@ type assembly struct {
 	cfgPath  string
 	commands *command.Runner
 	repo     gitsrc.Repo
+	main     *gitsrc.Repo      // a docs bundle's main tree, for pages[].edit; nil in a tab bundle
 	written  map[string]string // content path -> the source that wrote it
 	patched  map[string]string // a docs revision: patched file -> its newest patch's date
 }
@@ -290,6 +299,30 @@ func (s *assembly) lastmod(path string) string {
 		return d
 	}
 	return s.repo.LastMod(s.ctx, s.id.commit, path)
+}
+
+// mainTree is the work tree whose HEAD is main: Options.Main when set,
+// else the current directory when it is a work tree of the repository
+// built (release mode's checkout of main beside the tag at src/, or the
+// checkout revise runs in), else the source tree (an edge build).
+func mainTree(ctx context.Context, o Options, repo string) *gitsrc.Repo {
+	if o.Main != "" {
+		return &gitsrc.Repo{Dir: o.Main}
+	}
+	if cwd := (gitsrc.Repo{Dir: "."}); cwd.IsRepo(ctx) && cwd.Name(ctx) == repo {
+		return &cwd
+	}
+	return &gitsrc.Repo{Dir: o.Source}
+}
+
+// edit is an authored page's pages[].edit: its source file's path when
+// the main tree's HEAD has that file, else "". A file renamed on main is
+// not followed: no Edit link beats a wrong one. A tab bundle has none.
+func (s *assembly) edit(source string) string {
+	if s.main == nil || source == "" || !s.main.HasFile(s.ctx, "HEAD", source) {
+		return ""
+	}
+	return source
 }
 
 func (s *assembly) target() render.Target {
@@ -334,7 +367,7 @@ func (s *assembly) sources(b config.Bundle, cfgPath string, outside bool) error 
 	for _, a := range docs {
 		for _, p := range a.pages {
 			if !completable[p.Path] {
-				if err := s.write(p.Path, p.Body, a.label, bundle.Page{Path: p.Path, Source: p.Source, Lastmod: p.Lastmod}); err != nil {
+				if err := s.write(p.Path, p.Body, a.label, bundle.Page{Path: p.Path, Source: p.Source, Lastmod: p.Lastmod, Edit: s.edit(p.Source)}); err != nil {
 					return err
 				}
 				continue
@@ -448,7 +481,7 @@ func (s *assembly) writeGenerated(e *extracted, completing map[string]markdown.P
 			if err != nil {
 				return err
 			}
-			if err := s.write(p.Path, body, markdownKind, bundle.Page{Path: p.Path, Source: a.Source, Lastmod: a.Lastmod}); err != nil {
+			if err := s.write(p.Path, body, markdownKind, bundle.Page{Path: p.Path, Source: a.Source, Lastmod: a.Lastmod, Edit: s.edit(a.Source)}); err != nil {
 				return err
 			}
 			continue

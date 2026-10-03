@@ -4,10 +4,10 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`; parallel with th
 
 ## 1. The edit path
 
-- [ ] 1.1 `schema/manifest.cue`: `#Page.edit?` (design.md D1). Verify: `go test ./schema/...` with and without it.
-- [ ] 1.2 `internal/gitsrc`: whether a path is a regular file in a tree's `HEAD`; `internal/build`: the main tree (D1) and `edit` for authored pages. Verify: tests with a temporary repository for edge, a release with the file on main, a release whose file `main` renamed (no `edit`), a revision.
-- [ ] 1.3 A trial build of catalog_opm's `docs/site` as `catalog-opm-docs` and of opm's `docs/site` as `opm` with the planned configs (D2), outside the test suite. Verify: both lint in bundle mode; record page counts and problems in design.md (fixed in those repositories, not here).
-- [ ] 1.4 `task check` green, then commit `feat(build): record where each authored page is edited on main`.
+- [x] 1.1 `schema/manifest.cue`: `#Page.edit?` (design.md D1). Verify: `go test ./schema/...` with and without it.
+- [x] 1.2 `internal/gitsrc`: whether a path is a regular file in a tree's `HEAD`; `internal/build`: the main tree (D1) and `edit` for authored pages. Verify: tests with a temporary repository for edge, a release with the file on main, a release whose file `main` renamed (no `edit`), a revision.
+- [x] 1.3 A trial build of catalog_opm's `docs/site` as `catalog-opm-docs` and of opm's `docs/site` as `opm` with the planned configs (D2), outside the test suite. Verify: both lint in bundle mode; record page counts and problems in design.md (fixed in those repositories, not here).
+- [x] 1.4 `task check` green, then commit `feat(build): record where each authored page is edited on main`.
 
 ## 2. Contracts and archive
 
