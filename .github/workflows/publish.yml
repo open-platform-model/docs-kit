@@ -14,11 +14,14 @@
 #   edge     push to main: build the commit, push by digest, sign, move edge.
 #   release  the release-please job of a release (or a workflow_dispatch backfill):
 #            build the tag at src/, push <version>.0, sign, move the moving tags.
+#   revision workflow_dispatch: apply a documentation fix on main (input fix) to a
+#            published release (input tag), build <version>.<next>, push, sign,
+#            move the moving tags.
 #
 # The caller's job grants the permissions (this file declares none, so a
 # check-only caller needs no write grant):
-#   check            contents: read, packages: read
-#   edge, release    contents: read, packages: write, id-token: write
+#   check                      contents: read, packages: read
+#   edge, release, revision    contents: read, packages: write, id-token: write
 name: Publish docs
 
 on:
@@ -29,11 +32,15 @@ on:
         type: string
         required: true
       mode:
-        description: "check | edge | release"
+        description: "check | edge | release | revision"
         type: string
         required: true
       tag:
-        description: release mode, the release's git tag (opm-v4.4.5)
+        description: release and revision modes, the release's git tag (opm-v4.4.5)
+        type: string
+        default: ""
+      fix:
+        description: revision mode, the 40-hex commit on main whose documentation change to apply
         type: string
         default: ""
       cue-registry:
@@ -57,13 +64,13 @@ jobs:
   # One job for every mode, so the install, login and publish steps are
   # written once. Its concurrency group depends on the mode: edge runs share
   # one group and cancel each other (only the newest main matters); a
-  # release has its own group per tag that nothing cancels; a check is
-  # alone in its run's group.
+  # release and its revisions share one group per tag that nothing cancels,
+  # so revision numbers never race; a check is alone in its run's group.
   docs:
     name: Docs ${{ inputs.mode }} (${{ inputs.project }})
     runs-on: ubuntu-latest
     concurrency:
-      group: ${{ inputs.mode == 'edge' && format('docs-edge-{0}', inputs.project) || inputs.mode == 'release' && format('docs-release-{0}-{1}', inputs.project, inputs.tag) || format('docs-check-{0}-{1}', inputs.project, github.run_id) }}
+      group: ${{ inputs.mode == 'edge' && format('docs-edge-{0}', inputs.project) || (inputs.mode == 'release' || inputs.mode == 'revision') && format('docs-release-{0}-{1}', inputs.project, inputs.tag) || format('docs-check-{0}-{1}', inputs.project, github.run_id) }}
       cancel-in-progress: ${{ inputs.mode == 'edge' }}
     outputs:
       digest: ${{ steps.push.outputs.digest }}
@@ -72,25 +79,32 @@ jobs:
       - name: Refuse an unknown mode or a publish outside main
         env:
           TAG: ${{ inputs.tag }}
+          FIX: ${{ inputs.fix }}
           REF: ${{ github.ref }}
         run: |
           case "$MODE" in
             check) exit 0 ;;
-            edge|release) ;;
-            *) echo "::error::mode \"$MODE\" is not one of check, edge, release"; exit 1 ;;
+            edge|release|revision) ;;
+            *) echo "::error::mode \"$MODE\" is not one of check, edge, release, revision"; exit 1 ;;
           esac
           if [ "$REF" != refs/heads/main ]; then
             echo "::error::mode $MODE runs only on refs/heads/main, not $REF: bundles publish from main, never from a release branch"
             exit 1
           fi
-          if [ "$MODE" = release ] && [ -z "$TAG" ]; then
-            echo "::error::mode release needs the input tag, the release's git tag (opm-v4.4.5)"
+          if { [ "$MODE" = release ] || [ "$MODE" = revision ]; } && [ -z "$TAG" ]; then
+            echo "::error::mode $MODE needs the input tag, the release's git tag (opm-v4.4.5)"
+            exit 1
+          fi
+          if [ "$MODE" = revision ] && ! printf '%s\n' "$FIX" | grep -Eqx '[0-9a-f]{40}'; then
+            echo "::error::mode revision needs the input fix, the full 40-hex commit on main whose documentation change to apply, not \"$FIX\""
             exit 1
           fi
 
       # The commit the caller ran on: the pull request's head for check,
       # the pushed commit of main otherwise. In release mode it supplies
       # .opm-docs-version, and docs-kit.cue when the release tree has none.
+      # Full history brings origin/main and the tags, which revision mode
+      # reads: the fix must be on main, and the release tree is the tag's.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -146,6 +160,15 @@ jobs:
         env:
           TAG: ${{ inputs.tag }}
         run: opm-docs build --release "$TAG" --source src --project "$PROJECT"
+
+      # The release tree with the fixes applied, in a temporary worktree;
+      # revise refuses anything but a documentation change.
+      - name: Build the revision
+        if: inputs.mode == 'revision'
+        env:
+          TAG: ${{ inputs.tag }}
+          FIX: ${{ inputs.fix }}
+        run: opm-docs revise --project "$PROJECT" --tag "$TAG" --fix "$FIX"
 
       - name: Push
         id: push

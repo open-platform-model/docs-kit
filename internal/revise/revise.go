@@ -9,7 +9,6 @@ package revise
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -238,11 +237,4 @@ func buildConfig(o Options, tree string) string {
 		return ""
 	}
 	return filepath.Join(o.Repo, build.ConfigFile)
-}
-
-// IsUsage reports an error that is the caller's: the config or the
-// project.
-func IsUsage(err error) bool {
-	var ue *build.UsageError
-	return errors.As(err, &ue)
 }

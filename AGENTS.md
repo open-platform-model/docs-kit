@@ -24,7 +24,7 @@ A PR body you write stays under 250 words of prose (code blocks, URLs and traile
 
 docs-kit builds each Open Platform Model repository's documentation into a versioned, signed OCI artifact (a docs bundle) in that repository's CI, and lets the opmodel.dev site pull and assemble those bundles. It holds one Go program, `opm-docs`, and the reusable workflow that runs it.
 
-Status: phase 1 is built: `build`, `check`, `lint`, `push`, `promote`, `pull`, the `cue-catalog` extractor, a minimal `markdown` source, the publish workflow and the release pipeline. Docs revisions are the follow-up `openspec/changes/add-docs-revisions/`.
+Status: phase 1 is built: `build`, `check`, `lint`, `push`, `promote`, `pull`, `revise` (docs revisions), the `cue-catalog` extractor, a minimal `markdown` source, the publish workflow and the release pipeline.
 
 ## Repository Rules
 

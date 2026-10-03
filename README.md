@@ -4,7 +4,7 @@ Builds each Open Platform Model repository's documentation into a versioned, sig
 
 It holds one Go program, `opm-docs`, and the reusable workflow that runs it, `.github/workflows/publish.yml`. [DESIGN.md](DESIGN.md) is the design; [docs/contracts.md](docs/contracts.md) fixes everything another repository reads (the bundle format, tags, the workflow interface, `docs-kit.cue`, the pull config and lock, the signing identity, the doc model and the page dialect).
 
-Status: phase 1. `opm-docs` builds the opm catalog's reference from a CUE catalog module (`cue-catalog`) plus a directory of authored pages (`markdown`), publishes it as a signed bundle, and pulls bundles for the site. Docs revisions follow in the change `add-docs-revisions`.
+Status: phase 1. `opm-docs` builds the opm catalog's reference from a CUE catalog module (`cue-catalog`) plus a directory of authored pages (`markdown`), publishes it as a signed bundle, pulls bundles for the site, and builds docs revisions of published releases.
 
 ## Commands
 
@@ -18,6 +18,7 @@ Status: phase 1. `opm-docs` builds the opm catalog's reference from a CUE catalo
 | `push` | `--dir` (required), `--registry` (`ghcr.io/open-platform-model/docs`) | Pack deterministically and push under the full tag (by digest for edge); print `{"digest","tag"}`. |
 | `promote` | `--project`, `--digest` (required), `--registry` | Verify the digest's signature, then move the moving tags of its line. Runs in GitHub Actions (`GITHUB_REPOSITORY`). |
 | `pull` | `--config` (`bundles.cue`), `--out` (`.bundles`), `--lock` (`<out>/lock.json`), `--frozen <lock>`, `--offline`, `--local <project>@<segment>=<dir>` (repeatable) | Resolve, verify, unpack, lint and lock the bundles the site shows. |
+| `revise` | `--project`, `--tag`, `--fix` (required), `--out` (`out`), `--registry`, `--config` (default `docs-kit.cue` in the release tree, else the current directory) | Build the next docs revision of a published release with a documentation fix from `main` into `out/<project>/`; push nothing ([docs revisions](docs/contracts.md#docs-revisions)). |
 | `version` | | Print `opm-docs <version>`. |
 
 A local preview needs no registry: `opm-docs build` in the source repository, then point the site at the output with `opm-docs pull --local catalog-opm@edge=<repo>/out/catalog-opm`.
@@ -38,6 +39,7 @@ Reference `publish.yml` by docs-kit release tag, never a branch or a SHA: the si
 | `check` | `pull_request` | `contents: read`, `packages: read` |
 | `edge` | `push` to `main` | `contents: read`, `packages: write`, `id-token: write` |
 | `release` | the release-please job, gated on that package's release; or `workflow_dispatch` to backfill a release | `contents: read`, `packages: write`, `id-token: write` |
+| `revision` | `workflow_dispatch`, with the inputs `tag` and `fix` (needs docs-kit `v0.2.0` or later) | `contents: read`, `packages: write`, `id-token: write` |
 
 ```yaml
 # Pinned by tag, not SHA: docs-kit tags are immutable and the signing
@@ -69,6 +71,37 @@ jobs:
 ```
 
 Every publishing mode runs only on `refs/heads/main`. A new package on GHCR is linked to the calling repository through `org.opencontainers.image.source`; check that it is public before the site pulls it.
+
+## Fixing a release's docs
+
+A published release's pages change only through a docs revision: its full tag (`4.4.5.0`) is never overwritten, so a documentation fix is published as `4.4.5.1`, `4.4.5.2` and so on, and `4.4.5`, `4.4` and `4` move to it. A fix that changes code needs a patch release instead.
+
+1. Land the fix on `main` as one single-parent commit that changes only Markdown files, or only comments in `.cue` and `.go` files. `edge` shows it on the next push.
+2. Dispatch the `revision` mode with the release tag and the fix's full 40-hex hash. The workflow applies every fix the newest revision of that release already carries, then this one, to the release tree; it refuses a fix that is not on `main`, one already applied, a conflict, and any change other than documentation, naming each file. Then it pushes `<version>.<next>`, signs it and moves the moving tags.
+
+The steps and the documentation-only rules are in [docs/contracts.md, "Docs revisions"](docs/contracts.md#docs-revisions). catalog_opm's dispatch, beside its other `docs.yml` jobs:
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      mode: {type: choice, options: [release, revision], default: release}
+      tag: {description: "the release's git tag (opm-v4.4.5)", type: string, required: true}
+      fix: {description: "revision: the 40-hex commit on main to apply", type: string, default: ""}
+
+jobs:
+  docs-dispatch:
+    if: github.event_name == 'workflow_dispatch'
+    permissions: {contents: read, packages: write, id-token: write}
+    uses: open-platform-model/docs-kit/.github/workflows/publish.yml@v0.2.0
+    with:
+      project: catalog-opm
+      mode: ${{ inputs.mode }}
+      tag: ${{ inputs.tag }}
+      fix: ${{ inputs.fix }}
+```
+
+Or from a terminal: `gh workflow run docs.yml -f mode=revision -f tag=opm-v4.4.5 -f fix=<sha>`.
 
 ## Development
 

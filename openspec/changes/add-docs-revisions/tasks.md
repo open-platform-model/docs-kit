@@ -16,9 +16,9 @@ Gate: `build-opm-docs-phase-1` is archived on docs-kit `main` and `v0.1.0` is re
 
 ## 3. The workflow mode and docs
 
-- [ ] 3.1 `publish.yml`: the `revision` mode and `fix` input (design.md D3). Verify: `actionlint` clean.
-- [ ] 3.2 Durable decisions: `README.md` (how to run a revision, with the catalog_opm dispatch as the example) and `docs/contracts.md` ("Docs revisions": D1's steps and D2's table, which the specs cite). Verify: links resolve.
-- [ ] 3.3 `task check` green, then commit `feat(workflow): add the revision mode`.
+- [x] 3.1 `publish.yml`: the `revision` mode and `fix` input (design.md D3). Verify: `actionlint` clean.
+- [x] 3.2 Durable decisions: `README.md` (how to run a revision, with the catalog_opm dispatch as the example) and `docs/contracts.md` ("Docs revisions": D1's steps and D2's table, which the specs cite). Verify: links resolve.
+- [x] 3.3 `task check` green, then commit `feat(workflow): add the revision mode`.
 
 ## 4. Archive (rides this PR)
 
