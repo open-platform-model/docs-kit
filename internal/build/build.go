@@ -20,6 +20,7 @@ import (
 	"github.com/open-platform-model/docs-kit/internal/dialect"
 	"github.com/open-platform-model/docs-kit/internal/extract/markdown"
 	"github.com/open-platform-model/docs-kit/internal/gitsrc"
+	"github.com/open-platform-model/docs-kit/internal/mdsafe"
 	"github.com/open-platform-model/docs-kit/internal/render"
 	"github.com/open-platform-model/docs-kit/internal/tags"
 )
@@ -665,6 +666,32 @@ func Lint(dir string) ([]string, error) {
 	}
 	for _, v := range vs {
 		out = append(out, v.String())
+	}
+	if m.Placement.Kind == render.KindSection {
+		safe, err := safeMarkup(dir, pages)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, safe...)
+	}
+	return out, nil
+}
+
+// safeMarkup parses every page of a section bundle as the site's renderer
+// does and refuses raw HTML, a script URL and a heading attribute block
+// (C21): the section's pages are a repository's authored text, so this,
+// not the transforms, is what keeps them safe to publish.
+func safeMarkup(dir string, pages []string) ([]string, error) {
+	var out []string
+	for _, p := range pages {
+		file := filepath.Join(dir, bundle.ContentDir, filepath.FromSlash(p))
+		body, err := os.ReadFile(file)
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range mdsafe.Check(mdsafe.Page{Path: file, Body: body}, mdsafe.Authored) {
+			out = append(out, v.String())
+		}
 	}
 	return out, nil
 }
