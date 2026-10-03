@@ -66,6 +66,7 @@ var extractors = []Extractor{
 	cueDefinitionsExtractor{},
 	cobraExtractor{},
 	crdExtractor{},
+	goAPIExtractor{},
 }
 
 // Paths an extractor or renderer may write, checked before anything is

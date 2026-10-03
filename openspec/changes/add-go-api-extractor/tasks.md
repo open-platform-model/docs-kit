@@ -4,9 +4,9 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`. One PR, titled `
 
 ## 1. The extractor and its model
 
-- [ ] 1.1 `schema/config.cue`: `#GoAPI` (design.md D1). Verify: `go test ./schema/...`.
-- [ ] 1.2 `internal/extract/goapi` (D2, D3): `go/build` context for `linux/amd64` file selection, `go/parser` with comments, `go/doc` (`doc.NewFromFiles`), `go/doc/comment` to Markdown, gofmt-printed declarations, citations per policy. Verify: tests on a fixture module under `internal/extract/goapi/testdata/` (a constructor, a method, an undocumented symbol, a build-tagged file, an internal package), golden `go-api.golden.json`.
-- [ ] 1.3 `task check` green, then commit `feat(extract): add the go-api extractor`.
+- [x] 1.1 `schema/config.cue`: `#GoAPI` (design.md D1). Verify: `go test ./schema/...`.
+- [x] 1.2 `internal/extract/goapi` (D2, D3): `go/build` context for `linux/amd64` file selection, `go/parser` with comments, `go/doc` (`doc.NewFromFiles`), `go/doc/comment` to Markdown, gofmt-printed declarations, citations per policy. Verify: tests on a fixture module under `internal/extract/goapi/testdata/` (a constructor, a method, an undocumented symbol, a build-tagged file, an internal package), golden `go-api.golden.json`.
+- [x] 1.3 `task check` green, then commit `feat(extract): add the go-api extractor`.
 
 ## 2. The renderer
 
