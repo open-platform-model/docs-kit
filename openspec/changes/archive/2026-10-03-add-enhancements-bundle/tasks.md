@@ -27,5 +27,5 @@ Gate: `generalize-build-assembly` and `pull-docs-placement` are merged on docs-k
 ## 5. Contracts and archive
 
 - [x] 5.1 `docs/contracts.md`: C21 (new) and C3, C7, C8, C11 (D1 to D6); `README.md`. Verify: schema text equals `schema/*.cue`.
-- [ ] 5.2 `openspec archive add-enhancements-bundle --yes`. Verify: `task openspec:check` green.
-- [ ] 5.3 `task check` green, then commit `docs(pull): document the enhancements section`.
+- [x] 5.2 `openspec archive add-enhancements-bundle --yes`. Verify: `task openspec:check` green.
+- [x] 5.3 `task check` green, then commit `docs(pull): document the enhancements section`.
