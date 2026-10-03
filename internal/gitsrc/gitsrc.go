@@ -1,6 +1,8 @@
 // Package gitsrc reads what a build needs from the source repository's
 // git history: the commit built, its time, whether the work tree is dirty,
-// the repository name and each file's last commit date.
+// the repository name and each file's last commit date. For a docs
+// revision it also checks a fix commit, applies fixes to a release tree in
+// a temporary worktree and checks that they change documentation only.
 package gitsrc
 
 import (
@@ -20,8 +22,12 @@ type Repo struct {
 	Dir string
 }
 
+func (r Repo) cmd(ctx context.Context, args ...string) *exec.Cmd {
+	return exec.CommandContext(ctx, "git", append([]string{"-C", r.Dir}, args...)...) //nolint:gosec // git with arguments this package builds
+}
+
 func (r Repo) git(ctx context.Context, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", r.Dir}, args...)...) //nolint:gosec // git with arguments this package builds
+	cmd := r.cmd(ctx, args...)
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	if err := cmd.Run(); err != nil {

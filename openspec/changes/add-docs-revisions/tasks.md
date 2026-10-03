@@ -4,9 +4,9 @@ Gate: `build-opm-docs-phase-1` is archived on docs-kit `main` and `v0.1.0` is re
 
 ## 1. Git source handling and the documentation-only check
 
-- [ ] 1.1 `internal/gitsrc`: ancestor and single-parent checks, temporary worktree at a tag, ordered `cherry-pick --no-commit`, conflict reporting, worktree cleanup on every path. Verify: tests with a temporary repository, including a conflict and a merge commit as the fix.
-- [ ] 1.2 The documentation-only check (design.md D2). Verify: table tests for each row, including a `metadata.description` value change (refused) and a comment change (allowed) in `.cue`, and a comment change in `.go`.
-- [ ] 1.3 `task check` green, then commit `feat(revise): add the documentation-only check`.
+- [x] 1.1 `internal/gitsrc`: ancestor and single-parent checks, temporary worktree at a tag, ordered `cherry-pick --no-commit`, conflict reporting, worktree cleanup on every path. Verify: tests with a temporary repository, including a conflict and a merge commit as the fix.
+- [x] 1.2 The documentation-only check (design.md D2). Verify: table tests for each row, including a `metadata.description` value change (refused) and a comment change (allowed) in `.cue`, and a comment change in `.go`.
+- [x] 1.3 `task check` green, then commit `feat(revise): add the documentation-only check`.
 
 ## 2. The revise command
 

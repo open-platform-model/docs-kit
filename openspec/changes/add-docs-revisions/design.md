@@ -34,11 +34,27 @@ Steps, each failing with exit 2 and a message naming the fix:
 | Path | Allowed |
 |---|---|
 | `*.md` | added, changed, renamed, removed |
-| `*.cue` | changed only; both versions parsed with comments, every comment removed (`ast.Walk` clearing comment groups), formatted with `cue/format`, bytes equal |
-| `*.go` | changed only; both versions parsed by `go/parser` without comments, printed with `go/printer`, bytes equal |
+| `*.cue` | changed only; both versions scanned by `cue/scanner` with comments skipped (interpolations resumed as the parser does), token sequences equal; a comma the scanner inserts at a line end equals a written one |
+| `*.go` | changed only; both versions scanned by `go/scanner` with comments skipped, token sequences equal (an inserted semicolon equals a written one); the directive comments (`//go:build`, `//go:embed`, `//line`, `//export`, any `//word:word`, `// +build`) equal in order; never a file that imports `"C"` |
+| a symlink or submodule, at any path | refused |
 | anything else, or an added, renamed or removed `.cue`/`.go` | refused, naming the file |
 
+The trees compared are the release tag's and the index of the temporary worktree after the cherry-picks (`git write-tree`), with `git diff-tree -r -M`. Every refusal names the file and why, and ends "a change to code needs a patch release".
+
 A change to `metadata.description` is a value change and is refused: the member's summary is part of its contract, so it needs a patch release.
+
+## Research & Decisions
+
+### Comparing code with comments removed (implementation finding)
+
+**Context**: D2 as planned compared formatted output: CUE parsed, comments removed, printed with `cue/format`; Go parsed without comments, printed with `go/printer`; bytes equal.
+**Explored**: a test of both printers on a doc comment added between two struct fields (`a: int` / `// b is b.` / `b: int`, and the Go equivalent). Both printers keep the line gap the removed comment leaves as a blank line, so the outputs differ and the commonest documentation fix, adding a field's doc comment, would be refused. Rewording a comment of the same length passes; adding or removing a comment line next to code does not.
+**Options considered**:
+1. Formatted-bytes equality as planned - false refusals of ordinary doc-comment fixes.
+2. Formatted bytes with blank lines removed - hides a change to a multi-line string's blank lines, a value change accepted.
+3. Token sequences with comments skipped - layout-blind and exact on every literal, identifier, operator and attribute; line ends that the language reads (Go's inserted semicolons, CUE's inserted commas) are tokens, so they are still compared.
+**Decision**: option 3, plus Go's directive comments compared separately and cgo files refused, since those comments are code that no syntax tree without comments sees (the planned check missed them too).
+**Rationale**: token equality means the same program, which is what "documentation only" needs; the only freedom it adds over option 1 is layout, which changes no value.
 
 ### D3. The workflow mode
 
@@ -69,4 +85,4 @@ Permissions as `release` (`contents: read`, `packages: write`, `id-token: write`
 | Decision | Lands in |
 |---|---|
 | A docs revision is the only way to change a published release's pages, and how to run one | `README.md` |
-| D1's steps and D2's table (the specs cite them) | `docs/contracts.md`, a new "Docs revisions" section |
+| D1's steps and D2's table (the specs cite them), and the token comparison | `docs/contracts.md`, a new "Docs revisions" section |
