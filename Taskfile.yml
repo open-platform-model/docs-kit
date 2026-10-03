@@ -25,6 +25,7 @@ tasks:
     desc: Format Go code (gofmt and goimports)
     cmds:
       - go fmt ./...
+      - go -C cobradump fmt ./...
       - goimports -w .
 
   fmt:check:
@@ -35,24 +36,35 @@ tasks:
         if [ -n "$out" ]; then echo "not gofmt-formatted:"; echo "$out"; exit 1; fi
 
   vet:
-    desc: Run go vet
+    desc: Run go vet (both modules)
     cmds:
       - go vet ./...
+      - go -C cobradump vet ./...
 
   lint:
-    desc: Run golangci-lint
+    desc: Run golangci-lint (both modules)
     cmds:
+      - golangci-lint run ./...
+      - task: lint:cobradump
+
+  lint:cobradump:
+    desc: Run golangci-lint in the nested cobradump module (finds ../.golangci.yml)
+    dir: cobradump
+    cmds:
+      - echo "golangci-lint cobradump/"
       - golangci-lint run ./...
 
   tidy:
-    desc: Tidy the Go module
+    desc: Tidy both Go modules
     cmds:
       - go mod tidy
+      - go -C cobradump mod tidy
 
   test:
-    desc: Run every Go test (offline; no registry, no cluster)
+    desc: Run every Go test, both modules (offline; no registry, no cluster)
     cmds:
       - go test ./...
+      - go -C cobradump test ./...
 
   openspec:install:
     desc: Install the openspec CLI at the version CI pins

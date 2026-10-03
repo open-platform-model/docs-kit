@@ -1,0 +1,292 @@
+{
+  "schema": "docs.opmodel.dev/cobradump/v1",
+  "name": "demo",
+  "path": "demo",
+  "short": "Demo manages widgets",
+  "long": "Demo manages widgets and the gadgets they hold.",
+  "example": "demo widget list",
+  "aliases": [
+    "dm"
+  ],
+  "useLine": "demo [flags]",
+  "runnable": false,
+  "flags": [
+    {
+      "name": "dry",
+      "shorthand": "",
+      "type": "bool",
+      "default": "false",
+      "usage": "Dry run"
+    }
+  ],
+  "globalFlags": [
+    {
+      "name": "config",
+      "shorthand": "",
+      "type": "string",
+      "default": "~/.demo/config.cue",
+      "usage": "Path to config file (env: DEMO_CONFIG)"
+    },
+    {
+      "name": "verbose",
+      "shorthand": "v",
+      "type": "bool",
+      "default": "false",
+      "usage": "Enable verbose output"
+    }
+  ],
+  "commands": [
+    {
+      "path": "demo completion",
+      "name": "completion",
+      "use": "completion",
+      "useLine": "demo completion [flags]",
+      "short": "Generate the autocompletion script for the specified shell",
+      "long": "Generate the autocompletion script for demo for the specified shell.\nSee each sub-command's help for details on how to use the generated script.\n",
+      "example": "",
+      "aliases": [],
+      "runnable": false,
+      "flags": [],
+      "inheritedFlags": [],
+      "commands": [
+        {
+          "path": "demo completion bash",
+          "name": "bash",
+          "use": "bash",
+          "useLine": "demo completion bash",
+          "short": "Generate the autocompletion script for bash",
+          "long": "Generate the autocompletion script for the bash shell.\n\nThis script depends on the 'bash-completion' package.\nIf it is not installed already, you can install it via your OS's package manager.\n\nTo load completions in your current shell session:\n\n\tsource <(demo completion bash)\n\nTo load completions for every new session, execute once:\n\n#### Linux:\n\n\tdemo completion bash > /etc/bash_completion.d/demo\n\n#### macOS:\n\n\tdemo completion bash > $(brew --prefix)/etc/bash_completion.d/demo\n\nYou will need to start a new shell for this setup to take effect.\n",
+          "example": "",
+          "aliases": [],
+          "runnable": true,
+          "flags": [
+            {
+              "name": "no-descriptions",
+              "shorthand": "",
+              "type": "bool",
+              "default": "false",
+              "usage": "disable completion descriptions"
+            }
+          ],
+          "inheritedFlags": [],
+          "commands": []
+        },
+        {
+          "path": "demo completion fish",
+          "name": "fish",
+          "use": "fish",
+          "useLine": "demo completion fish [flags]",
+          "short": "Generate the autocompletion script for fish",
+          "long": "Generate the autocompletion script for the fish shell.\n\nTo load completions in your current shell session:\n\n\tdemo completion fish | source\n\nTo load completions for every new session, execute once:\n\n\tdemo completion fish > ~/.config/fish/completions/demo.fish\n\nYou will need to start a new shell for this setup to take effect.\n",
+          "example": "",
+          "aliases": [],
+          "runnable": true,
+          "flags": [
+            {
+              "name": "no-descriptions",
+              "shorthand": "",
+              "type": "bool",
+              "default": "false",
+              "usage": "disable completion descriptions"
+            }
+          ],
+          "inheritedFlags": [],
+          "commands": []
+        },
+        {
+          "path": "demo completion powershell",
+          "name": "powershell",
+          "use": "powershell",
+          "useLine": "demo completion powershell [flags]",
+          "short": "Generate the autocompletion script for powershell",
+          "long": "Generate the autocompletion script for powershell.\n\nTo load completions in your current shell session:\n\n\tdemo completion powershell | Out-String | Invoke-Expression\n\nTo load completions for every new session, add the output of the above command\nto your powershell profile.\n",
+          "example": "",
+          "aliases": [],
+          "runnable": true,
+          "flags": [
+            {
+              "name": "no-descriptions",
+              "shorthand": "",
+              "type": "bool",
+              "default": "false",
+              "usage": "disable completion descriptions"
+            }
+          ],
+          "inheritedFlags": [],
+          "commands": []
+        },
+        {
+          "path": "demo completion zsh",
+          "name": "zsh",
+          "use": "zsh",
+          "useLine": "demo completion zsh [flags]",
+          "short": "Generate the autocompletion script for zsh",
+          "long": "Generate the autocompletion script for the zsh shell.\n\nIf shell completion is not already enabled in your environment you will need\nto enable it.  You can execute the following once:\n\n\techo \"autoload -U compinit; compinit\" >> ~/.zshrc\n\nTo load completions in your current shell session:\n\n\tsource <(demo completion zsh)\n\nTo load completions for every new session, execute once:\n\n#### Linux:\n\n\tdemo completion zsh > \"${fpath[1]}/_demo\"\n\n#### macOS:\n\n\tdemo completion zsh > $(brew --prefix)/share/zsh/site-functions/_demo\n\nYou will need to start a new shell for this setup to take effect.\n",
+          "example": "",
+          "aliases": [],
+          "runnable": true,
+          "flags": [
+            {
+              "name": "no-descriptions",
+              "shorthand": "",
+              "type": "bool",
+              "default": "false",
+              "usage": "disable completion descriptions"
+            }
+          ],
+          "inheritedFlags": [],
+          "commands": []
+        }
+      ]
+    },
+    {
+      "path": "demo version",
+      "name": "version",
+      "use": "version",
+      "useLine": "demo version [flags]",
+      "short": "Show version information",
+      "long": "Show version information.\n\nDisplays:\n  - version, commit and build date\n  - the SDK version",
+      "example": "",
+      "aliases": [],
+      "runnable": true,
+      "flags": [],
+      "inheritedFlags": [],
+      "commands": []
+    },
+    {
+      "path": "demo widget",
+      "name": "widget",
+      "use": "widget",
+      "useLine": "demo widget [flags]",
+      "short": "Work with widgets",
+      "long": "Work with widgets.\n\nUse this group to create and list widgets. Each widget lives in a 'demo.cue' file\nunder ./widgets/.",
+      "example": "",
+      "aliases": [
+        "w"
+      ],
+      "runnable": false,
+      "flags": [
+        {
+          "name": "context",
+          "shorthand": "",
+          "type": "string",
+          "default": "",
+          "usage": "Kubernetes context | cluster"
+        },
+        {
+          "name": "namespace",
+          "shorthand": "n",
+          "type": "string",
+          "default": "default",
+          "usage": "Target namespace"
+        }
+      ],
+      "inheritedFlags": [],
+      "commands": [
+        {
+          "path": "demo widget create",
+          "name": "create",
+          "use": "create <name> [flags]",
+          "useLine": "demo widget create <name> [flags]",
+          "short": "Create a widget.",
+          "long": "Create a widget from a template.\n\n\tThe template is read from --template <dir>, or the built-in one.\n\n\tArguments:\n\t  name   The widget name, e.g. web_app\n\t         (kebab-case).\n\n\tSteps:\n\t  - render the template\n\t  - write the widget\n\n\tExamples:\n\t  # Create from the built-in template\n\t  demo widget create web\n\n\t  demo widget create web --template ./tpl\n",
+          "example": "  demo widget create api\n  demo w create {{< x >}}",
+          "aliases": [],
+          "runnable": true,
+          "flags": [
+            {
+              "name": "cache",
+              "shorthand": "",
+              "type": "string",
+              "default": "~/.cache/demo",
+              "usage": "Cache directory"
+            },
+            {
+              "name": "label",
+              "shorthand": "",
+              "type": "stringSlice",
+              "default": "[]",
+              "usage": "Labels, key=value"
+            },
+            {
+              "name": "replicas",
+              "shorthand": "",
+              "type": "int",
+              "default": "1",
+              "usage": "Replica count"
+            },
+            {
+              "name": "rootfs",
+              "shorthand": "",
+              "type": "string",
+              "default": "/home/uu/rootfs",
+              "usage": "Not under the home directory"
+            },
+            {
+              "name": "template",
+              "shorthand": "",
+              "type": "string",
+              "default": "",
+              "usage": "Template directory"
+            },
+            {
+              "name": "timeout",
+              "shorthand": "",
+              "type": "duration",
+              "default": "0s",
+              "usage": "How long to wait"
+            }
+          ],
+          "inheritedFlags": [
+            {
+              "name": "context",
+              "shorthand": "",
+              "type": "string",
+              "default": "",
+              "usage": "Kubernetes context | cluster"
+            },
+            {
+              "name": "namespace",
+              "shorthand": "n",
+              "type": "string",
+              "default": "default",
+              "usage": "Target namespace"
+            }
+          ],
+          "commands": []
+        },
+        {
+          "path": "demo widget list",
+          "name": "list",
+          "use": "list",
+          "useLine": "demo widget list [flags]",
+          "short": "List widgets",
+          "long": "",
+          "example": "",
+          "aliases": [
+            "ls"
+          ],
+          "runnable": true,
+          "flags": [],
+          "inheritedFlags": [
+            {
+              "name": "context",
+              "shorthand": "",
+              "type": "string",
+              "default": "",
+              "usage": "Kubernetes context | cluster"
+            },
+            {
+              "name": "namespace",
+              "shorthand": "n",
+              "type": "string",
+              "default": "default",
+              "usage": "Target namespace"
+            }
+          ],
+          "commands": []
+        }
+      ]
+    }
+  ]
+}
