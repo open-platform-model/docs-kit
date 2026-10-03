@@ -25,6 +25,7 @@ type Config struct {
 	Title       string            `json:"title"`
 	Description string            `json:"description"`
 	Weight      int               `json:"weight"`
+	Intro       string            `json:"intro"`
 	Pages       []PageConfig      `json:"pages"`
 	Exclude     map[string]string `json:"exclude"` // definition -> reason
 }
@@ -98,6 +99,7 @@ func Extract(o Options) (*Model, error) {
 	m := &Model{
 		Schema: SchemaID, ModulePath: modPath, Version: o.Version,
 		Section: cfg.Section, Title: cfg.Title, Description: cfg.Description, Weight: cfg.Weight,
+		Intro: cfg.Intro,
 	}
 	pageOf := map[string]string{}
 	for i, p := range pages {

@@ -36,6 +36,10 @@ func TestCueDefinitionsConfig(t *testing.T) {
 		{"section without slash", src(strings.Replace(base, `"reference/definitions/"`, `"reference/definitions"`, 1) + `pages: [` + page + `]`), false},
 		{"exclude without reason", src(base + `pages: [` + page + `], exclude: {"#X": ""}`), false},
 		{"exclude a non-definition", src(base + `pages: [` + page + `], exclude: {"X": "why"}`), false},
+		{"package with ..", src(strings.Replace(base, `"./src"`, `"./src/../../etc"`, 1) + `pages: [` + page + `]`), false},
+		{"package ending ..", src(strings.Replace(base, `"./src"`, `"./.."`, 1) + `pages: [` + page + `]`), false},
+		{"intro", src(base + `intro: "Read me.", pages: [` + page + `]`), true},
+		{"empty intro", src(base + `intro: "", pages: [` + page + `]`), false},
 		{"weight zero", src(base + `weight: 0, pages: [` + page + `]`), false},
 		{"unknown field", src(base + `module: "./src", pages: [` + page + `]`), false},
 	} {

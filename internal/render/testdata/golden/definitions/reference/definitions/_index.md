@@ -4,7 +4,7 @@ description: "Every definition of the fixture."
 weight: 2
 ---
 
-Every definition below belongs to `example.com/defs@v1`, the CUE module every OPM artifact is typed against. An entry's summary, notes and field comments come from the definition's doc comment; its spec, the definitions it uses and the rules CUE enforces are read off the CUE source.
+Every definition below belongs to `example.com/defs@v1`.
 
 ## Pages
 

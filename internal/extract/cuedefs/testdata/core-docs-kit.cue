@@ -12,6 +12,7 @@ bundles: core: {
 		title:       "Definitions"
 		description: "Every OPM definition type, generated from the CUE schema in core."
 		weight:      1
+		intro:       "Every definition below belongs to `opmodel.dev/core@v2`, the CUE module every OPM artifact is typed against. An entry's summary, notes and field comments come from the definition's doc comment; its spec, the definitions it uses and the rules CUE enforces are read off the CUE source."
 		pages: [
 			{
 				file:        "modules-and-instances"

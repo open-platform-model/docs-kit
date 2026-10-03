@@ -107,9 +107,10 @@ func (r *defsRender) index() (Page, error) {
 		}
 	}
 	tail := b.String()
-	intro := "Every definition below belongs to `" + r.m.ModulePath + "`, the CUE module every OPM artifact is typed against. " +
-		"An entry's summary, notes and field comments come from the definition's doc comment; " +
-		"its spec, the definitions it uses and the rules CUE enforces are read off the CUE source."
+	intro := r.m.Intro
+	if intro == "" {
+		intro = "Every definition below belongs to " + mdtext.Code(r.m.ModulePath) + "."
+	}
 	body, err := execute("defs-index.md.tmpl", map[string]any{
 		"Title": r.m.Title, "Description": r.m.Description, "Weight": r.m.Weight,
 		"Intro": intro, "Tail": strings.TrimRight(tail, "\n"),

@@ -54,7 +54,7 @@ package schema
 // into reference pages by the author's inclusion list (docs-kit C17).
 #CueDefinitions: {
 	kind:    "cue-definitions"
-	package: =~"^\\./"       // the package directory, repo-relative: "./src"
+	package: =~"^\\./" & !~"(^|/)\\.\\.(/|$)" // the package directory, repo-relative: "./src"
 	skip:    *[] | [...string] // path.Match globs on file base names: ["*_pins.cue"]
 	// The directory the pages are written to, one of the bundle's owned
 	// paths: "reference/definitions/".
@@ -62,6 +62,9 @@ package schema
 	title:       string & !="" // the section index's front matter
 	description: string & !=""
 	weight?:     int & >=1 // the section index's weight among its siblings
+	// The section index's opening paragraph, Markdown; without it the
+	// index names the package's module path.
+	intro?: string & !=""
 	pages: [#DefPage, ...#DefPage]
 	// Exported definitions left out of the pages, each with the reason.
 	exclude: [=~"^#"]: string & !=""
