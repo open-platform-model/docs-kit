@@ -58,9 +58,11 @@ Slugs, titles and descriptions per document are the site adapter's today (`probl
 
 ### D3. Transforms
 
-Applied to each Markdown file, in order: (1) refuse `{{<` or `{{%` (exit 2 naming the file); (2) remove HTML comments (`<!--` to `-->`, across lines); (3) remove the first `# ` heading line and the blank lines after it; (4) tag every opening code fence without a language as `text`; (5) resolve links, inline and reference definitions, outside code fences and code spans, by the site link hook's rules as the spec lists them, with the repository path list taken from `git ls-tree -r` at the commit built; (6) replace a link text that equals the target's file name by the target page's title (`INDEX.md` "the index", `GRAPH.md` "the relationship graph", others the target page's `title`). Root-absolute `/docs/` links pass through (docs-mode rules apply, and the site's link check resolves them).
+Applied to each Markdown file, in order: (1) refuse `{{<` or `{{%` on any line, code fences included (exit 2 naming the file and line); (2) remove HTML comments (`<!--` to `-->`, across lines) outside code fences and code spans, a line that held nothing but comments removed whole (so a comment inside a table or list does not split it), an unclosed `<!--` refused (exit 2); (3) remove the leading blank lines and, when the first line left is a `# ` heading, that line and the blank lines after it; then, outside code fences (the lint's fence rule: up to three spaces, a closing run of the same character at least as long): (4) tag every opening code fence without a language as `text`; (5) resolve links, inline and reference definitions, outside code spans, by the site link hook's rules as the spec lists them, with the repository path list taken from `git ls-tree -r -t` at the commit built: the resolved path must exist at that commit, an entry or document link included (so `0010/` for an entry archived at `archive/0010/` fails, as the repository's `check-links.sh` fails it); (6) replace a link text that equals the target's file name (one code span around it allowed) by the target page's title (`INDEX.md` "the index", `GRAPH.md` "the relationship graph", others the target page's `title`), escaped as prose; (7) escape (`\<`) a `<` outside code spans that would open raw HTML (followed by a letter, `/`, `!` or `?`), an autolink excepted: the site renders raw HTML, and enhancement text is untrusted input to it. Root-absolute links pass through (the lint checks their form; the site's link check resolves `/docs/` ones); `http:`, `https:` and `mailto:` pass; any other scheme is refused (exit 2). A `?query` is dropped, a fragment kept, `%`-escapes decoded before the lookup and each segment escaped again in a GitHub URL.
 
 What these transforms do not fix (raw HTML lines, component-tag-like lines, images) is a lint violation that fails the build; the spike (section 1) lists them, and the enhancements sibling fixes them in its sources. The lint is never relaxed for a section (Principle III).
+
+**Where the pages come from** (spike finding). The enhancements source builds its pages itself: `internal/extract/enhancements` reads and transforms, `render.Enhancements` writes each page's front matter, and the build adapter returns them with the data file (`Data.Pages`), so no renderer reads `data/enhancements.json` for them. The data file stays exactly D4, header data only; carrying 2.8 MB of page bodies in it so that a schema-registered renderer could read them back would double the bundle and load every body into the site's data. The pages are recorded `generated: true` with `source` and `lastmod`, and never carry `edit` (C8: a section page has none; `#Manifest` refuses one). The source takes no `citations`: its text is authored, and a decision citation is the design record itself.
 
 ### D4. Data model (C21)
 
@@ -119,6 +121,30 @@ No new command or flag. Exit codes as C6 and C7.
 ### Section root fixed to `/enhancements/` (decided in planning)
 
 **Decision**: a generic section root waits for a second section (Principle VI); the schema names the one root.
+
+## Spike findings
+
+Run 2026-10-03 against enhancements `main` at `19be107` (218 published files: `INDEX.md`, `GRAPH.md`, 27 entries with README and seven documents each; 0000 skipped), with the D3 transforms in `internal/extract/enhancements` and `opm-docs build` (bundle-mode lint) over the result; the enhancements repository's `scripts/check-links.sh` run beside it.
+
+| Transform | Applied |
+|---|---|
+| (1) shortcode delimiters | none found |
+| (2) HTML comments removed | 2 (the generator notes in `INDEX.md` and `GRAPH.md`) |
+| (3) first heading removed | every file |
+| (4) untagged fences tagged `text` | 81 (the planning estimate) |
+| (5) links resolved | 375 to section pages, 155 to GitHub (97 `blob`, 58 `tree`); none dangling, none escaping |
+| (6) file-name link texts replaced | 281 (one, `spec.md` naming a schema file, is no page and stays) |
+| (7) `<` escaped | none: the text holds no raw HTML |
+
+**Lint violations after the transforms: one.**
+
+| Rule | Count | File | Cause |
+|---|---|---|---|
+| link form (`internal links are root-absolute ...`) | 1 | `archive/0001/03-decisions.md:87` (page `0001/decisions.md:92`) | a regular expression in a code span holds `](` (`...[a-z0-9]([a-z0-9-]*...`), and the lint's inline-link pattern, like the site's shell lint, does not skip code spans |
+
+**Link verdicts agree.** `check-links.sh` passes all 218 files and the bundle's resolution refuses none. The two differ only in constructs `main` does not hold today: `check-links.sh` treats a fence at any indentation as a fence and only single-backtick code spans as code, reports a root-absolute link and checks images; the bundle reads fences as the dialect lint does (at most three spaces), code spans of any length, passes root-absolute links to the lint and refuses a scheme other than `http`, `https` and `mailto`. None of them occurs on `main` (no fence indented four or more spaces, no double-backtick span holding a link).
+
+**Decided.** The enhancements sibling (enhancements#86) fixes the one violation in its source, mechanically: the regular expression in `archive/0001/03-decisions.md` D-entry moves into a fenced `text` block (or its `](` is otherwise broken), with the entry's gate files re-hashed. No transform is added for it: rewriting code-span text is not meaning-preserving, and the lint is not relaxed. Transform (7) is added to D3 as a guard (meaning-preserving, a no-op on `main`), and (2) and (5) are tightened as D3 states (comments in code kept; entry and document links must name a path at the commit, matching `check-links.sh`). Skipping code spans in the lint's link check is a dialect rule change for every mode and both linters (C11 re-sync), left out of this change.
 
 ## Risks / Trade-offs
 

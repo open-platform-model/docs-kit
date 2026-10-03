@@ -4,9 +4,9 @@ Gate: `generalize-build-assembly` and `pull-docs-placement` are merged on docs-k
 
 ## 1. Spike: the enhancements repository through the transforms and the lint
 
-- [ ] 1.1 A throwaway program (not committed) applying design.md D3's transforms to the enhancements repository's `main` and running `opm-docs lint --bundle` over the result with a generated manifest; also run the enhancements repository's `scripts/check-links.sh` and compare the two link verdicts. Verify: the violation list (rule, count, files) and the link disagreements are written into design.md under "Spike findings".
-- [ ] 1.2 Decide from the findings, in design.md: which violations the enhancements sibling must fix in its sources, and whether any transform belongs in D3 (only a mechanical, meaning-preserving one). Verify: design.md D3 and "Spike findings" agree.
-- [ ] 1.3 `task check` green, then commit `docs(openspec): record the enhancements lint spike`.
+- [x] 1.1 A throwaway program (not committed) applying design.md D3's transforms to the enhancements repository's `main` and running `opm-docs lint --bundle` over the result with a generated manifest; also run the enhancements repository's `scripts/check-links.sh` and compare the two link verdicts. Verify: the violation list (rule, count, files) and the link disagreements are written into design.md under "Spike findings".
+- [x] 1.2 Decide from the findings, in design.md: which violations the enhancements sibling must fix in its sources, and whether any transform belongs in D3 (only a mechanical, meaning-preserving one). Verify: design.md D3 and "Spike findings" agree.
+- [x] 1.3 `task check` green, then commit `docs(openspec): record the enhancements lint spike`.
 
 ## 2. The section placement
 
