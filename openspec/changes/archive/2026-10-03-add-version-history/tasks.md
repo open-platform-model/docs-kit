@@ -22,5 +22,5 @@ Gate: none in docs-kit (starts on `main` at `v0.2.1` or later). One PR, titled `
 
 ## 4. Archive (rides this PR)
 
-- [ ] 4.1 `openspec archive add-version-history --yes`. Verify: `task openspec:check` green; every durable decision landed.
-- [ ] 4.2 `task check` green, then commit `chore(openspec): archive add-version-history`.
+- [x] 4.1 `openspec archive add-version-history --yes`. Verify: `task openspec:check` green; every durable decision landed.
+- [x] 4.2 `task check` green, then commit `chore(openspec): archive add-version-history`.
