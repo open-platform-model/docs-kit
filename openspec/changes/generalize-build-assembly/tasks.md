@@ -4,10 +4,10 @@ Gate: none (docs-kit `main`). One PR, titled `feat: build docs-placed bundles fr
 
 ## 1. The registry, with catalog output unchanged
 
-- [ ] 1.1 `internal/build`: the `Extractor` registry and `Input`/`Data` (design.md D1); `cue-catalog` and `markdown` behind it. Verify: `go test ./internal/build/... ./internal/render/... ./internal/extract/...` with the existing goldens and `catalog.golden.json` unchanged.
-- [ ] 1.2 `internal/render`: the `Renderer` registry keyed by data schema, `Target.Kind`, the catalog renderer registered. Verify: `TestCatalogOPMParity` (when its checkout is present) and the render goldens unchanged.
-- [ ] 1.3 A test that builds the catalog fixture and packs it, comparing the digest with one recorded before this section. Verify: the test passes.
-- [ ] 1.4 `task check` green, then commit `refactor(build): register extractors and renderers by kind and schema`.
+- [x] 1.1 `internal/build`: the `Extractor` registry and `Input`/`Data` (design.md D1); `cue-catalog` and `markdown` behind it. Verify: `go test ./internal/build/... ./internal/render/... ./internal/extract/...` with the existing goldens and `catalog.golden.json` unchanged.
+- [x] 1.2 `internal/render`: the `Renderer` registry keyed by data schema, `Target.Kind`, the catalog renderer registered. Verify: `TestCatalogOPMParity` (when its checkout is present) and the render goldens unchanged.
+- [x] 1.3 A test that builds the catalog fixture and packs it, comparing the digest with one recorded before this section. Verify: the test passes.
+- [x] 1.4 `task check` green, then commit `refactor(build): register extractors and renderers by kind and schema`.
 
 ## 2. Docs placement, completable pages, include and exclude
 

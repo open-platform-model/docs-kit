@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 	"text/template"
@@ -23,19 +22,32 @@ var templates = template.Must(template.New("").Funcs(template.FuncMap{
 	"yaml": mdtext.YAMLString,
 }).ParseFS(templateFiles, "templates/*.tmpl"))
 
+// Placement kinds a Target is rendered for.
+const (
+	KindTab  = "tab"
+	KindDocs = "docs"
+)
+
 // Target is the bundle the pages are rendered for.
 type Target struct {
-	Root    string // placement root, "/catalogs/opm/"
-	Segment string // "4.4" or "edge"
+	Kind    string // "tab" (also when empty) or "docs"
+	Root    string // placement root, "/catalogs/opm/" or "/docs/"
+	Segment string // a tab's "4.4" or "edge"; unused for docs
 	Edge    bool
+	Version string // "4.4.5" or "edge"
 	Repo    string // "open-platform-model/catalog_opm"
 	Commit  string // the 40-hex source commit
 }
 
 // URL is the published URL of a page path under the bundle ("" is the
-// landing; "traits/backup" a member page).
+// landing; "traits/backup" a member page): <root><segment>/<page>/ for a
+// tab, /docs/<page>/ for a docs bundle, whose pages publish under the site
+// version that pulls it.
 func (t Target) URL(page string) string {
-	u := t.Root + t.Segment + "/"
+	u := t.Root
+	if t.Kind != KindDocs {
+		u += t.Segment + "/"
+	}
 	if page != "" {
 		u += page + "/"
 	}
@@ -45,7 +57,16 @@ func (t Target) URL(page string) string {
 // Page is one rendered file under content/.
 type Page struct {
 	Path string // relative to content/, "traits/backup.md"
-	Body string
+	Body string // the page standing alone, front matter included
+	// Completable: an authored page at Path from a markdown source of the
+	// same bundle comes first, and Tail follows it (Complete).
+	Completable bool
+	// Heading is Tail's first heading line ("## Catalog members"); an
+	// authored page that already holds it is refused.
+	Heading string
+	// Tail is the generated body without front matter, appended to an
+	// authored page.
+	Tail string
 }
 
 // Member kinds, as the doc model names them.
@@ -381,7 +402,8 @@ func Block(m *cuecatalog.Model, t Target) (string, error) {
 	}{CatalogRef(m, t), ks})
 }
 
-var reMembersHeading = regexp.MustCompile(`(?m)^##[ \t]+Catalog members[ \t]*$`)
+// membersHeading is the landing's generated section heading.
+const membersHeading = "## Catalog members"
 
 // Landing renders the bundle's _index.md. With an authored landing, its
 // front matter and body come first, then one blank line and the block; an
@@ -393,10 +415,7 @@ func Landing(m *cuecatalog.Model, t Target, authored, name string) (string, erro
 		return "", err
 	}
 	if authored != "" {
-		if reMembersHeading.MatchString(authored) {
-			return "", fmt.Errorf("%s already holds a %q heading; the build appends that section, so remove it from the authored page", name, "## Catalog members")
-		}
-		return strings.TrimRight(authored, "\n") + "\n\n" + block, nil
+		return Complete(authored, name, Page{Heading: membersHeading, Tail: block})
 	}
 	catalog := strings.TrimSuffix(strings.TrimPrefix(t.Root, "/catalogs/"), "/")
 	return execute("landing.md.tmpl", struct{ Title, Description, Block string }{

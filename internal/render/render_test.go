@@ -144,3 +144,55 @@ func TestAuthoredLanding(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestRegistry(t *testing.T) {
+	r, err := For(cuecatalog.SchemaID)
+	if err != nil || r.Schema() != cuecatalog.SchemaID {
+		t.Fatalf("catalog renderer: %v", err)
+	}
+	if _, err := For("docs.opmodel.dev/data/nope/v1"); err == nil {
+		t.Fatal("an unknown data schema has a renderer")
+	}
+}
+
+// The registered catalog renderer writes the golden pages, its landing
+// completable by an authored one.
+func TestCatalogRendererMatchesGolden(t *testing.T) {
+	data, err := fixtureModel(t).Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, _ := For(cuecatalog.SchemaID)
+	pages, err := r.Render(data, Target{Kind: KindTab, Root: "/catalogs/demo/", Segment: "1.2", Repo: "example/demo", Commit: commit})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range pages {
+		want, err := os.ReadFile(filepath.Join("testdata", "golden", "release", p.Path))
+		if err != nil || string(want) != p.Body {
+			t.Errorf("%s differs from its golden page (%v)", p.Path, err)
+		}
+		if p.Completable != (p.Path == "_index.md") {
+			t.Errorf("%s completable = %v", p.Path, p.Completable)
+		}
+		if p.Completable {
+			got, err := Complete("---\ntitle: \"x\"\n---\n\nIntro.\n", "a.md", p)
+			if err != nil || !strings.HasPrefix(got, "---\ntitle: \"x\"\n---\n\nIntro.\n\n## Catalog members\n") {
+				t.Errorf("completed landing %q, %v", got, err)
+			}
+			if _, err := Complete("Intro.\n\n##  Catalog members \n", "a.md", p); err == nil || !strings.Contains(err.Error(), "a.md") {
+				t.Errorf("heading collision: %v", err)
+			}
+		}
+	}
+}
+
+func TestDocsTargetURL(t *testing.T) {
+	tg := Target{Kind: KindDocs, Root: "/docs/", Segment: "1.0"}
+	if u := tg.URL("reference/cli/opm-module"); u != "/docs/reference/cli/opm-module/" {
+		t.Fatalf("docs URL %s", u)
+	}
+	if u := (Target{Root: "/catalogs/opm/", Segment: "4.4"}).URL("traits/backup"); u != "/catalogs/opm/4.4/traits/backup/" {
+		t.Fatalf("tab URL %s", u)
+	}
+}

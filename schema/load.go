@@ -64,3 +64,25 @@ func Def(name string) (*cue.Context, cue.Value, error) {
 	}
 	return c, d, nil
 }
+
+// SourceKinds lists the source kinds #Source admits, in schema order: the
+// kind of each branch of its disjunction.
+func SourceKinds() ([]string, error) {
+	_, d, err := Def("#Source")
+	if err != nil {
+		return nil, err
+	}
+	branches := []cue.Value{d}
+	if op, args := d.Expr(); op == cue.OrOp {
+		branches = args
+	}
+	kinds := make([]string, 0, len(branches))
+	for _, b := range branches {
+		k, err := b.LookupPath(cue.ParsePath("kind")).String()
+		if err != nil {
+			return nil, fmt.Errorf("a #Source branch has no concrete kind: %w", err)
+		}
+		kinds = append(kinds, k)
+	}
+	return kinds, nil
+}

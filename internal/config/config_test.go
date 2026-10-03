@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"cuelang.org/go/cue"
 )
 
 const validConfig = `bundles: {
@@ -43,8 +45,8 @@ func TestLoad(t *testing.T) {
 			wantErr: []string{"docs-kit.cue:", "root"}},
 		{name: "no sources", body: strings.Replace(validConfig, "sources: [\n\t\t\t{kind: \"cue-catalog\", module: \"./opm\"},\n\t\t\t{kind: \"markdown\", dir: \"docs/catalogs/opm\"},\n\t\t]", "sources: []", 1),
 			wantErr: []string{"sources"}},
-		{name: "unknown source kind", body: strings.Replace(validConfig, `kind: "markdown"`, `kind: "crd"`, 1),
-			wantErr: []string{"docs-kit.cue:"}},
+		{name: "unknown source kind", body: strings.Replace(validConfig, `kind: "markdown"`, `kind: "javadoc"`, 1),
+			wantErr: []string{"docs-kit.cue:", `"javadoc"`, "cue-catalog, markdown"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -66,6 +68,9 @@ func TestLoad(t *testing.T) {
 			b := got.Bundles["catalog-opm"]
 			if b.Placement.Root != "/catalogs/opm/" || b.Version.Prefix != "opm-v" || len(b.Sources) != 2 || b.Sources[1].Dir != "docs/catalogs/opm" {
 				t.Fatalf("decoded %+v", b)
+			}
+			if m, err := b.Sources[0].Value.LookupPath(cue.ParsePath("module")).String(); err != nil || m != "./opm" {
+				t.Fatalf("the cue-catalog entry's own value: %q, %v", m, err)
 			}
 			if p := got.Projects(); len(p) != 1 || p[0] != "catalog-opm" {
 				t.Fatalf("projects %v", p)

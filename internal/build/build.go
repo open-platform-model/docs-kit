@@ -16,7 +16,6 @@ import (
 	"github.com/open-platform-model/docs-kit/internal/bundle"
 	"github.com/open-platform-model/docs-kit/internal/config"
 	"github.com/open-platform-model/docs-kit/internal/dialect"
-	"github.com/open-platform-model/docs-kit/internal/extract/cuecatalog"
 	"github.com/open-platform-model/docs-kit/internal/extract/markdown"
 	"github.com/open-platform-model/docs-kit/internal/gitsrc"
 	"github.com/open-platform-model/docs-kit/internal/render"
@@ -268,8 +267,6 @@ type assembly struct {
 	repo    gitsrc.Repo
 	written map[string]string // content path -> the source that wrote it
 	patched map[string]string // a docs revision: patched file -> its newest patch's date
-	model   *cuecatalog.Model
-	landing *markdown.Page
 }
 
 // lastmod is a source file's last commit date at the commit built; in a
@@ -284,60 +281,152 @@ func (s *assembly) lastmod(path string) string {
 
 func (s *assembly) target() render.Target {
 	return render.Target{
+		Kind:    s.m.Placement.Kind,
 		Root:    s.m.Placement.Root,
 		Segment: s.id.build.Segment(),
 		Edge:    s.id.build.Edge,
+		Version: s.id.version,
 		Repo:    s.id.repo,
 		Commit:  s.id.commit,
 	}
 }
 
+// authored is one markdown source's pages.
+type authored struct {
+	label string // "markdown docs/catalogs/opm"
+	pages []markdown.Page
+}
+
+// extracted is one extractor source's data file and, once rendered, its
+// pages.
+type extracted struct {
+	kind  string
+	data  Data
+	pages []render.Page
+}
+
+// sources runs every source in config order, then every renderer in the
+// same order, then writes the authored pages and the generated ones; an
+// authored page at the path of a completable generated page completes it.
 func (s *assembly) sources(b config.Bundle, cfgPath string, outside bool) error {
-	for _, src := range b.Sources {
-		var err error
-		switch src.Kind {
-		case "cue-catalog":
-			err = s.cueCatalog(src)
-		case "markdown":
-			err = s.markdown(src, cfgPath, outside)
-		default:
-			err = &UsageError{fmt.Errorf("%s: source kind %q is not built by this opm-docs", cfgPath, src.Kind)}
+	docs, gen, err := s.extract(b, cfgPath, outside)
+	if err != nil {
+		return err
+	}
+	completable, err := s.render(gen)
+	if err != nil {
+		return err
+	}
+	completing := map[string]markdown.Page{}
+	for _, a := range docs {
+		for _, p := range a.pages {
+			if !completable[p.Path] {
+				if err := s.write(p.Path, p.Body, a.label, bundle.Page{Path: p.Path, Source: p.Source, Lastmod: p.Lastmod}); err != nil {
+					return err
+				}
+				continue
+			}
+			if prev, ok := completing[p.Path]; ok {
+				return fmt.Errorf("content/%s is written by both %s and %s", p.Path, prev.Source, p.Source)
+			}
+			completing[p.Path] = p
 		}
-		if err != nil {
+	}
+	for _, e := range gen {
+		if err := s.writeGenerated(e, completing); err != nil {
 			return err
 		}
 	}
-	return s.renderCatalog()
+	return nil
 }
 
-func (s *assembly) cueCatalog(src config.Source) error {
-	if s.model != nil {
-		return fmt.Errorf("two cue-catalog sources in one bundle; a bundle documents one catalog")
+// extract copies every markdown source and runs every extractor, writing
+// its data file.
+func (s *assembly) extract(b config.Bundle, cfgPath string, outside bool) ([]authored, []*extracted, error) {
+	var docs []authored
+	var gen []*extracted
+	byKind := map[string]int{}
+	for i, src := range b.Sources {
+		if src.Kind == markdownKind {
+			pages, err := s.markdown(src, cfgPath, outside)
+			if err != nil {
+				return nil, nil, err
+			}
+			docs = append(docs, authored{label: "markdown " + src.Dir, pages: pages})
+			continue
+		}
+		ex, ok := extractorFor(src.Kind)
+		if !ok {
+			return nil, nil, &UsageError{fmt.Errorf("%s: source kind %q is not built by this opm-docs", cfgPath, src.Kind)}
+		}
+		if j, dup := byKind[src.Kind]; dup {
+			return nil, nil, &UsageError{fmt.Errorf("%s: sources[%d] and sources[%d] are both %s; a bundle holds one source of each extractor kind", cfgPath, j, i, src.Kind)}
+		}
+		byKind[src.Kind] = i
+		d, err := ex.Extract(s.ctx, Input{Source: s.o.Source, Config: src.Value, Version: s.id.version, Release: s.o.Release, Outside: outside})
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := os.WriteFile(filepath.Join(s.dir, bundle.DataDir, d.File), d.Bytes, 0o644); err != nil { //nolint:gosec // published content
+			return nil, nil, err
+		}
+		s.m.Data = append(s.m.Data, bundle.DataFile{Path: d.File, Schema: d.Schema})
+		gen = append(gen, &extracted{kind: src.Kind, data: d})
 	}
-	model, err := cuecatalog.Extract(cuecatalog.Options{Root: s.o.Source, Module: src.Module})
-	if err != nil {
-		return fmt.Errorf("cue-catalog %s: %w", src.Module, err)
-	}
-	// A release bundle is tagged with the tag's version; the catalog must
-	// declare the same one, or its pages would contradict their tag.
-	if !s.id.build.Edge && model.Version != s.id.version {
-		return fmt.Errorf("--release %s names version %s, but the catalog %s declares metadata.version %q; build the tag of the catalog's version, or advance the catalog's version on the release commit", s.id.ref, s.id.version, src.Module, model.Version)
-	}
-	data, err := model.Encode()
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(filepath.Join(s.dir, bundle.DataDir, cuecatalog.DataFile), data, 0o644); err != nil { //nolint:gosec // published content
-		return err
-	}
-	s.m.Data = append(s.m.Data, bundle.DataFile{Path: cuecatalog.DataFile, Schema: cuecatalog.SchemaID})
-	// The renderer reads the doc model as written, never the extractor's
-	// value.
-	s.model, err = cuecatalog.Decode(data)
-	return err
+	return docs, gen, nil
 }
 
-func (s *assembly) markdown(src config.Source, cfgPath string, outside bool) error {
+// render runs the renderer of each data file, in source order, and
+// returns the paths of the completable pages.
+func (s *assembly) render(gen []*extracted) (map[string]bool, error) {
+	t := s.target()
+	completable := map[string]bool{}
+	for _, e := range gen {
+		r, err := render.For(e.data.Schema)
+		if err != nil {
+			return nil, err
+		}
+		// The renderer reads the data file as written, never the
+		// extractor's value.
+		if e.pages, err = r.Render(e.data.Bytes, t); err != nil {
+			return nil, err
+		}
+		for _, p := range e.pages {
+			if p.Completable {
+				completable[p.Path] = true
+			}
+		}
+	}
+	return completable, nil
+}
+
+// writeGenerated writes one extractor's pages: a completable page with an
+// authored page at its path becomes the authored page completed.
+func (s *assembly) writeGenerated(e *extracted, completing map[string]markdown.Page) error {
+	for _, p := range e.pages {
+		if a, ok := completing[p.Path]; ok && p.Completable {
+			body, err := render.Complete(a.Body, a.Source, p)
+			if err != nil {
+				return err
+			}
+			if err := s.write(p.Path, body, markdownKind, bundle.Page{Path: p.Path, Source: a.Source, Lastmod: a.Lastmod}); err != nil {
+				return err
+			}
+			continue
+		}
+		pg := bundle.Page{Path: p.Path, Generated: true}
+		if f, ok := e.data.Sources[p.Path]; ok {
+			pg.Source = f
+			pg.Lastmod = s.lastmod(f)
+		}
+		if err := s.write(p.Path, p.Body, e.kind, pg); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *assembly) markdown(src config.Source, cfgPath string, outside bool) ([]markdown.Page, error) {
 	major := ""
 	if !s.id.build.Edge {
 		major = s.id.build.Version.MajorTag()
@@ -353,22 +442,9 @@ func (s *assembly) markdown(src config.Source, cfgPath string, outside bool) err
 	})
 	var missing *markdown.MissingDirError
 	if errors.As(err, &missing) {
-		return fmt.Errorf("%s (named in %s): create it, or remove the markdown source", missing.Error(), cfgPath)
+		return nil, fmt.Errorf("%s (named in %s): create it, or remove the markdown source", missing.Error(), cfgPath)
 	}
-	if err != nil {
-		return err
-	}
-	for i := range pages {
-		p := pages[i]
-		if p.IsLanding() {
-			s.landing = &pages[i]
-			continue
-		}
-		if err := s.write(p.Path, p.Body, "markdown "+src.Dir, bundle.Page{Path: p.Path, Source: p.Source, Lastmod: p.Lastmod}); err != nil {
-			return err
-		}
-	}
-	return nil
+	return pages, err
 }
 
 // write adds one page, refusing a path two sources write.
@@ -386,48 +462,6 @@ func (s *assembly) write(path, body, by string, page bundle.Page) error {
 	}
 	s.m.Pages = append(s.m.Pages, page)
 	return nil
-}
-
-// renderCatalog renders the catalog pages and the landing: the authored
-// one completed with the members block, or a generated one.
-func (s *assembly) renderCatalog() error {
-	t := s.target()
-	if s.model == nil {
-		if s.landing != nil {
-			return s.write(s.landing.Path, s.landing.Body, "markdown", bundle.Page{Path: s.landing.Path, Source: s.landing.Source, Lastmod: s.landing.Lastmod})
-		}
-		return nil
-	}
-	pages, err := render.Catalog(s.model, t)
-	if err != nil {
-		return err
-	}
-	files := map[string]string{}
-	for i := range s.model.Members {
-		files[s.model.Members[i].Page+".md"] = s.model.Members[i].File
-	}
-	for _, p := range pages {
-		pg := bundle.Page{Path: p.Path, Generated: true}
-		if f, ok := files[p.Path]; ok {
-			pg.Source = f
-			pg.Lastmod = s.lastmod(f)
-		}
-		if err := s.write(p.Path, p.Body, "cue-catalog", pg); err != nil {
-			return err
-		}
-	}
-	if s.landing == nil {
-		body, err := render.Landing(s.model, t, "", "")
-		if err != nil {
-			return err
-		}
-		return s.write("_index.md", body, "cue-catalog", bundle.Page{Path: "_index.md", Generated: true})
-	}
-	body, err := render.Landing(s.model, t, s.landing.Body, s.landing.Source)
-	if err != nil {
-		return err
-	}
-	return s.write("_index.md", body, "markdown", bundle.Page{Path: "_index.md", Source: s.landing.Source, Lastmod: s.landing.Lastmod})
 }
 
 // finish writes manifest.json and lints the bundle.
