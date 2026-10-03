@@ -352,7 +352,7 @@ Edge cases:
 - **`--offline` and the trusted root:** offline, `pull` uses the cached trusted root as it is and never refreshes it. When the cached TUF metadata has expired it warns and still verifies, because each signature is checked against the key validity window at its own timestamp, which an expired cache does not change. With no cached root at all, `--offline` fails.
 - **Compressed size:** a layer descriptor larger than 32 MiB is refused before any byte is fetched; the 64 MiB uncompressed cap applies during unpacking. `push` refuses a bundle over the same limits (32 MiB packed, 10,000 entries, 64 MiB of files) before it writes anything, so no publish produces a bundle every pull refuses (added in review, 2026-10-02).
 
-Unpack layout, owned entirely by `pull` (it removes any project or segment directory it did not write this run). Each bundle unpacks and lints in `<out>/<project>/.incoming-<segment>/` and replaces its segment only after both pass, so a refused bundle leaves the previous segment in place (added in review, 2026-10-02):
+Unpack layout, owned entirely by `pull` (it removes any project or segment directory it did not write this run). Each bundle unpacks and lints in `<out>/<project>/.incoming-<segment>/` and replaces its segment only after both pass, so a refused bundle leaves the previous segment in place (added in review, 2026-10-02). Since C13, no segment is swapped in until every bundle, every tab's history and the lock have passed: a refusal at any of them leaves the previous trees, `history.json` files and lock as they were:
 
 ```text
 site/.bundles/
@@ -378,7 +378,7 @@ package schema
 	tool:   #SemVer                   // the opm-docs that wrote the lock
 	config: =~"^sha256:[0-9a-f]{64}$" // SHA-256 of the bundles.cue bytes
 	bundles: [...#Locked]
-	history?: [...{project: #Project, digest: =~"^sha256:[0-9a-f]{64}$", path: string & !=""}] // path relative to the lock's directory
+	history?: [...{project: #Project, digest: =~"^sha256:[0-9a-f]{64}$", path: =~"^[a-z0-9]+(-[a-z0-9]+)*/history\\.json$"}] // path relative to the lock's directory
 }
 
 #Locked: #Pulled | #Local
@@ -464,7 +464,7 @@ Serialization (so two pulls of one resolution compare byte for byte): JSON, two-
 
 Every entry carries `root`, the tab's placement root, so a consumer maps a `dir` to its URLs without reading `bundles.cue`.
 
-`history` (added with C13; optional, so the schema id stays `lock/v1` and every lock without it still validates) records each `history.json` this pull wrote: `project`, `digest` (`sha256:` and the file's SHA-256) and `path` relative to the lock's directory (`catalog-opm/history.json`), one entry per project sorted by project, keys in that order. The key is left out when no history file was written. The site checks the file it mounts against it. `--frozen` does not compare the frozen lock's history digest, since history is a function of the trees and the tool and the tool may have moved; it records the file it wrote. `#Lock` is closed, so an `opm-docs` older than 0.3.0 refuses a lock that carries `history` under `--frozen`: the site bumps its `opm-docs` and receives its first lock with `history` together.
+`history` (added with C13; optional, so the schema id stays `lock/v1` and every lock without it still validates) records each `history.json` this pull wrote: `project`, `digest` (`sha256:` and the file's SHA-256) and `path` relative to the lock's directory (`catalog-opm/history.json`; the schema allows only `<project>/history.json`, so the lock sits in `--out`, as the default `<out>/lock.json` does; a pull that writes a history with the lock elsewhere exits 1 before anything is swapped in), one entry per project sorted by project, keys in that order. The key is left out when no history file was written. The site checks the file it mounts against it. `--frozen` does not compare the frozen lock's history digest, since history is a function of the trees and the tool and the tool may have moved; it records the file it wrote. `#Lock` is closed, so an `opm-docs` older than 0.3.0 refuses a lock that carries `history` under `--frozen`: the site bumps its `opm-docs` and receives its first lock with `history` together.
 
 ## C8. URLs and links
 
@@ -580,7 +580,7 @@ Written by `cue-catalog` (schema id `docs.opmodel.dev/data/cue-catalog/v1`). Pha
 }
 ```
 
-`mark` is `"not-implemented"`, `"provided-by-platform"` or `null`. `demand` is `"required"` or `"optional"`. `spec.fields` is the structured spec, read from the evaluated value: every field under the spec key, depth first, regular, optional and required alike (`presence` is `"regular"`, `"optional"` or `"required"` from the selector's constraint type), with `path` dot-separated, `[]` for a list element and `[string]` for a pattern constraint; `type` the formatted constraint; `default` the formatted default or `null`; `ref` the definition name when the field's value is a definition outside this member's package, where the walk stops instead of expanding it. The walk stops at the module boundary and at a visited definition, and caps depth at 12. `spec.cue` keeps the authored text, so a field the walk cannot express still shows on the page. Order: siblings appear in the order CUE's `Fields` iterator yields them for the evaluated value (declaration order), each field followed by its descendants, so the list is stable for one source and tool version. `type` is the field's constraint expression printed with `cue/format` (`format.Simplify()`), collapsed to one line with single spaces; `default` likewise. Both are stable for one tool version, and phase 1b compares them only between bundles built by the same docs-kit minor.
+`mark` is `"not-implemented"`, `"provided-by-platform"` or `null`. `demand` is `"required"` or `"optional"`. `spec.fields` is the structured spec, read from the evaluated value: every field under the spec key, depth first, regular, optional and required alike (`presence` is `"regular"`, `"optional"` or `"required"` from the selector's constraint type), with `path` dot-separated, `[]` for a list element and `[string]` for a pattern constraint; `type` the formatted constraint; `default` the formatted default or `null`; `ref` the definition name when the field's value is a definition outside this member's package, where the walk stops instead of expanding it. The walk stops at the module boundary and at a visited definition, and caps depth at 12. `spec.cue` keeps the authored text, so a field the walk cannot express still shows on the page. Order: siblings appear in the order CUE's `Fields` iterator yields them for the evaluated value (declaration order), each field followed by its descendants, so the list is stable for one source and tool version. `type` is the field's constraint expression printed with `cue/format` (`format.Simplify()`), collapsed to one line with single spaces; `default` likewise. Both are stable for one tool version, and the version history (C13) compares them only between bundles built by the same docs-kit minor. That makes a release rule: a change that can alter these strings, a `cuelang.org/go` bump above all (its formatter and simplifier write them), or any other dependency or code change that affects formatting, releases as a minor (`feat:`), never a patch, so a patch release never puts two different spellings of one constraint into one `full` comparison.
 
 **Additions made in implementation** (additive, so no schema-id change): a top-level `docNotes` lists the repository notes (`docs/<name>.md`) that member notes mention and that exist at the commit built, because the renderer reads no source and the doc-note rule links a note only when the file exists; each `external` entry carries `definition` (as the spec block writes it, `k8s.#EnvVar`) beside `package` and `vendored`, and a `linked` entry's `definition` is likewise the written form (`res.#ContainerSchema`), so the "Defined elsewhere" list renders from the model alone. Members are listed in catalog-map order (`#resources`, `#traits`, `#blueprints`, each by FQN key); `category`, `wrapper`, `fulfilment`, `optional` and `mark` are `null` where they do not apply, and every list is present, empty or not. A field's `doc` is its doc comment, cleaned like notes, paragraphs separated by a blank line.
 
@@ -628,7 +628,7 @@ Callers and the site never `go run` or `go install` `opm-docs`: every consumer r
 
 `opm-docs pull` writes `<out>/<project>/history.json` for every tab project with two or more segments holding `data/catalog.json` (C10, schema `docs.opmodel.dev/data/cue-catalog/v1`), in every mode (registry, `--frozen`, `--offline`, `--local`; a `--local` segment counts like a pulled one), and removes it from a tab with fewer. A segment whose `manifest.json` lists no such data file takes no part. The history is recomputed on every run from the trees just unpacked, never cached across digests, since a docs revision changes a segment's data after the fact. Its SHA-256 is recorded in the lock's `history` (C7). Docs-placed bundles get no history: they have no segments of their own.
 
-**Order.** Segments are ordered minors ascending (numeric MAJOR, then MINOR), `edge` last. The **previous** segment of a minor is the next lower minor pulled; the previous of `edge` is the newest minor pulled. The **floor** is the oldest minor pulled.
+**Order.** Only segments that take part count: those carrying catalog data (`data/catalog.json`). They are ordered minors ascending (numeric MAJOR, then MINOR), `edge` last. The **previous** segment of a minor is the next lower minor that takes part; the previous of `edge` is the newest minor that takes part. The **floor** is the oldest minor that takes part.
 
 **Comparison mode per pair.** A pair (previous, current) is compared in mode `full` when both bundles' `manifest.json` `tool` share MAJOR.MINOR, else in mode `paths`, because `type`, `default` and `ref` strings are stable only within one docs-kit minor (C10). In `paths` mode only field paths and `presence` are compared. Each pair and its mode are listed in `compared`, so the site can word a weaker comparison.
 
@@ -638,17 +638,28 @@ Callers and the site never `go run` or `go install` `opm-docs`: every consumer r
 |---|---|---|---|
 | `removed` | path in previous only | previous `type` / `null` | both |
 | `added` | path in current only | `null` / current `type` | both |
-| `presence` | `presence` differs | the two presences | both |
+| `presence` | `presence` differs | the two presences, each `regular`, `optional` or `required` | both |
 | `type` | `type` differs | the two types | `full` |
 | `default` | `default` differs (either may be `null`) | the two defaults | `full` |
 | `ref` | `ref` differs (either may be `null`) | the two refs | `full` |
 | `spec` | none of the above for the member, and the spec blocks' CUE tokens differ with comments skipped | `null` / `null`, `path` `""` | `full` |
 
+The site words a `presence` change by its target, and for a field becoming regular by where it came from:
+
+| `from` → `to` | Wording |
+|---|---|
+| `optional` or `regular` → `required` | "made required" |
+| `required` or `regular` → `optional` | "made optional" |
+| `optional` → `regular` | "no longer optional" |
+| `required` → `regular` | "no longer required" |
+
 A field's `doc` is never compared: a doc-comment fix (a docs revision) must not read as a change. The token comparison is the one `revise` uses for `.cue` files ("Docs revisions", step 5): `cue/scanner` with comments skipped, an inserted comma equal to a written one. So a `matchN` or `if`-guard change the field walk cannot express still shows as one `spec` change. A change behind a `ref` (a shared schema) is not reported, since the walk stops at `ref`; the badge then under-claims, the safe direction. `level`, `appliesTo`, `servedBy`, `mark`, `optional` and `fulfilment` are not tracked.
 
 A member present in the previous segment and absent from the current one is listed under `removed[<current>]` with the last segment that had it and its page there. A member that is removed and later returns keeps its original `first`; the segment it returns in records no change for it. A spec block that does not scan as CUE (the extractor never writes one) counts as changed. `lineage` maps each `<kind>/<name>` to, per segment, the apiVersions present there, newest first in the order C8 fixes for page paths.
 
-`schema/history.cue`, embedded in the tool, validates the file before `pull` writes it; a file that fails is a tool bug, and `pull` exits 2 naming the project (`history for catalog-opm does not validate: <error>; report it against opm-docs`):
+**Input checks.** Before comparing, `pull` checks every member of each segment's doc model: an `fqn`, a `kind` of `resource`, `trait` or `blueprint`, a `page` matching `^(resources|traits|blueprints)/[a-z0-9]+(-[a-z0-9]+)*$` (C8), and every field's `presence` one of the three values. A bundle that fails is the bundle's fault: `pull` exits 2 naming the segment and its data file (`history for catalog-opm: catalog-opm 4.6 data/catalog.json: member <fqn>: page "../x" is not <kind>s/<name> (C8)`), and nothing is swapped in (C7).
+
+`schema/history.cue`, embedded in the tool, validates the file before `pull` writes it. Since the input checks ran first, a file that fails is a tool bug, and `pull` exits 2 naming the project (`history for catalog-opm does not validate: <error>; report it against opm-docs`):
 
 ```cue
 package schema
@@ -680,15 +691,21 @@ package schema
 	path: string // a spec.fields path; "" for op "spec"
 	from: string | null
 	to:   string | null
+	if op == "presence" {
+		from: #Presence
+		to:   #Presence
+	}
 }
+
+#Presence: "regular" | "optional" | "required"
 
 #Removed: {
 	fqn:        string
 	kind:       "resource" | "trait" | "blueprint"
 	name:       string
 	apiVersion: string
-	lastIn:     #Segment // the last segment that had it: the site links <root><lastIn>/<page>/
-	page:       string   // its page in lastIn, "traits/backup-v1alpha1"
+	lastIn:     #Segment                                                   // the last segment that had it: the site links <root><lastIn>/<page>/
+	page:       =~"^(resources|traits|blueprints)/[a-z0-9]+(-[a-z0-9]+)*$" // its page in lastIn, "traits/backup-v1alpha1"
 }
 ```
 
