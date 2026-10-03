@@ -595,7 +595,7 @@ Written by `cue-catalog` (schema id `docs.opmodel.dev/data/cue-catalog/v1`). Pha
 
 - A tree holds only regular `.md` files: no symlink, no `.mdx`, no other file; names are lower-case kebab-case; no `index.md` (a section page is `_index.md`).
 - Front matter opens on line 1 with `---` and closes with `---`; keys are only `title`, `description`, `type`, `weight`; `title` and `description` are required and non-empty; `type` is required on a leaf page and is one of `tutorial`, `how-to`, `explanation`, `reference`; an `_index.md` declares no `type`; `weight` is a positive integer; `sidebar:` is named as Starlight front matter.
-- Shortcodes, checked on every line, code fences included: only `{{< opm/<figure> >}}` with one of the seven figure names, no parameters and no closing tag; `{{</* ... */>}}` is a shown shortcode and passes.
+- Shortcodes, checked on every line, code fences included: only `{{< opm/<figure> >}}` with one of the nine figure names, no parameters and no closing tag; `{{</* ... */>}}` is a shown shortcode and passes.
 - No `:::` line, no `import ... from` line, no component tag line, no image (`![`, `<img`), no raw `href=` or `src=`.
 - Every code fence carries a language tag.
 - An alert marker is exactly `> [!NOTE]` (or `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`) alone on its line.

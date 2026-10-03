@@ -60,7 +60,7 @@ func (v Violation) String() string {
 var figures = map[string]bool{
 	"module-to-cluster": true, "roles-and-artifacts": true, "component-to-objects": true,
 	"where-things-live": true, "three-ways-to-deploy": true, "helm-and-opm": true,
-	"one-trait-any-provider": true,
+	"one-trait-any-provider": true, "what-opm-models": true, "two-models-one-boundary": true,
 }
 
 var (
