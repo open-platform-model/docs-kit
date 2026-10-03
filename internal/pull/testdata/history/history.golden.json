@@ -1,0 +1,124 @@
+{
+  "schema": "docs.opmodel.dev/history/v1",
+  "project": "catalog-opm",
+  "tool": "0.3.0",
+  "floor": "4.5",
+  "segments": [
+    "4.5",
+    "4.6",
+    "edge"
+  ],
+  "compared": [
+    {
+      "from": "4.5",
+      "to": "4.6",
+      "mode": "full"
+    },
+    {
+      "from": "4.6",
+      "to": "edge",
+      "mode": "paths"
+    }
+  ],
+  "members": {
+    "opmodel.dev/catalogs/opm/traits/backup@v1alpha1": {
+      "kind": "trait",
+      "name": "backup",
+      "apiVersion": "v1alpha1",
+      "first": "4.5",
+      "firstIsFloor": true,
+      "in": [
+        "4.5",
+        "4.6",
+        "edge"
+      ],
+      "changes": {
+        "4.6": [
+          {
+            "op": "default",
+            "path": "schedule",
+            "from": "\"daily\"",
+            "to": "\"hourly\""
+          },
+          {
+            "op": "presence",
+            "path": "retention.daily",
+            "from": "optional",
+            "to": "required"
+          }
+        ]
+      }
+    },
+    "opmodel.dev/catalogs/opm/traits/backup@v1beta1": {
+      "kind": "trait",
+      "name": "backup",
+      "apiVersion": "v1beta1",
+      "first": "4.6",
+      "firstIsFloor": false,
+      "in": [
+        "4.6",
+        "edge"
+      ],
+      "changes": {}
+    },
+    "opmodel.dev/catalogs/opm/traits/old@v1alpha1": {
+      "kind": "trait",
+      "name": "old",
+      "apiVersion": "v1alpha1",
+      "first": "4.5",
+      "firstIsFloor": true,
+      "in": [
+        "4.5"
+      ],
+      "changes": {}
+    },
+    "opmodel.dev/catalogs/opm/traits/scaling@v1alpha1": {
+      "kind": "trait",
+      "name": "scaling",
+      "apiVersion": "v1alpha1",
+      "first": "edge",
+      "firstIsFloor": false,
+      "in": [
+        "edge"
+      ],
+      "changes": {}
+    }
+  },
+  "removed": {
+    "4.6": [
+      {
+        "fqn": "opmodel.dev/catalogs/opm/traits/old@v1alpha1",
+        "kind": "trait",
+        "name": "old",
+        "apiVersion": "v1alpha1",
+        "lastIn": "4.5",
+        "page": "traits/old"
+      }
+    ]
+  },
+  "lineage": {
+    "trait/backup": {
+      "4.5": [
+        "v1alpha1"
+      ],
+      "4.6": [
+        "v1beta1",
+        "v1alpha1"
+      ],
+      "edge": [
+        "v1beta1",
+        "v1alpha1"
+      ]
+    },
+    "trait/old": {
+      "4.5": [
+        "v1alpha1"
+      ]
+    },
+    "trait/scaling": {
+      "edge": [
+        "v1alpha1"
+      ]
+    }
+  }
+}

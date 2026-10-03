@@ -11,9 +11,9 @@ Gate: none in docs-kit (starts on `main` at `v0.2.1` or later). One PR, titled `
 
 ## 2. Pull writes the file and the lock records it
 
-- [ ] 2.1 `internal/pull`: after the sweep, compute and write `<out>/<project>/history.json` for each tab project with two or more catalog segments, remove it otherwise (D5); validate before writing. Verify: `pull` tests with `--local` trees for 4.5, 4.6 and edge (fixtures under `internal/pull/testdata/history/`), one segment (file removed), and `--frozen --offline` writing the same bytes as the online run.
-- [ ] 2.2 `schema/lock.cue` and `internal/pull/lock.go`: the optional `history` list (D5), key order and sorting. Verify: a lock without `history` still validates; the stable-lock test covers a lock with it.
-- [ ] 2.3 `task check` green, then commit `feat(pull): write each tab's history.json and record its digest`.
+- [x] 2.1 `internal/pull`: after the sweep, compute and write `<out>/<project>/history.json` for each tab project with two or more catalog segments, remove it otherwise (D5); validate before writing. Verify: `pull` tests with `--local` trees for 4.5, 4.6 and edge (fixtures under `internal/pull/testdata/history/`), one segment (file removed), and `--frozen --offline` writing the same bytes as the online run.
+- [x] 2.2 `schema/lock.cue` and `internal/pull/lock.go`: the optional `history` list (D5), key order and sorting. Verify: a lock without `history` still validates; the stable-lock test covers a lock with it.
+- [x] 2.3 `task check` green, then commit `feat(pull): write each tab's history.json and record its digest`.
 
 ## 3. Contracts and docs
 

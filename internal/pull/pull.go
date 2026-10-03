@@ -1,6 +1,7 @@
 // Package pull is the site's side: it resolves each tab's versions from a
 // registry's tags, verifies every bundle's signature before fetching its
-// layer, unpacks and lints it, and writes the lock.
+// layer, unpacks and lints it, writes each tab's version history and the
+// lock.
 package pull
 
 import (
@@ -9,8 +10,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -21,6 +24,8 @@ import (
 	"github.com/open-platform-model/docs-kit/internal/build"
 	"github.com/open-platform-model/docs-kit/internal/bundle"
 	"github.com/open-platform-model/docs-kit/internal/config"
+	"github.com/open-platform-model/docs-kit/internal/extract/cuecatalog"
+	"github.com/open-platform-model/docs-kit/internal/history"
 	"github.com/open-platform-model/docs-kit/internal/oci"
 	"github.com/open-platform-model/docs-kit/internal/tags"
 	"github.com/open-platform-model/docs-kit/internal/verify"
@@ -74,7 +79,7 @@ type puller struct {
 	entries  []Entry
 }
 
-// Run pulls every tab and writes the lock.
+// Run pulls every tab, writes each tab's history.json and the lock.
 func Run(ctx context.Context, o Options) (*Lock, error) {
 	cfg, err := config.LoadPull(o.Config)
 	if err != nil {
@@ -108,7 +113,11 @@ func Run(ctx context.Context, o Options) (*Lock, error) {
 	if err := p.sweep(); err != nil {
 		return nil, err
 	}
-	lock := &Lock{Schema: LockSchema, Tool: o.Tool, Config: cfg.Digest, Bundles: p.entries}
+	histories, err := p.histories()
+	if err != nil {
+		return nil, err
+	}
+	lock := &Lock{Schema: LockSchema, Tool: o.Tool, Config: cfg.Digest, Bundles: p.entries, History: histories}
 	data, err := lock.Encode()
 	if err != nil {
 		return nil, err
@@ -161,19 +170,25 @@ func (p *puller) readFrozen() (*Lock, error) {
 // segmentDir is where a segment unpacks, and the lock's dir for it.
 func (p *puller) segmentDir(project, segment string) (abs, rel string, err error) {
 	abs = filepath.Join(p.o.Out, project, segment)
+	rel, err = p.relToLock(abs)
+	return abs, rel, err
+}
+
+// relToLock is a path relative to the lock's directory, slash-separated.
+func (p *puller) relToLock(path string) (string, error) {
 	lockDir, err := filepath.Abs(filepath.Dir(p.o.Lock))
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
-	full, err := filepath.Abs(abs)
+	full, err := filepath.Abs(path)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 	r, err := filepath.Rel(lockDir, full)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
-	return abs, filepath.ToSlash(r), nil
+	return filepath.ToSlash(r), nil
 }
 
 // locals takes every given segment of a project from local trees, with no
@@ -546,6 +561,77 @@ func (p *puller) sweep() error {
 		}
 	}
 	return nil
+}
+
+// histories writes <out>/<project>/history.json for every tab with two
+// segments or more holding a cue-catalog doc model, from the trees this
+// run unpacked, and removes it from a tab with fewer. It is recomputed on
+// every run, since a docs revision changes a segment's data after the
+// fact. It returns the lock's record of each file written.
+func (p *puller) histories() ([]HistoryEntry, error) {
+	var out []HistoryEntry
+	for _, project := range p.cfg.Projects() {
+		segs, err := p.catalogSegments(project)
+		if err != nil {
+			return nil, err
+		}
+		file := filepath.Join(p.o.Out, project, history.FileName)
+		if len(segs) < 2 {
+			if err := os.Remove(file); err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return nil, err
+			}
+			continue
+		}
+		h, err := history.Compute(project, p.o.Tool, segs)
+		if err != nil {
+			return nil, fmt.Errorf("history for %s: %w", project, err)
+		}
+		data, err := h.Encode()
+		if err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(file, data, 0o644); err != nil { //nolint:gosec // the history is a build output the site reads
+			return nil, err
+		}
+		rel, err := p.relToLock(file)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, HistoryEntry{Project: project, Digest: digest.FromBytes(data).String(), Path: rel})
+	}
+	return out, nil
+}
+
+// catalogSegments reads the doc model of every segment of a project this
+// run unpacked. A segment whose manifest lists no cue-catalog data file
+// takes no part.
+func (p *puller) catalogSegments(project string) ([]history.Segment, error) {
+	var segs []history.Segment
+	for i := range p.entries {
+		e := &p.entries[i]
+		if e.Project != project {
+			continue
+		}
+		dir := filepath.Join(p.o.Out, project, e.Segment)
+		m, err := bundle.Read(dir)
+		if err != nil {
+			return nil, err
+		}
+		if !slices.Contains(m.Data, bundle.DataFile{Path: cuecatalog.DataFile, Schema: cuecatalog.SchemaID}) {
+			continue
+		}
+		file := filepath.Join(dir, bundle.DataDir, cuecatalog.DataFile)
+		b, err := os.ReadFile(file)
+		if err != nil {
+			return nil, err
+		}
+		model, err := cuecatalog.Decode(b)
+		if err != nil {
+			return nil, fmt.Errorf("%s %s: reading %s: %w", project, e.Segment, file, err)
+		}
+		segs = append(segs, history.Segment{Name: e.Segment, Tool: m.Tool, Model: model})
+	}
+	return segs, nil
 }
 
 // IsUsage reports a usage error.
