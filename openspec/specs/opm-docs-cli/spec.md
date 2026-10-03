@@ -17,7 +17,7 @@ The `opm-docs` command set, its configuration file `docs-kit.cue`, and its exit 
 - **THEN** it exits 1 naming `--nope`
 
 ### Requirement: docs-kit.cue configures the bundles a repository builds
-`build` and `check` SHALL read `docs-kit.cue` (or `--config`) and validate it against the embedded `#Config` schema before any extraction. A `package` clause in the file SHALL be optional and ignored. The file SHALL hold `bundles`, keyed by project, each with a `placement`, a `version` (`from: "tag"` and a tag `prefix`) and at least one source of kind `cue-catalog` (`module`) or `markdown` (`dir`).
+`build` and `check` SHALL read `docs-kit.cue` (or `--config`) and validate it against the embedded `#Config` schema before any extraction. A `package` clause in the file SHALL be optional and ignored. The file SHALL hold `bundles`, keyed by project, each with a `placement`, a `version` (`from: "tag"` and a tag `prefix`), at least one source of a kind the tool registers (`docs/contracts.md` C6 lists them, each with its options), and optionally `pins`. Every extractor source SHALL accept `citations` (`"strip"`, the default, or `"link"`); a `markdown` source SHALL accept `include` and `exclude`, lists of patterns relative to its `dir` (a glob, or a directory ending `/` matching every file under it), copying a file that matches some `include` (all files when it is absent) and no `exclude`. A bundle SHALL hold at most one source of each extractor kind.
 
 #### Scenario: Package clause ignored
 - **WHEN** one `docs-kit.cue` starts with `package docs` and another has no package clause, with the same fields
@@ -26,6 +26,22 @@ The `opm-docs` command set, its configuration file `docs-kit.cue`, and its exit 
 #### Scenario: A misspelled key is refused
 - **WHEN** `docs-kit.cue` holds `bundles: "catalog-opm": {placment: ...}`
 - **THEN** `opm-docs build` exits 1 naming the field `placment` and the file, before loading any CUE module
+
+#### Scenario: An unknown source kind
+- **WHEN** a source has `kind: "javadoc"`
+- **THEN** `build` exits 1 naming the kind and the kinds this `opm-docs` registers
+
+#### Scenario: Include selects one page
+- **WHEN** a `markdown` source has `dir: "docs/site"` and `include: ["reference/operator-resources.md"]`
+- **THEN** only that page is copied from `docs/site`
+
+#### Scenario: Exclude a committed generated directory
+- **WHEN** a `markdown` source has `dir: "docs/site"` and `exclude: ["reference/cli/"]`
+- **THEN** every page of `docs/site` except those under `reference/cli/` is copied
+
+#### Scenario: Citations linked
+- **WHEN** a source with `citations: "link"` documents a comment citing `0010:D28`
+- **THEN** the page holds `[0010:D28](/enhancements/0010/decisions/)`
 
 ### Requirement: build writes one bundle tree per project
 `opm-docs build` SHALL write `out/<project>/` (or under `--out`) for every project in the config, or only those named with `--project`. With `--release <tag>` it SHALL derive the version by removing the project's tag prefix and SHALL refuse a tag without that prefix or whose remainder is not SemVer. With `--release <tag>` and a `cue-catalog` source, it SHALL refuse with exit 2 when the derived version differs from the catalog's `metadata.version`, naming both values; this holds for a docs revision too, which `revise` builds with `--release`. Without `--release` it SHALL build an edge bundle. With `--source <dir>` it SHALL take `docs-kit.cue` from that directory when present, else from the current directory, and SHALL resolve every source (each `cue-catalog` `module` and `markdown` `dir`) and all git history against that directory, wherever the config came from. A `markdown` dir that does not exist SHALL yield no pages when the config came from outside the `--source` tree, and SHALL fail the build otherwise. A build from a work tree with uncommitted changes SHALL record `source.dirty: true`, and `push` SHALL refuse such a bundle.
