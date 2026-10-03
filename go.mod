@@ -9,6 +9,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/sigstore/sigstore-go v1.3.0
 	github.com/spf13/cobra v1.10.2
+	github.com/yuin/goldmark v1.8.2
 	golang.org/x/mod v0.39.0
 	google.golang.org/protobuf v1.36.11
 	oras.land/oras-go/v2 v2.6.2
