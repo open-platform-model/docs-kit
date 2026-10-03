@@ -14,6 +14,7 @@ import (
 	"cuelang.org/go/cue/parser"
 
 	"github.com/open-platform-model/docs-kit/internal/doctext"
+	"github.com/open-platform-model/docs-kit/internal/mdtext"
 )
 
 // Config is a cue-definitions source's entry in docs-kit.cue (docs-kit
@@ -200,7 +201,7 @@ func definition(d *def, defs map[string]*def, pageOf map[string]string, usedBy [
 	}
 	shape := g.shape
 	if g.kind != "" {
-		shape += ", `kind: " + g.kind + "`"
+		shape += ", " + mdtext.Code("kind: "+g.kind)
 	}
 	var embeds []string
 	for _, e := range g.embeds {
@@ -252,18 +253,47 @@ func loadDefs(root, dir string, skip []string) (map[string]*def, error) {
 		}
 	}
 	for _, d := range defs {
-		seen := map[string]bool{}
-		ast.Walk(d.field.Value, func(n ast.Node) bool {
-			if id, ok := n.(*ast.Ident); ok {
-				if _, top := defs[id.Name]; top && id.Name != d.name {
-					seen[id.Name] = true
-				}
-			}
-			return true
-		}, nil)
-		d.refs = sortedKeys(seen)
+		d.refs = topRefs(d, defs)
 	}
 	return defs, nil
+}
+
+// topRefs lists the top-level definitions a definition's value refers to:
+// identifiers in expression position that resolve to the file's top level
+// (or, declared in another file of the package, resolve to nothing in
+// this one). A field label, a selector's field and a reference to a nested
+// definition of the same name are not references to the top-level one.
+func topRefs(d *def, defs map[string]*def) []string {
+	notRef := map[*ast.Ident]bool{}
+	ast.Walk(d.field.Value, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.Field:
+			if id, ok := x.Label.(*ast.Ident); ok {
+				notRef[id] = true
+			}
+		case *ast.SelectorExpr:
+			if id, ok := x.Sel.(*ast.Ident); ok {
+				notRef[id] = true
+			}
+		}
+		return true
+	}, nil)
+	seen := map[string]bool{}
+	ast.Walk(d.field.Value, func(n ast.Node) bool {
+		id, ok := n.(*ast.Ident)
+		if !ok || notRef[id] || id.Name == d.name {
+			return true
+		}
+		if _, top := defs[id.Name]; !top {
+			return true
+		}
+		switch id.Scope.(type) {
+		case nil, *ast.File:
+			seen[id.Name] = true
+		}
+		return true
+	}, nil)
+	return sortedKeys(seen)
 }
 
 // fileDefs adds the exported top-level definitions of one file.
@@ -282,8 +312,9 @@ func fileDefs(root, p string, defs map[string]*def) error {
 		if !ok {
 			continue
 		}
-		name, _, err := ast.LabelName(fld.Label)
-		if err != nil || !strings.HasPrefix(name, "#") {
+		// A quoted label ("#X") is a regular field, not a definition.
+		name, isIdent, err := ast.LabelName(fld.Label)
+		if err != nil || !isIdent || !strings.HasPrefix(name, "#") {
 			continue
 		}
 		if prev, dup := defs[name]; dup {

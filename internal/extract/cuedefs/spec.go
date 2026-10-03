@@ -8,6 +8,8 @@ import (
 	"cuelang.org/go/cue/ast"
 	"cuelang.org/go/cue/format"
 	"cuelang.org/go/cue/token"
+
+	"github.com/open-platform-model/docs-kit/internal/mdtext"
 )
 
 // commentWidth is where a doc comment the cleaning rules changed is
@@ -353,9 +355,9 @@ func requiredFields(s *ast.StructLit, prefix, cond string, out *[]string) {
 				continue
 			}
 			if e.Constraint == token.NOT {
-				entry := "`" + prefix + name + "`"
+				entry := mdtext.Code(prefix + name)
 				if cond != "" {
-					entry += " when `" + cond + "`"
+					entry += " when " + mdtext.Code(cond)
 				}
 				*out = append(*out, entry)
 			}
@@ -434,14 +436,14 @@ func assertions(s *ast.StructLit, prefix string) []rule {
 			case isStructValue(v):
 				composed = true
 			}
-			exprs = append(exprs, "`"+exprString(v)+"`")
+			exprs = append(exprs, mdtext.Code(exprString(v)))
 		}
 		if composed {
 			// A struct written beside a type composes the value; it states
 			// no check.
 			continue
 		}
-		path := "`" + prefix + name + "`"
+		path := mdtext.Code(prefix + name)
 		switch {
 		case pinnedTrue && len(exprs) > 0:
 			rules = append(rules, rule{text: strings.Join(exprs, " and ") + " must hold (" + path + ")."})

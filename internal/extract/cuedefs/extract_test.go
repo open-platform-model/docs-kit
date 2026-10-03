@@ -318,3 +318,53 @@ func TestPlacementNoSummary(t *testing.T) {
 		})
 	}
 }
+
+// Uses count references to the top-level definition only: not a field
+// label, a selector's field or a nested definition that shadows it; a
+// quoted "#X" label declares a regular field.
+func TestTopLevelReferences(t *testing.T) {
+	root := t.TempDir()
+	src := "package x\n\n" +
+		"// #A is a struct.\n#A: {b: #B, c: {#C: int, d: #C}, e: y.#D, #D: int, f: #E}\n" +
+		"// #B is an int.\n#B: int\n" +
+		"// #C is an int.\n#C: int\n" +
+		"// #D is an int.\n#D: int\n" +
+		"\"#Q\": string\n" +
+		"y: {#D: string}\n"
+	if err := os.WriteFile(filepath.Join(root, "a.cue"), []byte(src), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// #E is declared in another file of the package.
+	if err := os.WriteFile(filepath.Join(root, "b.cue"), []byte("package x\n\n// #E is a string.\n#E: string\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	defs, err := loadDefs(root, root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := defs["#Q"]; ok {
+		t.Error("a quoted label was taken as a definition")
+	}
+	if got := defs["#A"].refs; !slices.Equal(got, []string{"#B", "#E"}) {
+		t.Errorf("#A refs %v, want [#B #E]", got)
+	}
+}
+
+// A shape's kind span is long enough for a backtick in the kind.
+func TestShapeCodeSpan(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "a.cue"), []byte("package x\n\n// #K pins an odd kind.\n#K: {kind: \"a`b\"}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	defs, err := loadDefs(root, root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := definition(defs["#K"], defs, map[string]string{"#K": "p"}, nil, doctext.Strip)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "struct, closed, ``kind: \"a`b\"``"; d.Shape != want {
+		t.Errorf("shape %q, want %q", d.Shape, want)
+	}
+}

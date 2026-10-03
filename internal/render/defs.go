@@ -146,7 +146,7 @@ func (r *defsRender) entry(d *cuedefs.Definition) string {
 		b.WriteString(md(d.Summary) + "\n\n")
 	}
 	b.WriteString("**At a glance**\n\n")
-	fmt.Fprintf(&b, "- Source: `%s` in `%s`\n", d.File, r.m.ModulePath)
+	fmt.Fprintf(&b, "- Source: %s in %s\n", mdtext.Code(d.File), mdtext.Code(r.m.ModulePath))
 	fmt.Fprintf(&b, "- Shape: %s\n", d.Shape)
 	if len(d.Embeds) > 0 {
 		fmt.Fprintf(&b, "- Embeds: %s\n", r.linkList(d.Embeds))
@@ -157,13 +157,15 @@ func (r *defsRender) entry(d *cuedefs.Definition) string {
 	if len(d.UsedBy) > 0 {
 		fmt.Fprintf(&b, "- Used by: %s\n", r.linkList(d.UsedBy))
 	}
-	fmt.Fprintf(&b, "\n**Spec**\n\n```cue\n%s\n```\n", d.CUE)
+	f := fence(d.CUE)
+	fmt.Fprintf(&b, "\n**Spec**\n\n%scue\n%s\n%s\n", f, d.CUE, f)
 	if len(d.Example) > 0 {
-		b.WriteString("\n**Example**\n\n```cue\n")
+		f := fence(strings.Join(d.Example, "\n"))
+		b.WriteString("\n**Example**\n\n" + f + "cue\n")
 		for _, l := range d.Example {
 			b.WriteString(l + "\n")
 		}
-		b.WriteString("```\n")
+		b.WriteString(f + "\n")
 	}
 	if len(d.Notes) > 0 {
 		b.WriteString("\n**Notes**\n\n")
@@ -174,7 +176,8 @@ func (r *defsRender) entry(d *cuedefs.Definition) string {
 		for _, rl := range d.Rules {
 			fmt.Fprintf(&b, "- %s\n", md(rl.Rule))
 			if rl.Code != "" {
-				fmt.Fprintf(&b, "\n  ```text\n  %s\n  ```\n\n", rl.Code)
+				f := fence(rl.Code)
+				fmt.Fprintf(&b, "\n  %stext\n  %s\n  %s\n\n", f, rl.Code, f)
 			}
 		}
 	}
@@ -182,24 +185,17 @@ func (r *defsRender) entry(d *cuedefs.Definition) string {
 }
 
 // notesMarkdown writes note blocks as Markdown: a paragraph as prose, a
-// "- " entry as a list item, an indented entry as a line of a text block,
-// and "" as a break that closes an open text block.
+// "- " entry as a list item, a run of indented entries as a text block,
+// and "" as a break that ends a text block.
 func notesMarkdown(notes []string, md func(string) string) string {
 	var b strings.Builder
-	inText, prevList := false, false
-	closeText := func() {
-		if inText {
-			b.WriteString("```\n")
-			inText = false
-		}
-	}
-	for _, n := range notes {
+	prevList := false
+	for i := 0; i < len(notes); i++ {
+		n := notes[i]
 		switch {
 		case n == "":
-			closeText()
 			continue
 		case strings.HasPrefix(n, "- "):
-			closeText()
 			if !prevList && b.Len() > 0 {
 				b.WriteString("\n")
 			}
@@ -207,16 +203,18 @@ func notesMarkdown(notes []string, md func(string) string) string {
 			prevList = true
 			continue
 		case strings.HasPrefix(n, "  "):
-			if !inText {
-				if b.Len() > 0 {
-					b.WriteString("\n")
-				}
-				b.WriteString("```text\n")
-				inText = true
+			var lines []string
+			for ; i < len(notes) && strings.HasPrefix(notes[i], "  "); i++ {
+				lines = append(lines, strings.TrimSpace(notes[i]))
 			}
-			b.WriteString(strings.TrimSpace(n) + "\n")
+			i--
+			text := strings.Join(lines, "\n")
+			f := fence(text)
+			if b.Len() > 0 {
+				b.WriteString("\n")
+			}
+			b.WriteString(f + "text\n" + text + "\n" + f + "\n")
 		default:
-			closeText()
 			if b.Len() > 0 {
 				b.WriteString("\n")
 			}
@@ -224,7 +222,6 @@ func notesMarkdown(notes []string, md func(string) string) string {
 		}
 		prevList = false
 	}
-	closeText()
 	return b.String()
 }
 
@@ -235,38 +232,123 @@ var reDollarRef = regexp.MustCompile(`\$[A-Za-z_][A-Za-z0-9_]*`)
 // "#Trait.optional", "#ctx.components".
 var reDefRef = regexp.MustCompile(`#[A-Za-z_][A-Za-z0-9_]*(?:\.[#$A-Za-z_][A-Za-z0-9_]*)*`)
 
-// markdown renders one line of definition prose: outside code spans it
-// links a reference to a placed definition other than self, puts any
-// other "#name" and "$name" in a code span, and escapes "<" and "{{" so no
-// text reads as raw HTML or a shortcode. The prose is Markdown as written
-// in the doc comment, so nothing else is escaped.
+// markdown renders one line of definition prose: outside code spans and
+// Markdown links it links a reference to a placed definition other than
+// self, puts any other "#name" and "$name" in a code span, and escapes "<"
+// and "{{" so no text reads as raw HTML or a shortcode. The prose is
+// Markdown as written in the doc comment, so nothing else is escaped.
 func (r *defsRender) markdown(s, self string) string {
 	var b strings.Builder
-	parts := strings.Split(s, "`")
-	for i, p := range parts {
-		if i > 0 {
-			b.WriteString("`")
-		}
-		if i%2 == 1 && i < len(parts)-1 {
-			b.WriteString(p) // inside a code span
+	for _, seg := range proseSegments(s) {
+		if seg.verbatim {
+			b.WriteString(seg.text)
 			continue
 		}
-		p = strings.ReplaceAll(p, "<", `\<`)
-		p = strings.ReplaceAll(p, "{{", `{\{`)
-		p = reDefRef.ReplaceAllStringFunc(p, func(m string) string {
-			base := m
-			if j := strings.Index(m, "."); j > 0 {
-				base = m[:j]
-			}
-			if base != self {
-				if u := r.link(base); u != "" {
-					return "[`" + m + "`](" + u + ")"
-				}
-			}
-			return "`" + m + "`"
-		})
-		p = reDollarRef.ReplaceAllString(p, "`$0`")
-		b.WriteString(p)
+		b.WriteString(r.prose(seg.text, self))
 	}
 	return b.String()
+}
+
+func (r *defsRender) prose(p, self string) string {
+	p = strings.ReplaceAll(p, "<", `\<`)
+	p = strings.ReplaceAll(p, "{{", `{\{`)
+	p = reDefRef.ReplaceAllStringFunc(p, func(m string) string {
+		base := m
+		if j := strings.Index(m, "."); j > 0 {
+			base = m[:j]
+		}
+		if base != self {
+			if u := r.link(base); u != "" {
+				return "[`" + m + "`](" + u + ")"
+			}
+		}
+		return "`" + m + "`"
+	})
+	return reDollarRef.ReplaceAllString(p, "`$0`")
+}
+
+type segment struct {
+	text     string
+	verbatim bool // a code span or a Markdown link, written as it is
+}
+
+// reMDLink matches an inline Markdown link, "[text](url)".
+var reMDLink = regexp.MustCompile(`\[[^\]\n]*\]\([^)\s]*\)`)
+
+// proseSegments splits prose into code spans (a run of n backticks up to
+// the next run of exactly n), Markdown links and the text between them.
+func proseSegments(s string) []segment {
+	var out []segment
+	text := func(t string) {
+		for t != "" {
+			loc := reMDLink.FindStringIndex(t)
+			if loc == nil {
+				out = append(out, segment{text: t})
+				return
+			}
+			if loc[0] > 0 {
+				out = append(out, segment{text: t[:loc[0]]})
+			}
+			out = append(out, segment{text: t[loc[0]:loc[1]], verbatim: true})
+			t = t[loc[1]:]
+		}
+	}
+	start := 0
+	for i := 0; i < len(s); {
+		if s[i] != '`' {
+			i++
+			continue
+		}
+		n := backtickRun(s, i)
+		end := closingRun(s, i+n, n)
+		if end < 0 {
+			i += n // an unmatched run is text
+			continue
+		}
+		text(s[start:i])
+		out = append(out, segment{text: s[i : end+n], verbatim: true})
+		i = end + n
+		start = i
+	}
+	text(s[start:])
+	return out
+}
+
+func backtickRun(s string, i int) int {
+	n := 0
+	for i+n < len(s) && s[i+n] == '`' {
+		n++
+	}
+	return n
+}
+
+// closingRun finds the next run of exactly n backticks from i, or -1.
+func closingRun(s string, i, n int) int {
+	for i < len(s) {
+		if s[i] != '`' {
+			i++
+			continue
+		}
+		m := backtickRun(s, i)
+		if m == n {
+			return i
+		}
+		i += m
+	}
+	return -1
+}
+
+// fence is a code fence longer than any backtick run in code, at least
+// three backticks.
+func fence(code string) string {
+	longest, run := 0, 0
+	for _, c := range code {
+		if c == '`' {
+			run++
+			longest = max(longest, run)
+		} else {
+			run = 0
+		}
+	}
+	return strings.Repeat("`", max(3, longest+1))
 }

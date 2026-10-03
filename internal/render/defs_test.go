@@ -115,3 +115,47 @@ func TestDefinitionsNeedDocsPlacement(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestDefinitionsProse(t *testing.T) {
+	r := &defsRender{m: &cuedefs.Model{Section: "reference/definitions/"}, t: docsTarget, byName: map[string]*cuedefs.Definition{
+		"#Module": {Name: "#Module", Anchor: "module", Page: "modules"},
+	}}
+	for in, want := range map[string]string{
+		// A Markdown link is left as written, its fragment included.
+		"See [the guide](/docs/guide/#module) and #Module.": "See [the guide](/docs/guide/#module) and [`#Module`](/docs/reference/definitions/modules/#module).",
+		"Code ``a ` #Module`` stays; #Other is code.":       "Code ``a ` #Module`` stays; `#Other` is code.",
+		"An unmatched ` run and #Module.":                   "An unmatched ` run and [`#Module`](/docs/reference/definitions/modules/#module).",
+		"Self #Self.x, $name and <b> {{x}}":                 "Self `#Self.x`, `$name` and \\<b> {\\{x}}",
+	} {
+		if got := r.markdown(in, "#Self"); got != want {
+			t.Errorf("markdown(%q)\n got %q\nwant %q", in, got, want)
+		}
+	}
+}
+
+func TestDefinitionsFences(t *testing.T) {
+	if f := fence("a ``` b"); f != "````" {
+		t.Errorf("fence %q", f)
+	}
+	if f := fence("plain"); f != "```" {
+		t.Errorf("fence %q", f)
+	}
+	m := &cuedefs.Model{Section: "reference/definitions/", ModulePath: "example.com/m@v1"}
+	r := &defsRender{m: m, t: docsTarget, byName: map[string]*cuedefs.Definition{}}
+	d := &cuedefs.Definition{
+		Name: "#T", Anchor: "t", Page: "p", File: "src/t.cue", Summary: "T.", Shape: "value",
+		CUE:   "#T: \"```\"",
+		Notes: []string{"  pre ``` line", "  second"},
+		Rules: []cuedefs.Rule{{Rule: "Match:", Code: "^`{3}$", By: "cue"}},
+	}
+	got := r.entry(d)
+	for _, want := range []string{
+		"````cue\n#T: \"```\"\n````\n",
+		"````text\npre ``` line\nsecond\n````\n",
+		"  ```text\n  ^`{3}$\n  ```\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("entry lacks %q:\n%s", want, got)
+		}
+	}
+}
