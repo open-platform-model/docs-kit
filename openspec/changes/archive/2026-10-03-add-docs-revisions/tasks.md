@@ -22,8 +22,8 @@ Gate: `build-opm-docs-phase-1` is archived on docs-kit `main` and `v0.1.0` is re
 
 ## 4. Archive (rides this PR)
 
-- [ ] 4.1 `openspec archive add-docs-revisions --yes`. Verify: `task openspec:check` green; every durable decision landed.
-- [ ] 4.2 `task check` green, then commit `chore(openspec): archive add-docs-revisions`.
+- [x] 4.1 `openspec archive add-docs-revisions --yes`. Verify: `task openspec:check` green; every durable decision landed.
+- [x] 4.2 `task check` green, then commit `chore(openspec): archive add-docs-revisions`.
 
 ## After merge
 
