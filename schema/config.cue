@@ -6,10 +6,13 @@ package schema
 
 #Bundle: {
 	placement: #Placement
-	version: {
+	// Where a release version comes from. A section bundle builds from main
+	// only (edge), so its version may be left out and is ignored when given.
+	version?: {
 		from:   "tag"         // phase 1: the release version comes from the git tag
 		prefix: string & !="" // "opm-v": tag "opm-v4.4.5" is version "4.4.5"
 	}
+	if placement.kind != "section" {version: _}
 	sources: [#Source, ...#Source]
 	// The exact versions of other projects this build documents against
 	// (DESIGN decision 10). The command prints a pins document
@@ -111,3 +114,4 @@ package schema
 	reconciledBy?: [string & !=""]: string & !="" // kind: the controller that reconciles it
 	citations?: #Citations
 }
+

@@ -30,6 +30,10 @@ import (
 	placement: #Placement
 	pages: list.MinItems(1) & [...#Page]
 	if placement.kind == "tab" {pages: [...{edit?: error("a tab bundle's page has no edit")}]}
+	if placement.kind == "section" {
+		version: "edge"
+		pages: [...{edit?: error("a section bundle's page has no edit")}]
+	}
 	data: [...#DataFile]
 	// The exact versions of other projects this build documents against
 	// (DESIGN decision 10), from the config's pins command.
@@ -44,7 +48,9 @@ import (
 #Placement: {
 	// "tab": its own section with its own versions, /catalogs/<name>/<MAJOR.MINOR>/.
 	// "docs": merged into a site version's /docs/ tree (refused by a pull that predates it).
-	kind: "tab" | "docs"
+	// "section": one unversioned section outside every site version, built from
+	// main only (refused by a pull that predates it).
+	kind: "tab" | "docs" | "section"
 	if kind == "tab" {root: =~"^/catalogs/[a-z0-9]+(-[a-z0-9]+)*/$"}
 	if kind == "docs" {
 		root: "/docs/"
@@ -53,6 +59,8 @@ import (
 		// bundle lies under one; two of them never nest.
 		owns: *[] | [...#Owned]
 	}
+	// The one section root, until a second section has a consumer.
+	if kind == "section" {root: "/enhancements/"}
 }
 
 #Owned: =~"^([a-z0-9]+(-[a-z0-9]+)*/)+$|^([a-z0-9]+(-[a-z0-9]+)*/)*[a-z0-9]+(-[a-z0-9]+)*\\.md$"

@@ -240,6 +240,9 @@ func resolve(ctx context.Context, o Options, b config.Bundle, project string) (*
 
 func buildProject(ctx context.Context, o Options, cfg *config.Config, project string, outside bool) (Result, error) {
 	b := cfg.Bundles[project]
+	if b.Placement.Kind == render.KindSection && o.Release != "" {
+		return Result{}, &UsageError{SectionError(project)}
+	}
 	id, err := resolve(ctx, o, b, project)
 	if err != nil {
 		return Result{}, err
@@ -279,6 +282,12 @@ func buildProject(ctx context.Context, o Options, cfg *config.Config, project st
 		return Result{}, err
 	}
 	return Result{Project: project, Dir: dir, Pages: len(m.Pages)}, nil
+}
+
+// SectionError is the refusal of a release or a revision of a section
+// bundle, which publishes from main only.
+func SectionError(project string) error {
+	return fmt.Errorf("%s is a section bundle; it builds from main only (edge), so it has no release and no docs revision", project)
 }
 
 // assembly collects one bundle's pages and data.
@@ -569,7 +578,7 @@ func (s *assembly) markdown(src config.Source, cfgPath string, outside bool) ([]
 	}
 	// Links into the bundle's own catalog are pinned only in a tab bundle;
 	// a docs bundle's pages are copied as written.
-	if s.m.Placement.Kind != render.KindDocs {
+	if k := s.m.Placement.Kind; k == render.KindTab || k == "" {
 		opts.Catalog = s.m.Placement.Root
 		opts.Segment = s.id.build.Segment()
 		if !s.id.build.Edge {

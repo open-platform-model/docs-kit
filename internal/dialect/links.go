@@ -34,6 +34,10 @@ func (p *pageLint) dest(t string) {
 	case reEnh.MatchString(t):
 		if !reEnhOK.MatchString(t) {
 			p.err(p.nr, `enhancement link "`+t+`": write /enhancements/, /enhancements/<NNNN>/ or /enhancements/<NNNN>/<document>/ with a trailing slash`)
+			return
+		}
+		if p.opts.sectionBundle() {
+			p.sectionLink(t)
 		}
 	case reCatalogs.MatchString(t):
 		p.catalogLink(t)
@@ -132,6 +136,25 @@ func (p *pageLint) ownedLink(t string) {
 	if !owned {
 		return
 	}
+	if !p.pages[stem+".md"] && !p.pages[stem+"/_index.md"] {
+		p.err(p.nr, `link "`+t+`": no page `+path+` in this bundle`)
+	}
+}
+
+// sectionLink checks a link of a section bundle into its own root: it
+// names a page of the bundle. Fragments are not checked.
+func (p *pageLint) sectionLink(t string) {
+	path := strings.TrimPrefix(t, "/enhancements/")
+	if i := strings.IndexByte(path, '#'); i >= 0 {
+		path = path[:i]
+	}
+	if path == "" {
+		if !p.pages["_index.md"] {
+			p.err(p.nr, `link "`+t+`": no page _index.md in this bundle`)
+		}
+		return
+	}
+	stem := strings.TrimSuffix(path, "/")
 	if !p.pages[stem+".md"] && !p.pages[stem+"/_index.md"] {
 		p.err(p.nr, `link "`+t+`": no page `+path+` in this bundle`)
 	}

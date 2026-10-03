@@ -10,8 +10,8 @@ Gate: `generalize-build-assembly` and `pull-docs-placement` are merged on docs-k
 
 ## 2. The section placement
 
-- [ ] 2.1 `schema/config.cue`, `schema/manifest.cue`: `section` (D1), optional `version` for a section. `internal/build`: edge only, `--release` and `revise` refused; bundle-mode lint with an empty segment. Verify: tests for a section build, a refused release, a link to a missing section page.
-- [ ] 2.2 `task check` green, then commit `feat(build): add the section placement`.
+- [x] 2.1 `schema/config.cue`, `schema/manifest.cue`: `section` (D1), optional `version` for a section. `internal/build`: edge only, `--release` and `revise` refused; bundle-mode lint with an empty segment. Verify: tests for a section build, a refused release, a link to a missing section page.
+- [x] 2.2 `task check` green, then commit `feat(build): add the section placement`.
 
 ## 3. The enhancements source
 

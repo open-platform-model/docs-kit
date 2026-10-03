@@ -35,6 +35,8 @@ const (
 	KindMarkdown = "markdown"
 	// KindCueDefinitions is checked here for what the schema cannot state.
 	KindCueDefinitions = "cue-definitions"
+	// PlacementSection is the placement of an edge-only section bundle.
+	PlacementSection = "section"
 )
 
 // Source is one input of a bundle. Kind names the extractor or the

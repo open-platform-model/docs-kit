@@ -24,14 +24,15 @@ var templates = template.Must(template.New("").Funcs(template.FuncMap{
 
 // Placement kinds a Target is rendered for.
 const (
-	KindTab  = "tab"
-	KindDocs = "docs"
+	KindTab     = "tab"
+	KindDocs    = "docs"
+	KindSection = "section"
 )
 
 // Target is the bundle the pages are rendered for.
 type Target struct {
-	Kind    string // "tab" (also when empty) or "docs"
-	Root    string // placement root, "/catalogs/opm/" or "/docs/"
+	Kind    string // "tab" (also when empty), "docs" or "section"
+	Root    string // placement root, "/catalogs/opm/", "/docs/" or "/enhancements/"
 	Segment string // a tab's "4.4" or "edge"; unused for docs
 	Edge    bool
 	Version string // "4.4.5" or "edge"
@@ -42,10 +43,11 @@ type Target struct {
 // URL is the published URL of a page path under the bundle ("" is the
 // landing; "traits/backup" a member page): <root><segment>/<page>/ for a
 // tab, /docs/<page>/ for a docs bundle, whose pages publish under the site
-// version that pulls it.
+// version that pulls it, and <root><page>/ for a section, which has no
+// segment.
 func (t Target) URL(page string) string {
 	u := t.Root
-	if t.Kind != KindDocs {
+	if t.Kind != KindDocs && t.Kind != KindSection {
 		u += t.Segment + "/"
 	}
 	if page != "" {
