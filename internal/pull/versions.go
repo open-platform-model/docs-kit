@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -104,16 +105,25 @@ func checkOverlap(sv string, set []*docsBundle) error {
 }
 
 // pageURL is the URL path, relative to /docs/, that Hugo serves a content
-// page at: ".md" dropped, then a trailing "_index" or "index".
+// page at: ".md" dropped, and a page named "_index" or "index" served at
+// its directory ("" for the root).
 func pageURL(page string) string {
 	u := strings.TrimSuffix(page, ".md")
-	for _, leaf := range []string{"_index", "index"} {
-		if u == leaf {
-			return ""
+	if b := path.Base(u); b == "_index" || b == "index" {
+		if d := path.Dir(u); d != "." {
+			return d
 		}
-		u = strings.TrimSuffix(u, "/"+leaf)
+		return ""
 	}
 	return u
+}
+
+// docsURL is the URL a page URL path is served at under /docs/.
+func docsURL(u string) string {
+	if u == "" {
+		return "/docs/"
+	}
+	return "/docs/" + u + "/"
 }
 
 // ownedURL is the URL an owned path ("reference/cli/" or
@@ -188,7 +198,7 @@ func pageTwice(set []*docsBundle) string {
 			case first.path == page.Path:
 				return fmt.Sprintf("%s is in both %s and %s; a page of a site version comes from one bundle, so drop it from one of them", page.Path, first.b.what, b.what)
 			default:
-				return fmt.Sprintf("%s in %s and %s in %s serve one URL, /docs/%s/; a page of a site version comes from one bundle, so drop one of them", first.path, first.b.what, page.Path, b.what, u)
+				return fmt.Sprintf("%s in %s and %s in %s serve one URL, %s; a page of a site version comes from one bundle, so drop one of them", first.path, first.b.what, page.Path, b.what, docsURL(u))
 			}
 		}
 	}
@@ -399,9 +409,9 @@ func (p *puller) swapVersions() error {
 			return err
 		}
 		p.versionWritten[sv] = true
-		if err := os.RemoveAll(outgoing); err != nil {
-			return err
-		}
+		// The new tree is in place; a leftover outgoing tree is sweepVersions'
+		// to remove, so a cleanup failure never fails the pull.
+		_ = os.RemoveAll(outgoing)
 	}
 	return nil
 }

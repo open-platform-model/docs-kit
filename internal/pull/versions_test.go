@@ -479,10 +479,17 @@ func TestCheckOverlapIndexPage(t *testing.T) {
 	}
 }
 
+func TestDocsURL(t *testing.T) {
+	if docsURL("") != "/docs/" || docsURL(pageURL("start/_index.md")) != "/docs/start/" {
+		t.Fatal(docsURL(""))
+	}
+}
+
 func TestPageURL(t *testing.T) {
 	for in, want := range map[string]string{
 		"_index.md": "", "index.md": "", "start.md": "start", "start/_index.md": "start", "start/index.md": "start",
 		"reference/cli/opm-module.md": "reference/cli/opm-module", "reference/indexes.md": "reference/indexes",
+		"foo/index/_index.md": "foo/index", "foo/index.md": "foo",
 	} {
 		if got := pageURL(in); got != want {
 			t.Errorf("pageURL(%s) = %q, want %q", in, got, want)
