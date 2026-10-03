@@ -129,6 +129,12 @@ No new command or flag. Messages: "`#Policy` (src/policy.cue) is exported but ne
 **Context**: a release built with `main`'s config against an older tag (C5) sees a different set of definitions.
 **Decision**: warnings and omission, as a missing `markdown` dir is tolerated in the same situation (C5).
 
+### Parity record (2026-10-03)
+
+**Context**: task 2.2 runs `TestCoreDefinitionsParity` against core's newest tag. That tag, `v2.0.0-beta.1`, predates `tools/refgen` and the committed pages (both landed after it), so no tag carries pages to compare.
+**Decision**: parity is measured at core `main`, commit `c5a6076` (`git describe`: `v2.0.0-beta.1-15-gc5a6076`), where `refgen -check` reports the nine committed pages current. Result: all nine pages equal refgen's byte for byte once the marker comments are removed. No planned difference. The test needs only `OPM_CORE_CHECKOUT`; it does not require a tag.
+**Rationale**: the pages to match exist only on `main`; the first core tag that carries them becomes the next measuring point.
+
 ## Risks / Trade-offs
 
 - Parity is measured at one core tag; a later refgen change in core before the cutover must be ported or accepted as a planned difference in C17's parity record.

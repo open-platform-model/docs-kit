@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/open-platform-model/docs-kit/internal/extract/cuecatalog"
+	"github.com/open-platform-model/docs-kit/internal/extract/cuedefs"
 )
 
 // A Renderer turns one data file into pages. It reads the data file as
@@ -19,6 +20,7 @@ type Renderer interface {
 // schema it reads.
 var renderers = map[string]Renderer{
 	cuecatalog.SchemaID: catalogRenderer{},
+	cuedefs.SchemaID:    defsRenderer{},
 }
 
 // For returns the renderer of a data schema.

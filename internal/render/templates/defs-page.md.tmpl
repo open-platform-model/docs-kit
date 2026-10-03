@@ -1,0 +1,10 @@
+---
+title: {{yaml .Title}}
+description: {{yaml .Description}}
+type: reference
+weight: {{.Weight}}
+---
+
+Definitions on this page: {{.OnPage}}. Every definition is listed on the [definitions page]({{.Index}}).
+{{range .Entries}}
+{{.}}{{end}}

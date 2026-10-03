@@ -10,9 +10,9 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`. One PR, titled `
 
 ## 2. The renderer and parity
 
-- [ ] 2.1 `internal/render`: the definitions renderer and templates (D5). Verify: golden pages for the fixture.
-- [ ] 2.2 `TestCoreDefinitionsParity` (skipped unless `OPM_CORE_CHECKOUT` names a core checkout at a tag): build with core's planned config and compare every page with refgen's committed page, marker comments removed. Verify: run it against core's newest tag and record the tag and result in design.md.
-- [ ] 2.3 `task check` green, then commit `feat(render): render CUE definitions reference pages`.
+- [x] 2.1 `internal/render`: the definitions renderer and templates (D5). Verify: golden pages for the fixture.
+- [x] 2.2 `TestCoreDefinitionsParity` (skipped unless `OPM_CORE_CHECKOUT` names a core checkout at a tag): build with core's planned config and compare every page with refgen's committed page, marker comments removed. Verify: run it against core's newest tag and record the tag and result in design.md.
+- [x] 2.3 `task check` green, then commit `feat(render): render CUE definitions reference pages`.
 
 ## 3. Contract and archive
 
