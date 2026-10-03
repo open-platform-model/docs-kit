@@ -21,6 +21,8 @@ func TestLoadPullSections(t *testing.T) {
 `, "enhancements is both a section and a docs project"},
 		{"a section and a tab", siteConfig + sectionsPull + `tabs: enhancements: {repo: "open-platform-model/enhancements", root: "/catalogs/enh/", from: "1.0"}
 `, "enhancements is both a section and a tab project"},
+		{"two sections on one root", siteConfig + sectionsPull + `sections: rfcs: {repo: "open-platform-model/rfcs", root: "/enhancements/"}
+`, "sections enhancements and rfcs both claim the root /enhancements/"},
 		{"another root", strings.Replace(sectionsPull, `root: "/enhancements/"`, `root: "/rfcs/"`, 1), "root"},
 		{"no repo", `sections: enhancements: {root: "/enhancements/"}
 `, "repo"},

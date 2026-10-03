@@ -421,10 +421,16 @@ func LoadPull(path string) (*Pull, error) {
 }
 
 // checkVersions applies the rules the schema cannot state: a project is
-// a tab, a docs project or a section, never two of them; every project a
-// site version names is a docs project; and a version names a project once.
+// a tab, a docs project or a section, never two of them; two sections
+// never claim one root; every project a site version names is a docs
+// project; and a version names a project once.
 func (p *Pull) checkVersions() error {
+	roots := map[string]string{}
 	for _, s := range p.SectionProjects() {
+		if prev, dup := roots[p.Sections[s].Root]; dup {
+			return fmt.Errorf("sections %s and %s both claim the root %s; a root shows one section, so remove one", prev, s, p.Sections[s].Root)
+		}
+		roots[p.Sections[s].Root] = s
 		_, tab := p.Tabs[s]
 		_, docs := p.Docs[s]
 		if tab || docs {
