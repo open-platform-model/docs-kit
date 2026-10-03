@@ -31,10 +31,10 @@ func enhancementsRepo(t *testing.T) *gittest.Repo {
 	return r
 }
 
-func buildEnhancements(t *testing.T, r *gittest.Repo, release string) (string, error) {
+func buildEnhancements(t *testing.T, r *gittest.Repo, release string, projects ...string) (string, error) {
 	t.Helper()
 	out := filepath.Join(t.TempDir(), "out")
-	_, err := Run(context.Background(), Options{Source: r.Dir, Out: out, Tool: "0.5.0", Release: release})
+	_, err := Run(context.Background(), Options{Source: r.Dir, Out: out, Tool: "0.5.0", Release: release, Projects: projects})
 	return filepath.Join(out, "enhancements"), err
 }
 
@@ -99,7 +99,7 @@ func TestEnhancementsSectionDeterministic(t *testing.T) {
 func TestEnhancementsSectionRefusesRelease(t *testing.T) {
 	r := enhancementsRepo(t)
 	r.Git("tag", "v1.0.0")
-	_, err := buildEnhancements(t, r, "v1.0.0")
+	_, err := buildEnhancements(t, r, "v1.0.0", "enhancements")
 	var ue *UsageError
 	if !errors.As(err, &ue) || !strings.Contains(err.Error(), "enhancements is a section bundle; it builds from main only (edge)") {
 		t.Fatalf("err = %v, want a usage error naming the section", err)
@@ -134,5 +134,31 @@ func TestEnhancementsSectionLocalPreview(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "has no GitHub origin, so the repository is named local/") || !strings.Contains(stderr.String(), "push refuses it") {
 		t.Fatalf("stderr %q", stderr.String())
+	}
+}
+
+// A release with no --project skips the section and builds the rest; a
+// config of sections alone is still refused.
+func TestEnhancementsSectionSkippedInARelease(t *testing.T) {
+	r := enhancementsRepo(t)
+	r.Git("tag", "v1.0.0")
+	if _, err := buildEnhancements(t, r, "v1.0.0"); err == nil || !strings.Contains(err.Error(), "section bundle") {
+		t.Fatalf("sections alone: %v", err)
+	}
+	r.Write(map[string]string{
+		"docs-kit.cue": enhancementsSectionConfig + `bundles: guide: {
+	placement: {kind: "docs", root: "/docs/"}
+	version: {from: "tag", prefix: "v"}
+	sources: [{kind: "markdown", dir: "docs/site"}]
+}
+`,
+		"docs/site/guide.md": "---\ntitle: \"Guide\"\ndescription: \"x\"\ntype: explanation\n---\n\nA guide.\n",
+	})
+	r.Commit("guide")
+	r.Git("tag", "v1.0.1")
+	out := filepath.Join(t.TempDir(), "out")
+	res, err := Run(context.Background(), Options{Source: r.Dir, Out: out, Tool: "0.5.0", Release: "v1.0.1"})
+	if err != nil || len(res) != 1 || res[0].Project != "guide" {
+		t.Fatalf("results %+v: %v", res, err)
 	}
 }

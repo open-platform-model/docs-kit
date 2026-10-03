@@ -101,6 +101,11 @@ func Run(ctx context.Context, o Options) ([]Result, error) {
 	if err != nil {
 		return nil, err
 	}
+	if o.Release != "" && len(o.Projects) == 0 {
+		if projects, err = skipSections(cfg, projects); err != nil {
+			return nil, err
+		}
+	}
 	var out []Result
 	for _, p := range projects {
 		r, err := buildProject(ctx, o, cfg, p, outside)
@@ -290,6 +295,22 @@ func buildProject(ctx context.Context, o Options, cfg *config.Config, project st
 		return Result{}, err
 	}
 	return Result{Project: project, Dir: dir, Pages: len(m.Pages)}, nil
+}
+
+// skipSections leaves the section bundles out of a release that names no
+// project: a section builds from main only, and the other bundles of the
+// same repository still release. A config of sections alone is refused.
+func skipSections(cfg *config.Config, projects []string) ([]string, error) {
+	var out []string
+	for _, p := range projects {
+		if cfg.Bundles[p].Placement.Kind != render.KindSection {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		return nil, &UsageError{SectionError(projects[0])}
+	}
+	return out, nil
 }
 
 // SectionError is the refusal of a release or a revision of a section
