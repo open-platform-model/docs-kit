@@ -418,6 +418,9 @@ func (s *assembly) extract(b config.Bundle, cfgPath string, outside bool) ([]aut
 	dataBy := map[string]string{} // data file -> the kind that wrote it
 	for i, src := range b.Sources {
 		if src.Kind == config.KindMarkdown {
+			if src.Markdown == nil {
+				return nil, nil, fmt.Errorf("%s: sources[%d] is a markdown source without its options; load the config with config.Load", cfgPath, i)
+			}
 			pages, err := s.markdown(src, cfgPath, outside)
 			if err != nil {
 				return nil, nil, err

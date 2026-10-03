@@ -41,6 +41,9 @@ func Definitions(m *cuedefs.Model, t Target) ([]Page, error) {
 	for _, p := range m.Pages {
 		r.pageTitle[p.File] = p.Title
 	}
+	if err := checkLinks(m); err != nil {
+		return nil, err
+	}
 	index, err := r.index()
 	if err != nil {
 		return nil, err
@@ -232,26 +235,39 @@ var reDollarRef = regexp.MustCompile(`\$[A-Za-z_][A-Za-z0-9_]*`)
 // "#Trait.optional", "#ctx.components".
 var reDefRef = regexp.MustCompile(`#[A-Za-z_][A-Za-z0-9_]*(?:\.[#$A-Za-z_][A-Za-z0-9_]*)*`)
 
-// markdown renders one line of definition prose: outside code spans and
-// Markdown links it links a reference to a placed definition other than
+// markdown renders one line of definition prose. A Markdown link keeps its
+// URL as written and has its text escaped; outside code spans and links it
+// links a reference to a placed definition other than
 // self, puts any other "#name" and "$name" in a code span, and escapes "<"
 // and "{{" so no text reads as raw HTML or a shortcode. The prose is
 // Markdown as written in the doc comment, so nothing else is escaped.
 func (r *defsRender) markdown(s, self string) string {
 	var b strings.Builder
 	for _, seg := range proseSegments(s) {
-		if seg.verbatim {
+		switch {
+		case seg.verbatim:
 			b.WriteString(seg.text)
-			continue
+		case seg.link:
+			b.WriteString(reMDLink.ReplaceAllStringFunc(seg.text, func(l string) string {
+				g := reMDLink.FindStringSubmatch(l)
+				return "[" + escapeProse(g[1]) + "](" + g[2] + g[3] + ")"
+			}))
+		default:
+			b.WriteString(r.prose(seg.text, self))
 		}
-		b.WriteString(r.prose(seg.text, self))
 	}
 	return b.String()
 }
 
-func (r *defsRender) prose(p, self string) string {
+// escapeProse escapes "<" and "{{", so no text reads as raw HTML or a
+// shortcode.
+func escapeProse(p string) string {
 	p = strings.ReplaceAll(p, "<", `\<`)
-	p = strings.ReplaceAll(p, "{{", `{\{`)
+	return strings.ReplaceAll(p, "{{", `{\{`)
+}
+
+func (r *defsRender) prose(p, self string) string {
+	p = escapeProse(p)
 	p = reDefRef.ReplaceAllStringFunc(p, func(m string) string {
 		base := m
 		if j := strings.Index(m, "."); j > 0 {
@@ -269,11 +285,41 @@ func (r *defsRender) prose(p, self string) string {
 
 type segment struct {
 	text     string
-	verbatim bool // a code span or a Markdown link, written as it is
+	verbatim bool // a code span, written as it is
+	link     bool // a Markdown link: its text escaped, its URL as written
 }
 
-// reMDLink matches an inline Markdown link, "[text](url)".
-var reMDLink = regexp.MustCompile(`\[[^\]\n]*\]\([^)\s]*\)`)
+// reMDLink matches an inline Markdown link, "[text](url)" or
+// "[text](url "title")": text, URL and title are its groups.
+var reMDLink = regexp.MustCompile(`\[([^\]\n]*)\]\(([^)\s]*)(\s+"[^"\n]*")?\)`)
+
+// reScheme matches a URL that names a scheme.
+var reScheme = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9+.-]*):`)
+
+// checkLinks refuses a Markdown link in a definition's prose whose URL
+// names a scheme other than http or https: the site renders raw HTML and
+// links as written, so a javascript: link would run.
+func checkLinks(m *cuedefs.Model) error {
+	for i := range m.Definitions {
+		d := &m.Definitions[i]
+		texts := append([]string{d.Summary}, d.Notes...)
+		for _, rl := range d.Rules {
+			texts = append(texts, rl.Rule)
+		}
+		for _, t := range texts {
+			for _, seg := range proseSegments(t) {
+				if !seg.link {
+					continue
+				}
+				u := reMDLink.FindStringSubmatch(seg.text)[2]
+				if sc := reScheme.FindStringSubmatch(u); len(sc) == 2 && !strings.EqualFold(sc[1], "http") && !strings.EqualFold(sc[1], "https") {
+					return fmt.Errorf("%s (%s): the doc comment links %q; a link is http, https or relative", d.Name, d.File, u)
+				}
+			}
+		}
+	}
+	return nil
+}
 
 // proseSegments splits prose into code spans (a run of n backticks up to
 // the next run of exactly n), Markdown links and the text between them.
@@ -289,7 +335,7 @@ func proseSegments(s string) []segment {
 			if loc[0] > 0 {
 				out = append(out, segment{text: t[:loc[0]]})
 			}
-			out = append(out, segment{text: t[loc[0]:loc[1]], verbatim: true})
+			out = append(out, segment{text: t[loc[0]:loc[1]], link: true})
 			t = t[loc[1]:]
 		}
 	}

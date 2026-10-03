@@ -164,6 +164,7 @@ func place(cfg Config, defs map[string]*def) (pages []PageConfig, problems []str
 				continue
 			case anchors[Anchor(n)] != "":
 				problems = append(problems, fmt.Sprintf("%s and %s on page %q share the anchor #%s; place one of them on another page", anchors[Anchor(n)], n, p.File, Anchor(n)))
+				placed[n] = p.File // reported once, not also as unplaced
 				continue
 			case cfg.Exclude[n] != "":
 				problems = append(problems, fmt.Sprintf("%s is placed on page %q and also excluded; remove it from one of them", n, p.File))

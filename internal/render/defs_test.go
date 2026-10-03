@@ -121,6 +121,9 @@ func TestDefinitionsProse(t *testing.T) {
 		"#Module": {Name: "#Module", Anchor: "module", Page: "modules"},
 	}}
 	for in, want := range map[string]string{
+		// A link's text is escaped; its URL and title stay as written.
+		"[<img src=x onerror=alert(1)>](https://e.example)": "[\\<img src=x onerror=alert(1)>](https://e.example)",
+		`[t #Module](/docs/x/#module "a title")`:            `[t #Module](/docs/x/#module "a title")`,
 		// A Markdown link is left as written, its fragment included.
 		"See [the guide](/docs/guide/#module) and #Module.": "See [the guide](/docs/guide/#module) and [`#Module`](/docs/reference/definitions/modules/#module).",
 		"Code ``a ` #Module`` stays; #Other is code.":       "Code ``a ` #Module`` stays; `#Other` is code.",
@@ -157,5 +160,28 @@ func TestDefinitionsFences(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("entry lacks %q:\n%s", want, got)
 		}
+	}
+}
+
+// The site renders links as written, so a doc comment link with any scheme
+// but http or https is refused, naming the definition.
+func TestDefinitionsRefuseUnsafeLinks(t *testing.T) {
+	probe := "[<img src=x onerror=alert(1)>](https://e.example) and [a](javascript:alert(1))"
+	for _, d := range []cuedefs.Definition{
+		{Name: "#T", File: "src/t.cue", Summary: probe},
+		{Name: "#T", File: "src/t.cue", Notes: []string{"- " + probe}},
+		{Name: "#T", File: "src/t.cue", Rules: []cuedefs.Rule{{Rule: "[x](data:text/html,hi)", By: "cue"}}},
+	} {
+		m := &cuedefs.Model{Section: "reference/definitions/", Definitions: []cuedefs.Definition{d}}
+		_, err := Definitions(m, defsTarget)
+		if err == nil || !strings.Contains(err.Error(), "#T (src/t.cue)") || !strings.Contains(err.Error(), "http, https or relative") {
+			t.Errorf("%+v: err = %v", d, err)
+		}
+	}
+	ok := &cuedefs.Model{Section: "reference/definitions/", Definitions: []cuedefs.Definition{
+		{Name: "#T", File: "src/t.cue", Page: "p", Anchor: "t", Summary: "[a](https://e.example), [b](HTTP://e.example), [c](/docs/x/#y) and [d](#t)."},
+	}, Pages: []cuedefs.Page{{File: "p", Title: "P", Description: "d", Weight: 1, Definitions: []string{"#T"}}}}
+	if _, err := Definitions(ok, defsTarget); err != nil {
+		t.Errorf("safe links refused: %v", err)
 	}
 }

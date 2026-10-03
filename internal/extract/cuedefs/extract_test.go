@@ -198,6 +198,7 @@ func TestPlacement(t *testing.T) {
 		{"unknown excluded", func(c *Config) { c.Exclude["#Gone"] = "old" },
 			[]string{"#Gone is excluded, but the package declares no such definition"}},
 		{"anchors collide", func(c *Config) {
+			delete(c.Exclude, "#MODE")
 			c.Pages[1].Definitions = append(c.Pages[1].Definitions, "#MODE")
 		}, []string{`#Mode and #MODE on page "types" share the anchor #mode`}},
 		{"placed and excluded", func(c *Config) { c.Exclude["#Mode"] = "x" },
@@ -217,6 +218,9 @@ func TestPlacement(t *testing.T) {
 				if !strings.Contains(err.Error(), w) {
 					t.Errorf("error lacks %q:\n%v", w, err)
 				}
+			}
+			if len(pe.Problems) != len(c.want) {
+				t.Errorf("problems %q, want %d", pe.Problems, len(c.want))
 			}
 			// A backfill warns instead and builds.
 			var warned []string
