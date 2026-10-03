@@ -412,35 +412,77 @@ func TestSiteVersionLocalAnchorPinsPulledProjects(t *testing.T) {
 func TestSiteVersionOverlaps(t *testing.T) {
 	pins := map[string]string{"core": "2.0.0"}
 	cfg := `versions: "v1.0": {anchor: {project: "cli", tag: "1.0"}, pinned: ["core"]}`
+	core := func(owns []string, pages ...string) docsSpec {
+		return docsSpec{project: "core", version: "2.0.0", owns: owns, pages: pages}
+	}
 	for _, c := range []struct {
 		name string
+		cli  func(*docsSpec) // edits cli 1.0.0, which owns reference/cli/
 		core docsSpec
 		want string
 	}{
-		{"one path in two bundles", docsSpec{project: "core", version: "2.0.0", owns: []string{"reference/definitions/"}, pages: []string{"reference/definitions/_index.md", "reference/cli/_index.md"}},
+		{"a page under another bundle's owned directory", nil, core([]string{"reference/definitions/"}, "reference/definitions/_index.md", "reference/cli/_index.md"),
 			"v1.0: core 2.0.0 has reference/cli/_index.md, under reference/cli/, which cli 1.0.0 owns"},
-		{"a page in two bundles, owned by neither", docsSpec{project: "core", version: "2.0.0", pages: []string{"start/_index.md"}},
+		{"a page under another bundle's owned page", func(s *docsSpec) { s.pages = append(s.pages, "reference/operator-resources/extra.md") },
+			core([]string{"reference/operator-resources.md"}, "reference/operator-resources.md"),
+			"v1.0: cli 1.0.0 has reference/operator-resources/extra.md, under reference/operator-resources.md, which core 2.0.0 owns"},
+		{"a page in two bundles, owned by neither", func(s *docsSpec) { s.pages = append(s.pages, "start/_index.md") }, core(nil, "start/_index.md"),
 			"v1.0: start/_index.md is in both cli 1.0.0 and core 2.0.0"},
-		{"owned paths that nest", docsSpec{project: "core", version: "2.0.0", owns: []string{"reference/"}, pages: []string{"reference/definitions.md"}},
+		{"cli.md and cli/_index.md serve one URL", func(s *docsSpec) { s.pages = append(s.pages, "guides/cli.md") }, core(nil, "guides/cli/_index.md"),
+			"v1.0: guides/cli.md in cli 1.0.0 and guides/cli/_index.md in core 2.0.0 serve one URL, /docs/guides/cli/"},
+		{"module.md and module/_index.md serve one URL", func(s *docsSpec) { s.pages = append(s.pages, "guides/module.md") }, core(nil, "guides/module/_index.md"),
+			"v1.0: guides/module.md in cli 1.0.0 and guides/module/_index.md in core 2.0.0 serve one URL"},
+		{"owned paths that nest, the pinned project outer", nil, core([]string{"reference/"}, "reference/definitions.md"),
 			"v1.0: cli 1.0.0 owns reference/cli/ and core 2.0.0 owns reference/"},
+		{"owned paths that nest, the anchor outer", func(s *docsSpec) { s.owns = []string{"reference/"} }, core([]string{"reference/definitions/"}, "reference/definitions/_index.md"),
+			"v1.0: cli 1.0.0 owns reference/ and core 2.0.0 owns reference/definitions/"},
+		{"an owned page and an owned directory at one URL", nil, core([]string{"reference/cli.md"}, "reference/cli.md"),
+			"v1.0: cli 1.0.0 owns reference/cli/ and core 2.0.0 owns reference/cli.md"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			e := newEnv(t)
 			o := e.options(e.docsConfig(cfg))
 			e.offline(&o)
 			cli := cliSpec("1.0.0", pins)
-			cli.pages = append(cli.pages, "start/_index.md")
+			if c.cli != nil {
+				c.cli(&cli)
+			}
 			o.Locals = []Local{{"cli", "v1.0", docsTree(t, cli)}, {"core", "v1.0", docsTree(t, c.core)}}
 			_, err := Run(context.Background(), o)
 			if err == nil || IsUsage(err) || !strings.Contains(err.Error(), c.want) {
 				t.Fatalf("err = %v, want %q", err, c.want)
 			}
-			if _, err := os.Stat(filepath.Join(o.Out, VersionsDir)); err == nil {
-				if left, _ := os.ReadDir(filepath.Join(o.Out, VersionsDir)); len(left) != 0 {
-					t.Fatalf("a refused version left %v", left)
-				}
+			if left, _ := os.ReadDir(filepath.Join(o.Out, VersionsDir)); len(left) != 0 {
+				t.Fatalf("a refused version left %v", left)
 			}
 		})
+	}
+}
+
+// The page dialect refuses index.md in a bundle, so a pull never reaches
+// the overlap check with one; the check still reads it as its section's URL.
+func TestCheckOverlapIndexPage(t *testing.T) {
+	bundleOf := func(project string, pages ...string) *docsBundle {
+		m := &bundle.Manifest{Project: project, Version: "1.0.0"}
+		for _, p := range pages {
+			m.Pages = append(m.Pages, bundle.Page{Path: p})
+		}
+		return &docsBundle{project: project, m: m, what: project + " 1.0.0"}
+	}
+	err := checkOverlap("v1.0", []*docsBundle{bundleOf("cli", "guides/module.md"), bundleOf("core", "guides/module/index.md")})
+	if err == nil || !strings.Contains(err.Error(), "v1.0: guides/module.md in cli 1.0.0 and guides/module/index.md in core 1.0.0 serve one URL, /docs/guides/module/") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestPageURL(t *testing.T) {
+	for in, want := range map[string]string{
+		"_index.md": "", "index.md": "", "start.md": "start", "start/_index.md": "start", "start/index.md": "start",
+		"reference/cli/opm-module.md": "reference/cli/opm-module", "reference/indexes.md": "reference/indexes",
+	} {
+		if got := pageURL(in); got != want {
+			t.Errorf("pageURL(%s) = %q, want %q", in, got, want)
+		}
 	}
 }
 

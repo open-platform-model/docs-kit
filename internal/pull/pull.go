@@ -284,6 +284,16 @@ func (p *puller) checkFrozenDocs(l *Lock) error {
 			anchors[e.Site] = e
 		}
 	}
+	// Every configured project of every site version is locked, or comes
+	// from --local.
+	for _, sv := range p.cfg.SiteVersions() {
+		v := p.cfg.Versions[sv]
+		for _, project := range versionProjects(v) {
+			if _, local := p.docsLocals[sv+"/"+project]; !local && !seen[sv+"/"+project] {
+				return usagef("--frozen %s has no entry for %s %s, which the config pulls as %s; pull again without --frozen", p.o.Frozen, sv, project, v.Role(project))
+			}
+		}
+	}
 	for i := range l.Docs {
 		e := &l.Docs[i]
 		if e.Role != RolePinned {

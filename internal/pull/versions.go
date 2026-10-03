@@ -5,10 +5,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -16,7 +18,6 @@ import (
 
 	"github.com/open-platform-model/docs-kit/internal/build"
 	"github.com/open-platform-model/docs-kit/internal/bundle"
-	"github.com/open-platform-model/docs-kit/internal/config"
 	"github.com/open-platform-model/docs-kit/internal/oci"
 )
 
@@ -89,8 +90,10 @@ func (p *puller) stageVersion(ctx context.Context, sv string) error {
 }
 
 // checkOverlap refuses a site version whose docs bundles overlap: two
-// owned paths that nest, a page under a path another bundle owns, or one
-// content path in two bundles.
+// owned paths that nest, a page under a path another bundle owns, or two
+// pages that serve one URL. Every comparison is by the URL Hugo serves, so
+// "cli.md", "cli/_index.md" and "cli/index.md" are one page, and an owned
+// page "cli.md" holds "cli/" as an owned directory does.
 func checkOverlap(sv string, set []*docsBundle) error {
 	for _, check := range []func([]*docsBundle) string{nestedOwns, pageUnderOwned, pageTwice} {
 		if msg := check(set); msg != "" {
@@ -100,12 +103,40 @@ func checkOverlap(sv string, set []*docsBundle) error {
 	return nil
 }
 
+// pageURL is the URL path, relative to /docs/, that Hugo serves a content
+// page at: ".md" dropped, then a trailing "_index" or "index".
+func pageURL(page string) string {
+	u := strings.TrimSuffix(page, ".md")
+	for _, leaf := range []string{"_index", "index"} {
+		if u == leaf {
+			return ""
+		}
+		u = strings.TrimSuffix(u, "/"+leaf)
+	}
+	return u
+}
+
+// ownedURL is the URL an owned path ("reference/cli/" or
+// "reference/operator-resources.md") holds, with everything under it.
+func ownedURL(owned string) string {
+	if strings.HasSuffix(owned, "/") {
+		return strings.TrimSuffix(owned, "/")
+	}
+	return pageURL(owned)
+}
+
+// urlUnder reports whether URL inner is outer or lies under it. The
+// root, "", holds only itself: no owned path is the whole tree.
+func urlUnder(outer, inner string) bool {
+	return inner == outer || outer != "" && strings.HasPrefix(inner, outer+"/")
+}
+
 func nestedOwns(set []*docsBundle) string {
 	for i, a := range set {
 		for _, b := range set[i+1:] {
 			for _, oa := range a.m.Placement.Owns {
 				for _, ob := range b.m.Placement.Owns {
-					if config.Nests(oa, ob) || config.Nests(ob, oa) {
+					if ua, ub := ownedURL(oa), ownedURL(ob); urlUnder(ua, ub) || urlUnder(ub, ua) {
 						return fmt.Sprintf("%s owns %s and %s owns %s; owned paths of one site version never nest, so narrow one of them", a.what, oa, b.what, ob)
 					}
 				}
@@ -131,10 +162,10 @@ func pageUnderOwned(set []*docsBundle) string {
 	return ""
 }
 
-// ownedBy returns the path of b's owns that holds page.
+// ownedBy returns the path of b's owns that holds page's URL.
 func ownedBy(b *docsBundle, page string) (string, bool) {
 	for _, o := range b.m.Placement.Owns {
-		if config.Nests(o, page) {
+		if urlUnder(ownedURL(o), pageURL(page)) {
 			return o, true
 		}
 	}
@@ -142,13 +173,23 @@ func ownedBy(b *docsBundle, page string) (string, bool) {
 }
 
 func pageTwice(set []*docsBundle) string {
-	seen := map[string]*docsBundle{}
+	type served struct {
+		b    *docsBundle
+		path string
+	}
+	seen := map[string]served{}
 	for _, b := range set {
 		for _, page := range b.m.Pages {
-			if first, ok := seen[page.Path]; ok {
-				return fmt.Sprintf("%s is in both %s and %s; a page of a site version comes from one bundle, so drop it from one of them", page.Path, first.what, b.what)
+			u := pageURL(page.Path)
+			first, ok := seen[u]
+			switch {
+			case !ok:
+				seen[u] = served{b, page.Path}
+			case first.path == page.Path:
+				return fmt.Sprintf("%s is in both %s and %s; a page of a site version comes from one bundle, so drop it from one of them", page.Path, first.b.what, b.what)
+			default:
+				return fmt.Sprintf("%s in %s and %s in %s serve one URL, /docs/%s/; a page of a site version comes from one bundle, so drop one of them", first.path, first.b.what, page.Path, b.what, u)
 			}
-			seen[page.Path] = b
 		}
 	}
 	return ""
@@ -216,8 +257,8 @@ func (p *puller) docsBundle(ctx context.Context, sv, project, role, tag string, 
 // site version.
 func (p *puller) frozenDocs(ctx context.Context, sv, project, role string) (*docsBundle, error) {
 	i := slices.IndexFunc(p.frozenLock.Docs, func(e DocsEntry) bool { return e.Site == sv && e.Project == project })
-	if i < 0 {
-		return nil, usagef("--frozen %s has no entry for %s %s, which the config pulls as %s; pull again without --frozen", p.o.Frozen, sv, project, role)
+	if i < 0 { // checkFrozenDocs refused this before any network call
+		return nil, fmt.Errorf("--frozen %s has no entry for %s %s", p.o.Frozen, sv, project)
 	}
 	e := p.frozenLock.Docs[i]
 	repo, err := p.o.Client.Repository(e.Repository)
@@ -334,17 +375,33 @@ func (p *puller) unpackDocs(sv, project string, layer []byte, what string) (*bun
 	return m, rel, nil
 }
 
-// swapVersions replaces each staged site version whole.
+// swapVersions replaces each staged site version whole: the previous
+// tree moves aside to .outgoing-<v>, the staged one takes its place, and
+// only then is the previous one removed. A failed second rename puts the
+// previous tree back.
 func (p *puller) swapVersions() error {
 	for _, sv := range p.versionOrder {
 		dir := filepath.Join(p.o.Out, VersionsDir, sv)
-		if err := os.RemoveAll(dir); err != nil {
+		outgoing := filepath.Join(p.o.Out, VersionsDir, ".outgoing-"+sv)
+		if err := os.RemoveAll(outgoing); err != nil {
+			return err
+		}
+		hadPrevious := true
+		if err := os.Rename(dir, outgoing); errors.Is(err, fs.ErrNotExist) {
+			hadPrevious = false
+		} else if err != nil {
 			return err
 		}
 		if err := os.Rename(p.versionStaged[sv], dir); err != nil {
+			if hadPrevious {
+				_ = os.Rename(outgoing, dir)
+			}
 			return err
 		}
 		p.versionWritten[sv] = true
+		if err := os.RemoveAll(outgoing); err != nil {
+			return err
+		}
 	}
 	return nil
 }
