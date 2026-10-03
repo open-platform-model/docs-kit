@@ -17,9 +17,9 @@ One PR closing docs-kit#27 and docs-kit#37; its `feat` commits release `v0.6.0`.
 
 ## 3. Check every page of every bundle
 
-- [ ] 3.1 `internal/build`: `Lint` runs the check on every listed page of every bundle, `Generated` for a generated page or a section page, `Authored` otherwise (design.md D1). Verify: `internal/build` tests: a tab bundle with raw HTML in a generated page fails `Lint`; a docs bundle whose authored page carries a writer's note passes; one whose authored page carries `<b>` fails.
-- [ ] 3.2 `internal/mdtext`: `Text` escapes `{` and `}` (design.md D3). Verify: `mdtext` tests; a `render` test feeds a cue-catalog note `## Install {.hx:fixed}` and the page passes `mdsafe.Check`; `crd` and `cobra` tests show a kind or command name with a brace is refused by the extractor; a `cue-definitions` doc comment with a heading attribute block fails `build` naming the page and line.
-- [ ] 3.3 `task check` green, then commit `feat(lint): check the markup of every bundle page`.
+- [x] 3.1 `internal/build`: `Lint` runs the check on every listed page of every bundle, `Generated` for a generated page or a section page, `Authored` otherwise (design.md D1). Verify: `internal/build` tests: a tab bundle with raw HTML in a generated page fails `Lint`; a docs bundle whose authored page carries a writer's note passes; one whose authored page carries `<b>` fails.
+- [x] 3.2 `internal/mdtext`: `Text` escapes `{` and `}` (design.md D3). Verify: `mdtext` tests; a `render` test feeds a cue-catalog note `## Install {.hx:fixed}` and the page passes `mdsafe.Check`; `crd` and `cobra` tests show a kind or command name with a brace is refused by the extractor; a `cue-definitions` doc comment with a heading attribute block fails `build` naming the page and line.
+- [x] 3.3 `task check` green, then commit `feat(lint): check the markup of every bundle page`.
 
 ## 4. Contracts and published bundles
 

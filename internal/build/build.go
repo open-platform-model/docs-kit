@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -685,6 +686,7 @@ func Lint(dir string) ([]string, error) {
 	for _, p := range m.Pages {
 		pages = append(pages, p.Path)
 	}
+	section := m.Placement.Kind == render.KindSection
 	vs, err := dialect.Lint(filepath.Join(dir, bundle.ContentDir), dialect.Options{
 		Mode:   dialect.Bundle,
 		Bundle: dialect.BundleInfo{Kind: m.Placement.Kind, Root: m.Placement.Root, Segment: m.Segment(), Owns: m.Placement.Owns, Pages: pages},
@@ -695,8 +697,12 @@ func Lint(dir string) ([]string, error) {
 	for _, v := range vs {
 		out = append(out, v.String())
 	}
-	if m.Placement.Kind == render.KindSection {
-		safe, err := safeMarkup(dir, pages)
+	for _, p := range m.Pages {
+		mode := mdsafe.Generated
+		if !p.Generated && !section {
+			mode = mdsafe.Authored
+		}
+		safe, err := safeMarkup(dir, p.Path, mode)
 		if err != nil {
 			return nil, err
 		}
@@ -705,21 +711,24 @@ func Lint(dir string) ([]string, error) {
 	return out, nil
 }
 
-// safeMarkup parses every page of a section bundle as the site's renderer
-// does and refuses raw HTML, a script URL and a heading attribute block
-// (C21): the section's pages are a repository's authored text, so this,
-// not the transforms, is what keeps them safe to publish.
-func safeMarkup(dir string, pages []string) ([]string, error) {
+// safeMarkup parses one page as the site's renderer does and refuses raw
+// HTML, a script URL and a heading attribute block (C21). Extractors and
+// sources escape what they write, best effort; this check is what keeps a
+// page safe to publish. A generated page and every page of a section get
+// every rule; an authored page, copied as written, may keep HTML comments
+// a browser closes where goldmark does.
+func safeMarkup(dir, page string, mode mdsafe.Mode) ([]string, error) {
+	file := filepath.Join(dir, bundle.ContentDir, filepath.FromSlash(page))
+	body, err := os.ReadFile(file)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil // the listing check reports a listed page that is missing
+	}
+	if err != nil {
+		return nil, err
+	}
 	var out []string
-	for _, p := range pages {
-		file := filepath.Join(dir, bundle.ContentDir, filepath.FromSlash(p))
-		body, err := os.ReadFile(file)
-		if err != nil {
-			return nil, err
-		}
-		for _, v := range mdsafe.Check(mdsafe.Page{Path: file, Body: body}, mdsafe.Generated) {
-			out = append(out, v.String())
-		}
+	for _, v := range mdsafe.Check(mdsafe.Page{Path: file, Body: body}, mode) {
+		out = append(out, v.String())
 	}
 	return out, nil
 }

@@ -64,6 +64,7 @@ func TestFromDumpRefuses(t *testing.T) {
 		{"an upper-case subcommand", strings.ReplaceAll(strings.ReplaceAll(dump, "demo widget list", "demo widget List"), `"name": "list"`, `"name": "List"`), `its name "List" is not lower-case kebab-case`},
 		{"a two-character shorthand", strings.Replace(dump, `"shorthand": "n"`, `"shorthand": "nn"`, 1), `shorthand "nn"`},
 		{"an upper-case command", strings.ReplaceAll(strings.ReplaceAll(dump, "demo version", "demo Version"), `"name": "version"`, `"name": "Version"`), "lower-case kebab-case"},
+		{"a command with heading attributes", strings.ReplaceAll(strings.ReplaceAll(dump, "demo version", "demo version{.x}"), `"name": "version"`, `"name": "version{.x}"`), "lower-case kebab-case"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			if c.dump == dump {

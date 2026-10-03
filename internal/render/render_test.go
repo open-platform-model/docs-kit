@@ -105,7 +105,7 @@ func TestPageFacts(t *testing.T) {
 		{"traits/backup.md", "([contract levels](/catalogs/demo/1.2/))"},
 		{"traits/backup-v1alpha1.md", "Without one, rendering a component that attaches it fails; with two, the kernel refuses every render on that platform."},
 		{"traits/scaling.md", "a component that attaches it still renders, and the render warns that the trait is not handled and ignores its values."},
-		{"traits/scaling.md", `{\{\< x \>}}`},
+		{"traits/scaling.md", `\{\{\< x \>\}\}`},
 		{"traits/scaling.md", "[docs/scaling-notes.md](https://github.com/example/demo/blob/" + commit + "/docs/scaling-notes.md)"},
 		{"resources/queue.md", "> [!WARNING]\n> **Not implemented**"},
 		{"resources/container.md", "`k8s.#EnvVar`: from `example.com/catalogs/demo/schemas/kubernetes/core/v1`, the vendored Kubernetes API types"},

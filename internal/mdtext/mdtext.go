@@ -10,11 +10,12 @@ import (
 )
 
 // escaper escapes what Markdown or Hugo would read as markup in prose: the
-// site renders raw HTML, so `<name>` would vanish, and `{{<` would open a
-// shortcode.
+// site renders raw HTML, so `<name>` would vanish; `{{<` would open a
+// shortcode; and a note that reads as a heading would take a trailing
+// `{.class}` or `{#id}` as heading attributes.
 var escaper = strings.NewReplacer(
 	`\`, `\\`, `<`, `\<`, `>`, `\>`, `*`, `\*`, `_`, `\_`,
-	`[`, `\[`, `]`, `\]`, `|`, `\|`, "{{", `{\{`,
+	`[`, `\[`, `]`, `\]`, `|`, `\|`, `{`, `\{`, `}`, `\}`,
 )
 
 // Text escapes prose for Markdown, leaving `code spans` as written.
