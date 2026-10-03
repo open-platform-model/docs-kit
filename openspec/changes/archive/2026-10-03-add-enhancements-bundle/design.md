@@ -155,3 +155,7 @@ Run 2026-10-03 against enhancements `main` at `19be107` (218 published files: `I
 
 - C21 (new): D1 to D6. C1: the `enhancements` row (already reserved). C3: `#Placement` `section`. C7: `sections`, the lock root. C8: the `/enhancements/` URL row. C11: the graph form.
 - `README.md`: placements table.
+
+## Review of docs-kit#36 (after archive)
+
+The review bypassed transforms (5) and (7) ten ways (escaped backslashes, code spans across lines, fake fences, tab and `@` autolinks, `<javascript:...>` autolinks, reference definitions in quotes or lists or with the destination on the next line, blanks before a destination). Decided by the owner: the transforms stay best effort, and the guarantee is an AST check (`internal/mdsafe`, goldmark v1.8.6 as Hugo 0.167.0 parses a page) run by bundle-mode lint on every section page; it refuses raw HTML, non-`http`/`https`/`mailto` or protocol-relative destinations (reference definitions included) and heading attribute blocks. Every probe is a test. Also added: two sections on one root are refused; a build with no GitHub origin warns and `push` refuses it; `checkDir` checks every component; an escaped `]` opens no link; `build --release` without `--project` skips sections. Contract C21 states the result. enhancements `main` at `19be107` passes the check.
