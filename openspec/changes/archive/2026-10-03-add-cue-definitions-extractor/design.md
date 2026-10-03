@@ -139,6 +139,16 @@ No new command or flag. Messages: "`#Policy` (src/policy.cue) is exported but ne
 
 - Parity is measured at one core tag; a later refgen change in core before the cutover must be ported or accepted as a planned difference in C17's parity record.
 
+## Departures
+
+What shipped differs from the decisions above in these places; C17 is the record:
+
+- **D1 citations**: `citations?: #Citations`, the form C6 prescribes for every extractor kind, not `citations: *"strip" | "link"`. The default stays `strip`.
+- **D1 intro**: an optional `intro` (added in review) holds the index's opening paragraph; core's config carries refgen's sentence, and without it the index names the module path only.
+- **D2 summary**: the doc comment's first sentence, as refgen takes it, not its first paragraph; the rest of the paragraph opens the notes.
+- **D5 checks**: a cue-definitions source outside a docs bundle and a bad `skip` glob are config errors (exit 1); the renderer also refuses a non-docs target.
+- **Parity tree**: measured at core `main` `c5a6076`, not at a tag (`v2.0.0-beta.1` predates refgen); CI pins that commit.
+
 ## Durable decisions
 
 - C17 (new): config (D1), model (D4), pages and anchors (D5), the parity record.
