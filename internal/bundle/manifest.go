@@ -62,6 +62,7 @@ type Page struct {
 	Source    string `json:"source,omitempty"`
 	Lastmod   string `json:"lastmod,omitempty"`
 	Generated bool   `json:"generated"`
+	Edit      string `json:"edit,omitempty"` // docs placement, authored pages only: the file's path on main
 }
 
 // DataFile is one file under data/.

@@ -39,3 +39,26 @@ func TestPlacement(t *testing.T) {
 		}
 	}
 }
+
+func TestPageEdit(t *testing.T) {
+	for _, c := range []struct {
+		json string
+		ok   bool
+	}{
+		{`{"path": "start/install.md", "source": "docs/site/start/install.md", "generated": false}`, true},
+		{`{"path": "start/install.md", "source": "docs/site/start/install.md", "generated": false, "edit": "docs/site/start/install.md"}`, true},
+		{`{"path": "start/install.md", "generated": false, "edit": ""}`, false},
+		{`{"path": "start/install.md", "generated": false, "edit": 1}`, false},
+		{`{"path": "start/install.md", "generated": true, "edit": "docs/site/start/install.md"}`, false},
+		{`{"path": "start/install.md", "generated": false, "edit": "/docs/site/start/install.md"}`, false},
+		{`{"path": "start/install.md", "generated": false, "edit": "./docs/site/start/install.md"}`, false},
+		{`{"path": "start/install.md", "generated": false, "edit": "docs/../etc/passwd"}`, false},
+		{`{"path": "start/install.md", "generated": false, "edit": "docs/site/.."}`, false},
+		{`{"path": "start/install.md", "generated": false, "edit": "docs/site/..notes.md"}`, true},
+	} {
+		_, err := ValidateJSON("#Page", "page.json", []byte(c.json))
+		if (err == nil) != c.ok {
+			t.Errorf("%s: err = %v, want ok %v", c.json, err, c.ok)
+		}
+	}
+}

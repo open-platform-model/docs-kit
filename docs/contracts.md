@@ -63,7 +63,7 @@ Manifest annotations:
 
 `org.opencontainers.image.source` names the calling repository because GHCR links a new package to the repository named there, and the workflow's `GITHUB_TOKEN` can create a package only when that link is in its first push.
 
-The layer is a gzip-compressed tar of the bundle tree (C3), built deterministically: entries sorted by path, directories before their contents, mode `0644` for files and `0755` for directories, uid and gid `0`, empty user and group names, modification time equal to `created`, no extended headers, gzip header with no name and no time. The same source, config and tool version give the same digest.
+The layer is a gzip-compressed tar of the bundle tree (C3), built deterministically: entries sorted by path, directories before their contents, mode `0644` for files and `0755` for directories, uid and gid `0`, empty user and group names, modification time equal to `created`, no extended headers, gzip header with no name and no time. The same source, config and tool version give the same digest. A docs bundle's `pages[].edit` (C3) is one more input: it depends on the `HEAD` of `main` when the bundle is built, so the same release built after `main` renamed or deleted an authored page gives a different digest.
 
 Signatures are cosign v3 Sigstore bundles (`--new-bundle-format=true`): a referrer manifest with `artifactType` `application/vnd.dev.sigstore.bundle.v0.3+json` whose subject is the bundle's digest. GHCR has no referrers API, so the referrer is stored under the fallback tag `sha256-<hex>`; every consumer ignores tags of that form when it lists versions.
 
@@ -121,6 +121,7 @@ import (
 	dialect:   int & >=1
 	placement: #Placement
 	pages: list.MinItems(1) & [...#Page]
+	if placement.kind == "tab" {pages: [...{edit?: error("a tab bundle's page has no edit")}]}
 	data: [...#DataFile]
 	// The exact versions of other projects this build documents against
 	// (DESIGN decision 10), from the config's pins command.
@@ -150,10 +151,19 @@ import (
 
 #Page: {
 	path:      =~"^([a-z0-9]+(-[a-z0-9]+)*/)*(_index|[a-z0-9]+(-[a-z0-9]+)*)\\.md$" // under content/
-	source?:   string & !=""                                                        // repo-relative file the page came from ("Edit this page", "View source")
+	source?:   string & !=""                                                        // repo-relative file the page came from at the commit built ("View source")
 	lastmod?:  time.Time                                                            // that file's last commit date at the commit built, RFC 3339
 	generated: bool                                                                 // generated reference, or an authored page
+	// A docs bundle's authored page only: its source file's path on the
+	// repository's main branch, when main still has that file ("Edit this
+	// page"). Never on a generated page or a tab bundle's page (#Manifest),
+	// so a pull that predates it still reads every tab bundle.
+	edit?: #RepoPath
+	if generated {edit?: error("a generated page has no edit")}
 }
+
+// A repository-relative file path: no leading "/" or ".", no ".." segment.
+#RepoPath: string & =~"^[^/.]" & !~"(^|/)\\.\\.(/|$)"
 
 #DataFile: {
 	path:   =~"^[a-z0-9-]+\\.json$" // under data/
@@ -167,6 +177,10 @@ Added by the change `generalize-build-assembly`, both optional and additive:
 
 - `placement.owns`, on a docs placement only: the paths under `content/` the bundle owns exclusively, each a directory ending `/` or a page ending `.md` (`#Owned`). Build rules: C15.
 - `pins`: the exact versions of other projects the build documents against (DESIGN decision 10), written from the config's pins command (C6, C15). A build without `pins` in its config writes none.
+
+Added by the change `add-authored-docs`, optional and additive:
+
+- `pages[].edit`, in a docs-placed bundle only, on a page with `generated: false` (a completed page included, C15): the repository-relative path of the page's source file, written when that path is a regular file in the `HEAD` of the main tree (C15, "Authored docs"), and absent when `main` no longer has it there. A file renamed or deleted on `main` since the release is not followed: the page has no `edit` rather than a guessed one (DESIGN decision 19). A generated page, and every page of a tab bundle, never has it, and the schema refuses either ("pages.0.edit: a tab bundle's page has no edit"), so a site whose `opm-docs` predates the field still pulls every tab bundle; `edit` is a repository-relative path (`#RepoPath`: no leading `/` or `.`, no `..` segment); a docs bundle carrying it needs the site's bump first (C12).
 
 `#Manifest` is closed, so an `opm-docs` older than a field refuses a bundle that carries it; C12 orders the bumps so that never happens on the site.
 
@@ -185,7 +199,7 @@ A **build** is one pushed manifest. Its identity is read from its annotations (`
 Rules:
 
 1. **Order.** Builds of released versions order by SemVer 2.0.0 precedence of `version`, then numerically by `revision`. `4.4.5.1` follows `4.4.5.0` and precedes `4.4.6.0`; `4.5.0-rc.1.0` follows `4.4.6.0`. Edge builds take no part in the order.
-2. **Full tags are immutable.** `push` refuses to write a full tag that already names a different digest ("`4.4.5.0` is already published as sha256:...; a documentation fix is a docs revision"). The same digest is a no-op, so a re-run of a failed workflow is safe.
+2. **Full tags are immutable.** `push` refuses to write a full tag that already names a different digest ("`4.4.5.0` is already published as sha256:...; a documentation fix is a docs revision"). The same digest is a no-op, so a re-run of a failed workflow is safe. For a docs bundle that holds only while `main` is the same commit: a re-run of the failed run (the same `github.sha`) builds the same bytes, while a fresh `release` dispatch after `main` renamed or deleted an authored page builds a different `edit` and is refused here. A rebuilt docs revision keeps the `edit` values it recorded ("Docs revisions", step 3).
 3. **Revision numbers.** A release's first build is revision `0`. A docs revision ("Docs revisions" below) takes `1 +` the highest revision published for that version, and is refused when revision `0` does not exist.
 4. **Edge** builds carry `version: "edge"`, `revision: 0` and no full tag; they are pushed by digest and reached only through `edge`.
 5. **Moving a tag.** `promote --digest D` moves each moving tag of D's line to D only when D is the newest build of that tag's line, and only after D's signature verifies. Just before each move it resolves the tag's current build again and skips the move when that build is newer than D, because releases of different versions may publish at once (C5, Concurrency). It never points a tag at any other digest. Promote enumerates builds from every tag of the repository that equals `<version>.<revision>` of its own manifest's annotations; other tags (moving tags, `edge`, `sha256-*`) are not builds.
@@ -593,6 +607,17 @@ An authored page in a bundle (a `markdown` source) links into its own catalog th
 
 A docs bundle's `content/<path>` publishes at `/docs/<page URL>` under the site version that pulls it (C15): `content/reference/cli/opm-module.md` is `/docs/reference/cli/opm-module/` in every site version that holds it. Its segment (`MAJOR.MINOR` or `edge`) is not part of any URL. Its pages link other docs pages as `/docs/<section>/<page>/` and catalogs as a docs page does (the bare root or a major), and no link of a docs bundle is rewritten.
 
+**Edit and source links** (DESIGN decision 19). What the site links from a bundle's page, from `manifest.json` (C3); `<repo>` is `source.repo`, `<commit>` is `source.commit`:
+
+| Page | Edit this page | View source |
+|---|---|---|
+| a tab bundle's page (`/catalogs/...`) | none: a fix lands on `main` and reaches a released minor by a docs revision | `https://github.com/<repo>/blob/<commit>/<source>` when `source` is set |
+| a docs bundle's authored page (completed pages included) | `https://github.com/<repo>/edit/main/<edit>` when `edit` is set, whichever version the page shows; none otherwise | as above |
+| a docs bundle's generated page | none | as above, when `source` is set |
+| a section page (`/enhancements/`) | none: an entry changes through its own review | as above |
+
+"Last updated" is the page's `lastmod` (C3), the source file's last commit at the commit built, or in a docs revision the newest patch that touched it; a page without `lastmod` shows none.
+
 Aliases the site serves: `/catalogs/<name>/` and `/catalogs/<name>/<MAJOR>/` go to the newest minor (of that major), and `/catalogs/<name>/<MAJOR>/<path>/` to the same path in that minor, so docs pages can deep-link through the alias. For `catalog-opm` the contract page is the landing, so `/catalogs/opm/4/` replaces `/docs/reference/catalog-contract/`.
 
 ## C9. Signing identity
@@ -722,7 +747,7 @@ Callers and the site never `go run` or `go install` `opm-docs`: every consumer r
 - **Assets.** Every docs-kit release `vX.Y.Z` carries `opm-docs_X.Y.Z_<os>_<arch>.tar.gz` for `linux_amd64`, `linux_arm64`, `darwin_arm64` and `darwin_amd64` (each holding the `opm-docs` binary and `LICENSE`, the Apache-2.0 text at docs-kit's root; the org adopted Apache-2.0 on 2026-10-02), and `checksums.txt` (SHA-256, `sha256sum` format, one line per archive). Built by goreleaser in a draft-first release workflow, the pattern cli already uses. URL: `https://github.com/open-platform-model/docs-kit/releases/download/vX.Y.Z/<asset>`.
 - **Pinned in a build image**. A consumer may instead pin the `linux_amd64` archive by its SHA-256 in its own build image (opmodel.dev does this in `site/Dockerfile`, as it pins Hugo and Pagefind) and run `opm-docs` inside that image, with network on for the `pull` step only. The SHA-256 it pins is the archive's line in that release's `checksums.txt`. docs-kit therefore keeps shipping the `linux_amd64` archive and `checksums.txt` in every release, under the names above.
 - **Pin file.** A caller of `publish.yml`, and any consumer that runs the tool on the host (catalog_opm for its local `docs:bundle` tasks; opmodel.dev only if it does not use the image pattern), pins it in a repo-root file `.opm-docs-version`: one line, the release tag (`v0.1.0`), matching `^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$`. `publish.yml` reads the same file (C5), so every caller of `publish.yml` has one; its tag and the `publish.yml@` ref name the same release and move in one PR.
-- **The site bumps first** (since `generalize-build-assembly`). `#Manifest` is closed, so an `opm-docs` older than a manifest field refuses a bundle that carries it (`placement.owns` and `pins` came with `generalize-build-assembly`; later changes add more). **opmodel.dev's pinned `opm-docs` is never older than any producer's `.opm-docs-version`.** A docs-kit release reaches the site first (its `site/Dockerfile` bump); only then may a producer move its `.opm-docs-version` and `publish.yml@` ref to it. `docs/orchestration.md` orders every bump that way.
+- **The site bumps first** (since `generalize-build-assembly`). `#Manifest` is closed, so an `opm-docs` older than a manifest field refuses a bundle that carries it (`placement.owns` and `pins` came with `generalize-build-assembly`, `pages[].edit` with `add-authored-docs`; later changes add more). **opmodel.dev's pinned `opm-docs` is never older than any producer's `.opm-docs-version`.** A docs-kit release reaches the site first (its `site/Dockerfile` bump); only then may a producer move its `.opm-docs-version` and `publish.yml@` ref to it. `docs/orchestration.md` orders every bump that way.
 - **`cobradump`, the second component.** The nested Go module `github.com/open-platform-model/docs-kit/cobradump` (C19) releases on its own through release-please, from its own release PR (`separate-pull-requests`), tagged `cobradump/vX.Y.Z` (from `0.1.0`), the form the Go module proxy needs for a nested module. Its release is published at once and carries no assets: a CLI requires it by module version, and the proxy serves it from the tag. A commit under `cobradump/` releases only `cobradump` (the root package excludes that path) and takes the commit scope `cobradump`; goreleaser runs only for an `opm-docs` release. A `cobradump/` tag never matches the signer glob `refs/tags/v[0-9]*` (C9), so it can never act as a trusted `publish.yml` ref. The tag rulesets cover `cobradump/v*` as they cover `v*`.
 - **Verification.** Download the archive and `checksums.txt` for the host's os and arch, check with `grep ' <archive>$' checksums.txt | sha256sum -c -` (refusing an archive with no line), then extract only `opm-docs`. A failed check stops the task; nothing falls back to building from source. The install target is a gitignored repo-local directory (`.bin/` or `site/.bin/`), never a global path.
 
@@ -872,6 +897,45 @@ A bundle with `placement: {kind: "docs", root: "/docs/", owns: [...]}` merges in
 
 **Completable pages.** A renderer may mark a page completable, with the heading its generated body opens with. When a `markdown` source of the same bundle supplies a page at that path, the bundle's page is the authored front matter and body, unchanged, then one blank line, then the generated body without front matter, recorded as `generated: false` with the authored file as `source`. An authored body that already holds the heading exits `2` naming the file. Without an authored page, the generated page stands alone with its own front matter, `generated: true`. The catalog landing is the first completable page (heading `## Catalog members`; output unchanged).
 
+**Authored docs** (`add-authored-docs`, DESIGN decisions 19 to 21). A repository has one docs-placed bundle (C1's naming rule). Its authored `docs/site/` is a `markdown` source of that bundle, beside any extractor source: core, cli, library and opm-operator ship both from their adoption on (DESIGN decision 20); catalog_opm's `docs/site/` and opm's follow as their own docs bundles. The rules:
+
+- The `markdown` source copies its `dir` (all of it, or what `include` and `exclude` select, C6) into `content/` as written: no link is rewritten, and docs-mode link rules apply in bundle-mode lint (above). Each page is `generated: false` with its `source` and `lastmod`. Figure shortcodes pass as in dialect `1` (C11).
+- It may supply a root `_index.md` and section `_index.md` pages. Each section page under `/docs/` has one owner across a site version (opm owns `_index.md` and `start/_index.md`); that uniqueness is the site version's `pull` check (`pull-docs-placement`), not `build`'s.
+- A page path written both by an extractor and by the `markdown` source fails the build (exit `2`, "content/reference/definitions/components.md is written by both markdown docs/site and cue-definitions"), unless the extractor's page is completable, when the authored page completes it (above). Committed generated pages are therefore excluded (`exclude: ["reference/definitions/"]`) until the site reads the bundle, then deleted.
+- **The main tree.** `build` writes `pages[].edit` (C3) from the `HEAD` of the main tree, matching paths from the repository root: the current directory when it is a git work tree of the repository built (the same `owner/name`). That check relies on the workflow's layout: `publish.yml` runs every publishing mode in the caller's checkout of `main`, the release tree beside it at `src/` (C5), and in CI the name is `GITHUB_REPOSITORY`. Otherwise an edge build uses its source tree; a release build writes no `edit` and prints a note on stderr ("the current directory is not a checkout of <repo>, so the pages of <tag> get no edit path; run build from the repository's checkout of main"), never reading the tag's tree as `main`. `revise` passes its checkout of `main`, so a revision's pages link the files `main` has, a page the fix added included; a rebuilt revision keeps the `edit` it recorded ("Docs revisions", step 3).
+- **Backfills** (C5, C6). A release built with a config from outside the source tree (a backfill: the tag has no `docs-kit.cue`, so `main`'s config meets the tag's sources). Then, and only then, a missing `markdown` `dir` yields no pages and an `include` or `exclude` pattern matching nothing is ignored; in every other build each fails with exit `2`. `edit` still comes from `main`, so a backfilled page whose file `main` has since moved has no Edit link.
+
+The configurations, as the phase-2 and phase-3 changes write them:
+
+```cue
+// core, after its committed reference is deleted (until then the markdown
+// source carries exclude: ["reference/definitions/"]).
+bundles: core: {
+	placement: {kind: "docs", root: "/docs/", owns: ["reference/definitions/"]}
+	version: {from: "tag", prefix: "v"}
+	sources: [
+		{kind: "cue-definitions" /* options: the cue-definitions extractor's contract */},
+		{kind: "markdown", dir: "docs/site"},
+	]
+}
+
+// catalog_opm: the tab stays; its docs/site becomes a second, docs-placed project.
+bundles: {
+	"catalog-opm": {placement: {kind: "tab", root: "/catalogs/opm/"}, version: {from: "tag", prefix: "opm-v"}, sources: [/* unchanged */]}
+	"catalog-opm-docs": {placement: {kind: "docs", root: "/docs/"}, version: {from: "tag", prefix: "opm-v"}, sources: [{kind: "markdown", dir: "docs/site"}]}
+}
+
+// opm: authored pages only, released by release-please with tags v<semver>
+// (DESIGN decision 17), from 1.0.0-beta.1 (DESIGN decision 21).
+bundles: opm: {
+	placement: {kind: "docs", root: "/docs/"}
+	version: {from: "tag", prefix: "v"}
+	sources: [{kind: "markdown", dir: "docs/site"}]
+}
+```
+
+`catalog-opm` and `catalog-opm-docs` publish from the same release tag (`opm-v4.6.0`): catalog_opm's release job calls `publish.yml` once per project. A site version names them separately: the tab through `tabs`, the docs through `versions."v1.0".tags."catalog-opm-docs"` (a major, `"4"`). `catalog-opm-docs` starts at the first opm release cut after catalog_opm deleted its committed reference pages (catalog_opm #127); every earlier tag still holds them under `docs/site/reference/`, and its `docs-kit.cue` names no `catalog-opm-docs` (C5 reads the tree's config first), so none is backfilled. opm's site-version tag is `tags.opm`, `"1.0"` for v1.0.
+
 **Pins** (DESIGN decision 10). When a bundle's config has `pins: {command, projects}`, `build` runs the command (C14) and requires a `docs.opmodel.dev/pins/v1` document whose `pins` keys are exactly `projects` and whose values are SemVer versions without `v` (C3's `#SemVer`); it writes them to `manifest.json` `pins`. A missing or extra project, or a malformed version, exits `2` naming it and the command. A backfilled release (config from outside the tree) whose tree cannot run the command fails: pins are a contract, never guessed.
 
 ## C19. Command reference: `cobradump` and the `cobra` source
@@ -976,7 +1040,7 @@ A published release's pages change only through a docs revision (DESIGN decision
    - revision `n` was built by the running `opm-docs` version (its `tool`), else refused, since another version would not rebuild the pushed bytes;
    - when revision `n` is unsigned, revision `n-1` is signed and its fixes plus `F` are exactly revision `n`'s.
 
-   Then revision `n` is built again with the same list. The build is deterministic, so `push` finds the same digest and writes nothing, and signing and promote finish the run. Every earlier fix is checked again as in step 1.
+   Then revision `n` is built again with the same list, each page taking the `edit` revision `n` recorded (C3) rather than reading `main`, which may have moved since. The build is deterministic, so `push` finds the same digest and writes nothing, and signing and promote finish the run. Every earlier fix is checked again as in step 1.
 4. **The patched tree.** `git worktree add --detach <tmp> T`, then `git cherry-pick --no-commit` of each fix in order. A conflict is refused naming the files ("land one fix on main that makes the whole change and revise with that"). After each pick the index is written as a tree, and the paths that pick changed in it (so a file main renamed after the release counts under its release-tree name) take the pick's committer date. A work tree that differs from its index afterwards is refused, and so is an `F` that leaves the tree unchanged ("changes nothing in the release tree"). The worktree is removed on every path.
 5. **Documentation only.** `T`'s tree and the worktree's index (`git write-tree`) are compared with `git diff-tree -r -M`:
 
