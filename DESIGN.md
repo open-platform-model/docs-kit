@@ -16,7 +16,7 @@ docs-kit moves both jobs to the producer. Each repository builds, lints and publ
 
 ## Decisions
 
-Made by the owner on 2026-10-02. Decisions 13 to 16 were approved by the owner later the same day, while phase 1 was planned (`openspec/changes/archive/2026-10-02-build-opm-docs-phase-1/`); where they differ from the text below, the text has been amended to match.
+Made by the owner on 2026-10-02. Decisions 13 to 16 were approved by the owner later the same day, while phase 1 was planned (`openspec/changes/archive/2026-10-02-build-opm-docs-phase-1/`); where they differ from the text below, the text has been amended to match. Decisions 17 to 21 were made by the owner on 2026-10-03, while phases 1b, 2 and 3 were planned (20 and 21 confirm choices the plan proposed) ([docs/orchestration.md](docs/orchestration.md)).
 
 | # | Decision |
 |---|---|
@@ -36,6 +36,11 @@ Made by the owner on 2026-10-02. Decisions 13 to 16 were approved by the owner l
 | 14 | The site runs `opm-docs pull` inside its build image, with network on for that step only, instead of on the host. |
 | 15 | `org.opencontainers.image.created` is the source commit's time, not the build time, so a rebuild of the same commit gives the same digest. |
 | 16 | `push` and `promote` are separate commands: `push` writes only the immutable full tag, the workflow signs the digest, then `promote` verifies the signature and moves the moving tags. |
+| 17 | The opm repository publishes releases with release-please, and its docs bundle ships on each release, as every other repository's does. |
+| 18 | The enhancements repository is bundled too: one edge-only, unversioned bundle placed at `/enhancements/`. With it, the site build reads no git repository except its own. |
+| 19 | "Edit this page" on a docs page links the page's source file on `main`, whichever version the page shows. |
+| 20 | core, cli, library and opm-operator ship their authored `docs/site/` in the same bundle as their generated reference, from the day they adopt docs-kit: one cutover per repository. Their committed generated pages are excluded from the bundle until the site reads it, then deleted. Phase 3 is left with catalog_opm's docs, opm and enhancements. |
+| 21 | opm's first release is `1.0.0-beta.1`, so its minor tag `1.0` follows the v1.0 site version. |
 
 Carried over from the site's existing rules: reference facts are generated in the repository that owns their source; a generated entry states only what its source proves; pages follow the page dialect in the workspace `STYLE.md` ("Site Pages").
 
@@ -293,21 +298,21 @@ When a second minor (4.5) exists, `opm-docs pull` compares the `data/` of every 
 | Removed in 4.7 | present in 4.6, absent in 4.7; that minor links to the last one that had it |
 | Newer version | the same name and kind at a later apiVersion (`backup@v1alpha1`, `backup@v1beta1`): the pages link each other |
 
-Badges sit under the member's title and on each changed spec field ("New in 4.6", "Default changed in 4.6"), and the page ends with a "Changes in 4.6" list of what differs from the previous minor. There is no side-by-side diff view (decision 12).
+Badges sit under the member's title, and the page ends with a "Changes in 4.6" list of what differs from the previous minor, one entry per changed spec field ("New in 4.6", "Default changed in 4.6"); the field changes live in that list, not inline in the spec block, which is a code fence (amended in planning, 2026-10-03, `add-version-history`). There is no side-by-side diff view (decision 12).
 
 The first published minor is the oldest with a bundle, so a member present in it reads "in <minor> or earlier", never "added in <minor>". Estimate: 2 to 3 days. The structured spec it needs is extracted from phase 1 on.
 
 ### Phase 2: every generated reference
 
 - docs-kit: `cue-definitions`, `crd`, `cobra` (with `cobradump`) and `go-api` extractors.
-- core, opm-operator, cli: their generators and committed pages removed; bundles placed in `/docs/` of the site version.
+- core, opm-operator, cli: their generators and committed pages removed; bundles placed in `/docs/` of the site version. Each of core, cli, library and opm-operator ships its authored `docs/site/` in the same bundle from adoption on (decision 20), so phase 3 does not touch them again.
 - library: an API reference for the first time.
 - Done when: no repository commits generated pages, and the site's two Reference placeholders are gone.
 
 ### Phase 3: authored pages
 
 - docs-kit: the `markdown` extractor with git dates; `opm-docs serve`.
-- Every repository's `docs/site/` ships in its bundle; the opm repository gets one.
+- Every remaining repository's `docs/site/` ships in its bundle (core, cli, library and opm-operator already did in phase 2, decision 20): catalog_opm's as a second project beside its tab; the opm repository gets one, released with release-please (decision 17) from `1.0.0-beta.1` (decision 21); the enhancements repository gets an edge-only bundle (decision 18).
 - opmodel.dev: site versions resolve from bundle tags instead of git; `materialise.sh`, the git-date step and the shell lint are removed.
 - Done when: the site build reads no git repository except its own.
 
