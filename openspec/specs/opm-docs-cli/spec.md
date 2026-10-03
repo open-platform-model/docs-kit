@@ -28,7 +28,7 @@ The `opm-docs` command set, its configuration file `docs-kit.cue`, and its exit 
 - **THEN** `opm-docs build` exits 1 naming the field `placment` and the file, before loading any CUE module
 
 ### Requirement: build writes one bundle tree per project
-`opm-docs build` SHALL write `out/<project>/` (or under `--out`) for every project in the config, or only those named with `--project`. With `--release <tag>` it SHALL derive the version by removing the project's tag prefix and SHALL refuse a tag without that prefix or whose remainder is not SemVer. Without `--release` it SHALL build an edge bundle. With `--source <dir>` it SHALL take `docs-kit.cue` from that directory when present, else from the current directory, and SHALL resolve every source (each `cue-catalog` `module` and `markdown` `dir`) and all git history against that directory, wherever the config came from. A `markdown` dir that does not exist SHALL yield no pages when the config came from outside the `--source` tree, and SHALL fail the build otherwise. A build from a work tree with uncommitted changes SHALL record `source.dirty: true`, and `push` SHALL refuse such a bundle.
+`opm-docs build` SHALL write `out/<project>/` (or under `--out`) for every project in the config, or only those named with `--project`. With `--release <tag>` it SHALL derive the version by removing the project's tag prefix and SHALL refuse a tag without that prefix or whose remainder is not SemVer. With `--release <tag>` and a `cue-catalog` source, it SHALL refuse with exit 2 when the derived version differs from the catalog's `metadata.version`, naming both values; this holds for a docs revision too, which `revise` builds with `--release`. Without `--release` it SHALL build an edge bundle. With `--source <dir>` it SHALL take `docs-kit.cue` from that directory when present, else from the current directory, and SHALL resolve every source (each `cue-catalog` `module` and `markdown` `dir`) and all git history against that directory, wherever the config came from. A `markdown` dir that does not exist SHALL yield no pages when the config came from outside the `--source` tree, and SHALL fail the build otherwise. A build from a work tree with uncommitted changes SHALL record `source.dirty: true`, and `push` SHALL refuse such a bundle.
 
 #### Scenario: Release build from a tag
 - **WHEN** `opm-docs build --project catalog-opm --release opm-v4.4.5 --source src` runs on a checkout of that tag
@@ -45,6 +45,10 @@ The `opm-docs` command set, its configuration file `docs-kit.cue`, and its exit 
 #### Scenario: Wrong prefix
 - **WHEN** `--release v4.4.5` is passed for project `catalog-opm`, whose prefix is `opm-v`
 - **THEN** `build` exits 1 naming the tag and the expected prefix
+
+#### Scenario: Tag and catalog version differ
+- **WHEN** `build --release opm-v4.6.0` runs on a tree whose catalog declares `metadata.version: "4.5.0"`
+- **THEN** `build` exits 2 naming `4.6.0` and `4.5.0`, and writes no `manifest.json`
 
 ### Requirement: check is the pull-request gate
 `opm-docs check` SHALL run `build` for the configured projects into a temporary directory, including the dialect lint, and SHALL exit 2 on any failure, printing every violation, and 0 otherwise. It SHALL write nothing in the work tree.
