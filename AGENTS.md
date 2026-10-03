@@ -86,7 +86,7 @@ Taskfile.yml                  build and gate tasks
 - `task fmt` formats; `task fmt:check` fails on an unformatted file.
 - `task vet`, `task lint` (golangci-lint, config in `.golangci.yml`), `task test` (offline).
 - `task openspec:check` validates every spec and active change under `--strict`; `task openspec:install` installs openspec 1.12.0.
-- `task check` runs `fmt:check`, `vet`, `lint`, `openspec:check` and `test`: the gate before every commit task. `vet`, `lint`, `test` and `tidy` cover the nested `cobradump/` module too (`go -C cobradump test ./...`). CI also runs `actionlint` over `.github/workflows/`.
+- `task check` runs `fmt:check`, `vet`, `lint`, `openspec:check` and `test`: the gate before every commit task. `vet`, `lint`, `test` and `tidy` cover the nested `cobradump/` module too (`go -C cobradump test ./...`). CI also runs `actionlint` over `.github/workflows/`, and the `serve-hugo` job runs `TestServeWithHugo` against a pinned Hugo (it skips locally without `hugo` on `PATH`).
 
 ## Releasing
 

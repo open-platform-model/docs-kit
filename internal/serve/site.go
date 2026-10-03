@@ -57,7 +57,7 @@ func RunSite(ctx context.Context, o Options) error {
 	for _, r := range results {
 		seg := "edge"
 		if cfg.Bundles[r.Project].Placement.Kind == render.KindDocs {
-			seg = o.Version
+			seg = o.SiteVersion
 		}
 		pairs = append(pairs, r.Project+"@"+seg+"="+abs(r.Dir))
 	}
@@ -102,10 +102,10 @@ func checkSite(o Options, cfg *config.Config, projects []string) (string, error)
 		}
 	}
 	switch {
-	case docs != "" && o.Version == "":
-		return "", usage("%s is a docs bundle: pass --version, the site version it previews in (such as v1.0)", docs)
-	case o.Version != "" && !reSiteVersion.MatchString(o.Version):
-		return "", usage("--version %s: a site version is v<MAJOR>.<MINOR>, such as v1.0", o.Version)
+	case docs != "" && o.SiteVersion == "":
+		return "", usage("%s is a docs bundle: pass --site-version, the site version it previews in (such as v1.0)", docs)
+	case o.SiteVersion != "" && !reSiteVersion.MatchString(o.SiteVersion):
+		return "", usage("--site-version %s: a site version is v<MAJOR>.<MINOR>, such as v1.0", o.SiteVersion)
 	}
 	task, err := lookPath("task")
 	if err != nil {

@@ -358,10 +358,14 @@ func get(t *testing.T, url, want string, deadline time.Time) string {
 	return ""
 }
 
-// TestServeWithHugo runs the whole preview against the hugo on PATH, and
-// skips without one.
+// TestServeWithHugo runs the whole preview against the hugo on PATH. It
+// skips without one, unless OPM_DOCS_REQUIRE_HUGO is set (CI's serve job,
+// which installs a pinned Hugo).
 func TestServeWithHugo(t *testing.T) {
 	if _, err := exec.LookPath("hugo"); err != nil {
+		if os.Getenv("OPM_DOCS_REQUIRE_HUGO") != "" {
+			t.Fatal("OPM_DOCS_REQUIRE_HUGO is set and there is no hugo on PATH")
+		}
 		t.Skip("no hugo on PATH")
 	}
 	r := cliRepo(t)

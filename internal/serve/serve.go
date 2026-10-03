@@ -29,13 +29,13 @@ type Options struct {
 	Build build.Options
 	Port  int // the skeleton's port on 127.0.0.1
 	// Site is an opmodel.dev checkout: serve through its own preview
-	// instead of the skeleton (RunSite). Version is the site version a
-	// docs bundle previews in.
-	Site    string
-	Version string
-	Stdin   io.Reader
-	Stdout  io.Writer
-	Stderr  io.Writer
+	// instead of the skeleton (RunSite). SiteVersion is the site version
+	// a docs bundle previews in.
+	Site        string
+	SiteVersion string
+	Stdin       io.Reader
+	Stdout      io.Writer
+	Stderr      io.Writer
 	// Interval is the polling period; 0 is one second.
 	Interval time.Duration
 }

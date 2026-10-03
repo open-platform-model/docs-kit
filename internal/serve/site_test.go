@@ -52,7 +52,7 @@ func siteRepo(t *testing.T) (r *gittest.Repo, siteDir string) {
 func siteOptions(r *gittest.Repo, site, version string) Options {
 	return Options{
 		Build: build.Options{Source: r.Dir, Tool: "0.0.0-test", Stderr: io.Discard},
-		Site:  site, Version: version, Stdout: io.Discard, Stderr: io.Discard,
+		Site:  site, SiteVersion: version, Stdout: io.Discard, Stderr: io.Discard,
 	}
 }
 
@@ -91,8 +91,8 @@ func TestRunSiteRefuses(t *testing.T) {
 	cases := []struct {
 		name, site, version, want string
 	}{
-		{"docs bundle without a site version", site, "", "pass --version"},
-		{"malformed site version", site, "1.0", "--version 1.0: a site version is v<MAJOR>.<MINOR>"},
+		{"docs bundle without a site version", site, "", "pass --site-version"},
+		{"malformed site version", site, "1.0", "--site-version 1.0: a site version is v<MAJOR>.<MINOR>"},
 		{"no checkout", t.TempDir(), "v1.0", "no Taskfile.yml there"},
 	}
 	fakeTask(t, "")
