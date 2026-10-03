@@ -27,12 +27,12 @@ Made by the owner on 2026-10-02. Decisions 13 to 16 were approved by the owner l
 | 5 | `main` publishes an `edge` bundle, so the site can show unreleased docs. |
 | 6 | A fix to released docs ships as a docs-only revision of that release, never by overwriting it. |
 | 7 | The bundle is its own artifact under its own path, so its tags follow docs-kit's scheme, not CUE's module rules. |
-| 8 | The Catalogs tab starts at opm 4.4. Earlier minors are not backfilled. |
+| 8 | The Catalogs tab starts at the first opm release published after catalog_opm adopts docs-kit; earlier minors are not backfilled. Amended 2026-10-03: originally "starts at opm 4.4", but every earlier tag holds the catalog at `opm/` while `main` moved it to `src/`, so a backfill with `main`'s config cannot build. Until that release the tab shows only `edge`. |
 | 9 | A site version follows release tags, never branch heads: it shows the newest release of its line plus that release's docs revisions. No bundle is published from a release branch. |
 | 10 | A site version shows the docs of the versions its cli pins (library, core, opm-operator), as it does today. |
 | 11 | Third-party catalogs in the Catalogs tab are a possible future extension, out of scope for now. |
 | 12 | Version history in the Catalogs tab is badges and a per-member change list only; no side-by-side diff view. |
-| 13 | Phase 1's done criterion is split: phase 1 ends when the site shows opm 4.4 and edge in the Catalogs tab from pulled, verified bundles; the docs-revision half (`opm-docs revise` and a revision reaching the site) is the follow-up change `add-docs-revisions`. |
+| 13 | Phase 1's done criterion is split: phase 1 ends when the site shows the first released opm minor and edge in the Catalogs tab from pulled, verified bundles; the docs-revision half (`opm-docs revise` and a revision reaching the site) is the follow-up change `add-docs-revisions`. |
 | 14 | The site runs `opm-docs pull` inside its build image, with network on for that step only, instead of on the host. |
 | 15 | `org.opencontainers.image.created` is the source commit's time, not the build time, so a rebuild of the same commit gives the same digest. |
 | 16 | `push` and `promote` are separate commands: `push` writes only the immutable full tag, the workflow signs the digest, then `promote` verifies the signature and moves the moving tags. |
@@ -262,7 +262,7 @@ opm-docs pull --config site/bundles.cue --out site/.bundles --lock site/.bundles
 ### The Catalogs tab (phase 1)
 
 - **URL:** `/catalogs/opm/<MAJOR.MINOR>/`, outside every site version, like `/enhancements/`.
-- **Versions:** every opm minor from 4.4 on. Each minor is the bundle tag `<MAJOR.MINOR>`. The list comes from the registry's tags, so a new minor appears with no site commit. `edge` appears as "main (unreleased)".
+- **Versions:** every opm minor from the first release published after adoption on (decision 8). Each minor is the bundle tag `<MAJOR.MINOR>`. The list comes from the registry's tags, so a new minor appears with no site commit. `edge` appears as "main (unreleased)".
 - **Order:** by MAJOR.MINOR, newest first.
 - **Switcher:** a version menu on every catalog page. It keeps the reader on the same member when that member exists in the chosen version, otherwise it goes to the nearest parent. This is the logic of the site-version switcher, applied to the tab.
 - **Aliases:** `/catalogs/opm/` and `/catalogs/opm/<MAJOR>/` redirect to the newest minor. Docs pages link through these aliases.
@@ -280,7 +280,7 @@ The site's checks keep running on what it built: page set, links, stray files, s
 - docs-kit: `build`, `lint`, `check`, `push`, `promote`, `pull`; the `cue-catalog` extractor; the renderer; the manifest schema; the publish workflow; signing and verification.
 - catalog_opm: `docs-kit.cue`, the workflow call, `tools/refgen` and its committed pages removed, the release-workflow regeneration step removed.
 - opmodel.dev: `opm-docs pull` in its build image, the Catalogs tab with its switcher, aliases and index rules; catalog pages leave Reference.
-- Done when: the site shows opm 4.4 and edge in the Catalogs tab from pulled, verified bundles (decision 13). A docs revision of 4.4.x reaching the site without a catalog release is the done criterion of the follow-up change `add-docs-revisions`.
+- Done when: the site shows the first released opm minor and edge in the Catalogs tab from pulled, verified bundles (decision 13). A docs revision of a released minor reaching the site without a catalog release is the done criterion of the follow-up change `add-docs-revisions`.
 
 ### Phase 1b: version history in the Catalogs tab
 
@@ -295,7 +295,7 @@ When a second minor (4.5) exists, `opm-docs pull` compares the `data/` of every 
 
 Badges sit under the member's title and on each changed spec field ("New in 4.6", "Default changed in 4.6"), and the page ends with a "Changes in 4.6" list of what differs from the previous minor. There is no side-by-side diff view (decision 12).
 
-4.4 is the oldest minor with a bundle, so a member present in 4.4 reads "in 4.4 or earlier", never "added in 4.4". Estimate: 2 to 3 days. The structured spec it needs is extracted from phase 1 on.
+The first published minor is the oldest with a bundle, so a member present in it reads "in <minor> or earlier", never "added in <minor>". Estimate: 2 to 3 days. The structured spec it needs is extracted from phase 1 on.
 
 ### Phase 2: every generated reference
 
