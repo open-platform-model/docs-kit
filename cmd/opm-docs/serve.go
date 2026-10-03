@@ -19,16 +19,26 @@ func newServeCmd() *cobra.Command {
 		Long: "Build the configured bundles as edge bundles (a dirty work tree allowed) and serve them on\n" +
 			"http://127.0.0.1:<port>/ with the host's hugo, on a minimal site that shows page content, not the\n" +
 			"site's design. A tab bundle serves at <root>edge/, a docs bundle at /docs/. A change under a\n" +
-			"bundle's sources rebuilds it; a rebuild that fails is printed and the last good build stays.",
-		Example: "  opm-docs serve",
+			"bundle's sources rebuilds it; a rebuild that fails is printed and the last good build stays.\n\n" +
+			"With --site <dir>, build once and preview through an opmodel.dev checkout instead: its\n" +
+			"`task bundles:pull` and `task serve`, with OPM_BUNDLES_LOCAL naming each built tree.",
+		Example: "  opm-docs serve\n  opm-docs serve --site ../opmodel.dev --version v1.0",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if o.Port < 1 || o.Port > 65535 {
 				return usage("--port %d: a port is 1 to 65535", o.Port)
 			}
+			if o.Version != "" && o.Site == "" {
+				return usage("--version %s needs --site: the skeleton serves a docs bundle at /docs/ whatever its site version", o.Version)
+			}
 			o.Build.Tool, o.Build.Stderr = version.Version, cmd.ErrOrStderr()
 			o.Stdin, o.Stdout, o.Stderr = cmd.InOrStdin(), cmd.OutOrStdout(), cmd.ErrOrStderr()
-			err := serve.Run(cmd.Context(), o, func(w io.Writer, err error) { printBuildError(w, err) })
+			var err error
+			if o.Site != "" {
+				err = serve.RunSite(cmd.Context(), o)
+			} else {
+				err = serve.Run(cmd.Context(), o, func(w io.Writer, err error) { printBuildError(w, err) })
+			}
 			return serveError(cmd.OutOrStdout(), err)
 		},
 	}
@@ -36,7 +46,9 @@ func newServeCmd() *cobra.Command {
 	f.StringVar(&o.Build.Config, "config", "", "the config file (default: docs-kit.cue in --source, else in the current directory)")
 	f.StringSliceVar(&o.Build.Projects, "project", nil, "serve only this project (repeatable; default every project)")
 	f.StringVar(&o.Build.Source, "source", ".", "the source tree")
-	f.IntVar(&o.Port, "port", 1313, "the preview's port on 127.0.0.1")
+	f.IntVar(&o.Port, "port", 1313, "the preview's port on 127.0.0.1 (ignored with --site)")
+	f.StringVar(&o.Site, "site", "", "an opmodel.dev checkout: preview through its own task bundles:pull and task serve")
+	f.StringVar(&o.Version, "version", "", "with --site: the site version a docs bundle previews in, such as v1.0")
 	return cmd
 }
 

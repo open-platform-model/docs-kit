@@ -10,8 +10,8 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`. One PR, titled `
 
 ## 2. The site mode
 
-- [ ] 2.1 `--site` (D4): build, then `task bundles:pull` and `task serve` in the site directory with `OPM_BUNDLES_LOCAL`; `--version` required for docs bundles. Verify: a test with a fake `task` on `PATH` recording its arguments and environment.
-- [ ] 2.2 `task check` green, then commit `feat(cmd): preview bundles in an opmodel.dev checkout`.
+- [x] 2.1 `--site` (D4): build, then `task bundles:pull` and `task serve` in the site directory with `OPM_BUNDLES_LOCAL`; `--version` required for docs bundles. Verify: a test with a fake `task` on `PATH` recording its arguments and environment.
+- [x] 2.2 `task check` green, then commit `feat(cmd): preview bundles in an opmodel.dev checkout`.
 
 ## 3. Docs and archive
 

@@ -101,7 +101,7 @@ func fakeProgram(t *testing.T, name, script string) string {
 }
 
 func TestFindHugo(t *testing.T) {
-	t.Cleanup(func() { lookPath = exec.LookPath })
+	t.Cleanup(func() { lookPath = defaultLookPath })
 	lookPath = func(string) (string, error) { return "", exec.ErrNotFound }
 	_, err := findHugo(context.Background())
 	var ue *UsageError

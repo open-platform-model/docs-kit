@@ -28,7 +28,9 @@ func usage(format string, args ...any) error {
 }
 
 // lookPath finds a program on PATH; tests replace it.
-var lookPath = exec.LookPath
+var lookPath = defaultLookPath
+
+var defaultLookPath = exec.LookPath
 
 // findHugo returns the path of hugo on PATH, refusing a missing one or one
 // older than MinHugo, naming the version found.

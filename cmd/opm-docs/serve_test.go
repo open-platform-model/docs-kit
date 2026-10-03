@@ -29,6 +29,9 @@ func TestServeUsage(t *testing.T) {
 		{"unknown flag", []string{"serve", "--nope"}, "--nope"},
 		{"no hugo", []string{"serve", "--config", cfg}, "no hugo on PATH"},
 		{"bad port", []string{"serve", "--config", cfg, "--port", "0"}, "--port 0"},
+		{"version without site", []string{"serve", "--config", cfg, "--version", "v1.0"}, "--version v1.0 needs --site"},
+		{"docs bundle without --version", []string{"serve", "--config", cfg, "--site", t.TempDir()}, "cli is a docs bundle: pass --version"},
+		{"site without task", []string{"serve", "--config", cfg, "--site", t.TempDir(), "--version", "v1.0"}, "--site needs task"},
 		{"unknown project", []string{"serve", "--config", cfg, "--project", "core"}, "--project core"},
 	}
 	for _, c := range cases {
