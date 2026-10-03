@@ -37,3 +37,19 @@ func TestSectionBundleNoIndex(t *testing.T) {
 	}
 	t.Fatalf("no violation for the missing section page: %v", vs)
 }
+
+// TestSectionBundleGraph checks a link to the graph names the bundle's
+// graph page.
+func TestSectionBundleGraph(t *testing.T) {
+	dir := filepath.Join("testdata", "section-bundle", "content")
+	pages := []string{"_index.md", "0025/_index.md", "0025/decisions.md", "graph.md"}
+	vs, err := Lint(dir, Options{Mode: Bundle, Bundle: BundleInfo{Kind: "section", Root: "/enhancements/", Segment: "edge", Pages: pages}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range vs {
+		if strings.Contains(v.Msg, "graph") {
+			t.Errorf("graph link refused: %s", v)
+		}
+	}
+}

@@ -1,0 +1,139 @@
+{
+  "schema": "docs.opmodel.dev/data/enhancements/v1",
+  "repo": "open-platform-model/enhancements",
+  "entries": [
+    {
+      "id": "0003",
+      "slug": "module-publishing-workflow",
+      "title": "Module Publishing Workflow",
+      "summary": "Bind a module's identity fields to one registry path.",
+      "status": "superseded",
+      "category": "distribution",
+      "affects": [
+        "cli"
+      ],
+      "created": "2026-05-01",
+      "updated": "2026-06-01",
+      "archived": true,
+      "dependsOn": [],
+      "amends": [],
+      "supersedes": [
+        "legacy:003"
+      ],
+      "revives": [],
+      "supersededBy": "0025",
+      "page": "0003",
+      "documents": [
+        {
+          "slug": "problem",
+          "title": "Problem statement",
+          "page": "0003/problem",
+          "file": "archive/0003/01-problem.md"
+        },
+        {
+          "slug": "design",
+          "title": "Design",
+          "page": "0003/design",
+          "file": "archive/0003/02-design.md"
+        },
+        {
+          "slug": "decisions",
+          "title": "Decisions",
+          "page": "0003/decisions",
+          "file": "archive/0003/03-decisions.md"
+        },
+        {
+          "slug": "graduation",
+          "title": "Graduation criteria",
+          "page": "0003/graduation",
+          "file": "archive/0003/04-graduation.md"
+        },
+        {
+          "slug": "risks",
+          "title": "Risks and alternatives",
+          "page": "0003/risks",
+          "file": "archive/0003/05-risks.md"
+        },
+        {
+          "slug": "operational",
+          "title": "Operational concerns",
+          "page": "0003/operational",
+          "file": "archive/0003/06-operational.md"
+        },
+        {
+          "slug": "questions",
+          "title": "Open questions",
+          "page": "0003/questions",
+          "file": "archive/0003/07-questions.md"
+        }
+      ]
+    },
+    {
+      "id": "0025",
+      "slug": "self-describing-modules",
+      "title": "Self-Describing Modules",
+      "summary": "Let a module state facts about itself as a whole, as named bundles of traits.",
+      "status": "draft",
+      "category": "schema",
+      "affects": [
+        "core",
+        "library"
+      ],
+      "created": "2026-09-08",
+      "updated": "2026-09-29",
+      "archived": false,
+      "dependsOn": [
+        "0003"
+      ],
+      "amends": [],
+      "supersedes": [],
+      "revives": [],
+      "supersededBy": null,
+      "page": "0025",
+      "documents": [
+        {
+          "slug": "problem",
+          "title": "Problem statement",
+          "page": "0025/problem",
+          "file": "0025/01-problem.md"
+        },
+        {
+          "slug": "design",
+          "title": "Design",
+          "page": "0025/design",
+          "file": "0025/02-design.md"
+        },
+        {
+          "slug": "decisions",
+          "title": "Decisions",
+          "page": "0025/decisions",
+          "file": "0025/03-decisions.md"
+        },
+        {
+          "slug": "graduation",
+          "title": "Graduation criteria",
+          "page": "0025/graduation",
+          "file": "0025/04-graduation.md"
+        },
+        {
+          "slug": "risks",
+          "title": "Risks and alternatives",
+          "page": "0025/risks",
+          "file": "0025/05-risks.md"
+        },
+        {
+          "slug": "operational",
+          "title": "Operational concerns",
+          "page": "0025/operational",
+          "file": "0025/06-operational.md"
+        },
+        {
+          "slug": "questions",
+          "title": "Open questions",
+          "page": "0025/questions",
+          "file": "0025/07-questions.md"
+        }
+      ]
+    }
+  ]
+}

@@ -10,3 +10,4 @@ weight: 3
 Back to [the entry](/enhancements/0025/).
 
 [ref]: /enhancements/0026/
+Graph: [the relationship graph](/enhancements/graph/#schema).

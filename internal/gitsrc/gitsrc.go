@@ -207,3 +207,35 @@ func (r Repo) Name(ctx context.Context) string {
 	name := regexp.MustCompile(`[^A-Za-z0-9_.-]`).ReplaceAllString(filepath.Base(top), "-")
 	return "local/" + name
 }
+
+// Path kinds Tree reports, GitHub's URL forms for them.
+const (
+	KindBlob = "blob"
+	KindTree = "tree"
+)
+
+// Tree lists every path of commit's tree under Dir, relative to Dir and
+// slash-separated, with its kind: "tree" for a directory, "blob" for a
+// file or a symlink. A submodule is left out: no URL of the repository
+// names its contents.
+func (r Repo) Tree(ctx context.Context, commit string) (map[string]string, error) {
+	out, err := r.git(ctx, "ls-tree", "-r", "-t", "-z", commit)
+	if err != nil {
+		return nil, err
+	}
+	paths := map[string]string{}
+	for _, e := range strings.Split(strings.TrimSuffix(out, "\x00"), "\x00") {
+		meta, name, ok := strings.Cut(e, "\t")
+		if !ok {
+			continue
+		}
+		switch f := strings.Fields(meta); {
+		case len(f) < 2:
+		case f[1] == KindTree:
+			paths[name] = KindTree
+		case f[1] == KindBlob:
+			paths[name] = KindBlob
+		}
+	}
+	return paths, nil
+}

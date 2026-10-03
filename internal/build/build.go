@@ -458,7 +458,8 @@ func (s *assembly) extract(b config.Bundle, cfgPath string, outside bool) ([]aut
 		}
 		byKind[src.Kind] = i
 		d, err := ex.Extract(s.ctx, Input{
-			Source: s.o.Source, Config: src.Value, Version: s.id.version, Release: s.o.Release, Outside: outside,
+			Source: s.o.Source, Config: src.Value, Version: s.id.version, Release: s.o.Release,
+			Repo: s.id.repo, Commit: s.id.commit, Target: s.target(), Outside: outside,
 			Commands: s.commands, Doc: policy(src.Citations),
 		})
 		if err != nil {
@@ -487,14 +488,16 @@ func (s *assembly) render(gen []*extracted) (map[string]bool, error) {
 	completable := map[string]bool{}
 	rendered := map[string]string{} // page path -> the extractor kind that rendered it
 	for _, e := range gen {
-		r, err := rendererFor(e.data.Schema)
-		if err != nil {
-			return nil, err
-		}
-		// The renderer reads the data file as written, never the
-		// extractor's value.
-		if e.pages, err = r.Render(e.data.Bytes, t); err != nil {
-			return nil, err
+		if e.pages = e.data.Pages; e.pages == nil {
+			r, err := rendererFor(e.data.Schema)
+			if err != nil {
+				return nil, err
+			}
+			// The renderer reads the data file as written, never the
+			// extractor's value.
+			if e.pages, err = r.Render(e.data.Bytes, t); err != nil {
+				return nil, err
+			}
 		}
 		for _, p := range e.pages {
 			if !rePagePath.MatchString(p.Path) {

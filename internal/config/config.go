@@ -35,6 +35,9 @@ const (
 	KindMarkdown = "markdown"
 	// KindCueDefinitions is checked here for what the schema cannot state.
 	KindCueDefinitions = "cue-definitions"
+	// KindEnhancements is the enhancements source, a section bundle's only
+	// source.
+	KindEnhancements = "enhancements"
 	// PlacementSection is the placement of an edge-only section bundle.
 	PlacementSection = "section"
 )
@@ -142,8 +145,12 @@ func Load(path string) (*Config, error) {
 
 // checkBundle applies the rules the schema cannot state: owned paths that
 // do not nest, a docs bundle without a catalog, a cue-definitions source
-// in a docs bundle only, and well-formed patterns.
+// in a docs bundle only, an enhancements source in a section bundle and
+// nothing else there, and well-formed patterns.
 func checkBundle(project string, b Bundle) error {
+	if err := checkSection(project, b); err != nil {
+		return err
+	}
 	owns := b.Placement.Owns
 	for i, a := range owns {
 		for _, o := range owns[i+1:] {
@@ -165,6 +172,23 @@ func checkBundle(project string, b Bundle) error {
 		}
 		if err := checkGlobs(at, src); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// checkSection keeps the enhancements source and the section placement
+// together: an enhancements source writes the /enhancements/ section, and
+// a section bundle holds that source alone.
+func checkSection(project string, b Bundle) error {
+	section := b.Placement.Kind == PlacementSection
+	for i, src := range b.Sources {
+		at := fmt.Sprintf("bundles.%q.sources[%d]", project, i)
+		switch {
+		case !section && src.Kind == KindEnhancements:
+			return fmt.Errorf("%s: an enhancements source writes the /enhancements/ section; give the bundle placement {kind: \"section\", root: \"/enhancements/\"}", at)
+		case section && src.Kind != KindEnhancements:
+			return fmt.Errorf("%s: a section bundle holds only an enhancements source, and this one is %s; give it a bundle of its own", at, src.Kind)
 		}
 	}
 	return nil

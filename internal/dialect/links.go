@@ -13,7 +13,7 @@ var (
 	reDocs        = regexp.MustCompile(`^/docs/`)
 	reDocsOK      = regexp.MustCompile(`^/docs/([a-z0-9-]+/)*(#[^ ]*)?$`)
 	reEnh         = regexp.MustCompile(`^/enhancements([/#]|$)`)
-	reEnhOK       = regexp.MustCompile(`^/enhancements/([0-9][0-9][0-9][0-9]/((problem|design|decisions|graduation|risks|operational|questions)/)?)?(#[^ ]*)?$`)
+	reEnhOK       = regexp.MustCompile(`^/enhancements/(graph/|[0-9][0-9][0-9][0-9]/((problem|design|decisions|graduation|risks|operational|questions)/)?)?(#[^ ]*)?$`)
 	reCatalogs    = regexp.MustCompile(`^/catalogs([/#]|$)`)
 	reMinor       = regexp.MustCompile(`^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$`)
 	reCatalogLink = regexp.MustCompile(`^/catalogs/([a-z0-9]+(?:-[a-z0-9]+)*)/(?:((?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*))?|edge)/((?:[a-z0-9-]+/)*))?(#[^ ]*)?$`)

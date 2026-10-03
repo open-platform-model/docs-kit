@@ -32,7 +32,7 @@ package schema
 // "link" links each enhancement decision citation to its decisions page.
 #Citations: *"strip" | "link"
 
-#Source: #CueCatalog | #Markdown | #Cobra | #CueDefinitions | #CRD
+#Source: #CueCatalog | #Markdown | #Cobra | #CueDefinitions | #CRD | #Enhancements
 
 #CueCatalog: {
 	kind:   "cue-catalog"
@@ -115,3 +115,12 @@ package schema
 	citations?: #Citations
 }
 
+// The enhancements repository's entries, INDEX.md and GRAPH.md, as the
+// /enhancements/ section (docs-kit C21); a section bundle only. Its text is
+// authored, so it takes no citations policy: citations stay as written.
+#Enhancements: {
+	kind:        "enhancements"
+	dir:         *"." | =~"^[^/.][^.]*$" // the entry root, repo-relative
+	title:       *"Enhancements" | string & !="" // the section page's title
+	description: string & !=""                   // the section page's description
+}

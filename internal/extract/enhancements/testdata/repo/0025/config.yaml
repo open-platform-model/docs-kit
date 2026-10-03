@@ -1,0 +1,25 @@
+# The template's comments are not published.
+id: "0025"
+slug: self-describing-modules
+title: Self-Describing Modules
+summary: >-
+  Let a module state facts about itself as a whole,
+  as named bundles of traits.
+status: draft
+category: schema
+affects:
+  - core
+  - library
+core_schema: true
+created: "2026-09-08"
+updated: "2026-09-29"
+authors:
+  - someone@example.com
+history:
+  - date: "2026-09-08"
+    event: Drafted
+depends_on:
+  - "0003"
+supersedes: []
+revives: []
+superseded_by: null

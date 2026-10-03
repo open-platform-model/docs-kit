@@ -15,9 +15,9 @@ Gate: `generalize-build-assembly` and `pull-docs-placement` are merged on docs-k
 
 ## 3. The enhancements source
 
-- [ ] 3.1 `schema/config.cue`: `#Enhancements` (D2). `internal/extract/enhancements` and its renderer: reading, transforms (D3), data model (D4), pages (D2). Verify: a fixture repository under `internal/extract/enhancements/testdata/` (a live and an archived entry, INDEX, GRAPH, each link kind, an untagged fence, a comment, a dangling link, a shortcode); golden pages and `enhancements.golden.json`.
-- [ ] 3.2 `internal/dialect`: the `/enhancements/graph/` form and the `link-enhancements-graph` conformance fixture (D6). Verify: `go test ./internal/dialect/...`.
-- [ ] 3.3 `task check` green, then commit `feat(extract): add the enhancements source`.
+- [x] 3.1 `schema/config.cue`: `#Enhancements` (D2). `internal/extract/enhancements` and its renderer: reading, transforms (D3), data model (D4), pages (D2). Verify: a fixture repository under `internal/extract/enhancements/testdata/` (a live and an archived entry, INDEX, GRAPH, each link kind, an untagged fence, a comment, a dangling link, a shortcode); golden pages and `enhancements.golden.json`.
+- [x] 3.2 `internal/dialect`: the `/enhancements/graph/` form and the `link-enhancements-graph` conformance fixture (D6). Verify: `go test ./internal/dialect/...`.
+- [x] 3.3 `task check` green, then commit `feat(extract): add the enhancements source`.
 
 ## 4. Pull of sections
 
