@@ -24,12 +24,12 @@ A PR body you write stays under 250 words of prose (code blocks, URLs and traile
 
 docs-kit builds each Open Platform Model repository's documentation into a versioned, signed OCI artifact (a docs bundle) in that repository's CI, and lets the opmodel.dev site pull and assemble those bundles. It holds one Go program, `opm-docs`, and the reusable workflow that runs it.
 
-Status: phase 1 is built: `build`, `check`, `lint`, `push`, `promote`, `pull`, `revise` (docs revisions), the `cue-catalog` extractor, a `markdown` source, the publish workflow and the release pipeline. Phase 2's shared ground is built: the extractor and renderer registries, docs-placed bundles, repository commands and pins.
+Status: phase 1 is built: `build`, `check`, `lint`, `push`, `promote`, `pull`, `revise` (docs revisions), the `cue-catalog` extractor, a `markdown` source, the publish workflow and the release pipeline. Phase 2's shared ground is built: the extractor and renderer registries, docs-placed bundles, repository commands and pins, and pulling site versions.
 
 ## Repository Rules
 
 - `DESIGN.md` is the approved design; its Decisions table binds every change. Cite a decision as `DESIGN decision 9`, never a bare `D9`.
-- `docs/contracts.md` fixes every contract another repository reads (C1 to C15, "Commands", "Page renderer", "Doc-comment rules"). Other repositories cite it by number (`docs-kit C5`); a change to it follows Principle II.
+- `docs/contracts.md` fixes every contract another repository reads (C1 to C16, "Commands", "Page renderer", "Doc-comment rules"). Other repositories cite it by number (`docs-kit C5`); a change to it follows Principle II.
 - `openspec/config.yaml` is the constitution (principles, gates, artifact rules). Feature work ships as an OpenSpec change (`spec-driven` schema, specs included), cut into mergeable sections that each end green and close with their own commit.
 - Never push to `main`. Every change lands by PR; the OpenSpec archive commit rides the implementing PR.
 - The bundle format, tag scheme, workflow interface, `docs-kit.cue`, pull config and lock are contracts other repositories read (constitution Principle II). A change to one names every consuming repository.
@@ -62,7 +62,7 @@ internal/build/               build and check; the extractor registry, docs plac
 internal/oci/                 oras-go: push, tag, list, resolve, fetch by digest
 internal/verify/              sigstore-go: find and verify signatures under the signing policy
 internal/publish/             push and promote
-internal/pull/                tab resolution, cache, unpack layout, history.json, lock
+internal/pull/                tab and site-version resolution, cache, unpack layout, history.json, lock
 internal/history/             a tab's version history across its segments (pure)
 internal/revise/              docs revisions: read the newest revision's fixes, apply them and the new fix, build
 internal/gittest/, internal/ocitest/, internal/verify/sigtest/   test helpers

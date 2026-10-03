@@ -82,11 +82,11 @@ Every bundle's placement must be `kind: "docs"` (else exit 2 naming both). Edge 
 
 ### D4. Checks across one version
 
-Over the docs bundles of one site version (exit 2, naming the version, the path and both projects with their versions):
+Over the docs bundles of one site version (exit 2, naming the version, the path and both projects with their versions), in this order, so the most specific message wins:
 
-- a `content/` path present in two bundles ("`reference/_index.md` is in both cli 1.0.0-beta.6 and core 2.0.0-beta.1");
+- two bundles owning overlapping paths (one equal to or under the other);
 - a page under a path another bundle `owns` ("core 2.0.0-beta.1 has `reference/cli/x.md`, under `reference/cli/`, which cli owns");
-- two bundles owning overlapping paths (one equal to or under the other).
+- a `content/` path present in two bundles ("`reference/_index.md` is in both cli 1.0.0-beta.6 and core 2.0.0-beta.1").
 
 Links across bundles are not checked here; the site's post-build link check covers them (decided in `generalize-build-assembly`).
 
@@ -103,7 +103,7 @@ docs?: [...#DocsLocked]
 	site:       #SiteVersion
 	project:    #Project
 	role:       "anchor" | "pinned" | "tag"
-	tag:        string & !=""             // the tag resolved: "1.0", "2.0.0-beta.1", "4", "edge"
+	tag:        #DocsTag                  // the tag resolved: "1.0", "2.0.0-beta.1", "4", "edge"
 	repository: string & !=""
 	digest:     =~"^sha256:[0-9a-f]{64}$"
 	version:    #Version
@@ -128,8 +128,8 @@ Key order as listed; entries sorted by `site` (numeric MAJOR, MINOR), then role 
 
 ### D6. `--local`, `--frozen`, `--offline`
 
-- `--local <project>@<site-version>=<dir>` (the segment `v<MAJOR>.<MINOR>` marks a docs project; `<MAJOR>.<MINOR>` and `edge` stay tab segments): that project of that version comes from the tree; no signature, same validation, guards, lint and D4 checks. A local anchor's pins drive the pinned projects, each of which may be local or pulled. A local pinned tree's version must equal the pin (exit 1 naming both).
-- `--frozen <lock>`: each `docs` entry is fetched by digest as written; its `site`, `project` and `role` must be in the config with that role, and its `repository` must be `<registry>/<project>` (exit 1 otherwise, as C7 for tabs); a pinned entry's version must equal the locked anchor's `pins`. A local docs entry in a frozen lock is refused (re-run with `--local`).
+- `--local <project>@<site-version>=<dir>` (the segment `v<MAJOR>.<MINOR>` marks a docs project; `<MAJOR>.<MINOR>` and `edge` stay tab segments): that project of that version comes from the tree; no signature, same validation, guards, lint and D4 checks. A local tree's version is not checked against a tag's line (decided in implementation: an author's edge build previews as the anchor, and the G2-pins check runs `--local cli@v1.0` on a tree built before the release). A local anchor's pins drive the pinned projects, each of which may be local or pulled. A local pinned tree's version must equal the pin (exit 1 naming both).
+- `--frozen <lock>`: each `docs` entry is fetched by digest as written; its `site`, `project` and `role` must be in the config with that role, and its `repository` must be `<registry>/<project>` (exit 1 otherwise, as C7 for tabs); an anchor or `tags` entry's tag must equal the config's, and a pinned entry's version and tag must equal the locked anchor's `pins`; a configured project the lock does not name exits 1. The config digest check (C7) runs first, so a role check fires only on a lock edited by hand. A local docs entry in a frozen lock is refused (re-run with `--local`).
 - `--offline` with `--frozen`: cache only, as C7.
 
 ### D7. Commands

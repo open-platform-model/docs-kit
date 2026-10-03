@@ -21,6 +21,6 @@ Gate: `generalize-build-assembly` is merged on docs-kit `main`. One PR, titled `
 
 ## 4. Contracts and archive
 
-- [ ] 4.1 `docs/contracts.md`: C16 (new; D1 to D6) and C7 (config, layout, lock, `--local`); `README.md` (`pull`). Verify: schema text equals `schema/pull.cue` and `schema/lock.cue`.
+- [x] 4.1 `docs/contracts.md`: C16 (new; D1 to D6) and C7 (config, layout, lock, `--local`); `README.md` (`pull`). Verify: schema text equals `schema/pull.cue` and `schema/lock.cue`.
 - [ ] 4.2 `openspec archive pull-docs-placement --yes`. Verify: `task openspec:check` green.
 - [ ] 4.3 `task check` green, then commit `docs(pull): document site versions`.

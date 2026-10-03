@@ -38,6 +38,10 @@ For each site version, `pull` SHALL resolve, verify (C9, with the docs project's
 ### Requirement: One version's docs bundles never overlap
 Across the docs bundles of one site version, `pull` SHALL fail with exit 2, naming the version, the path and both projects with their versions, when a `content/` path is in two bundles, when a bundle has a page under a path another bundle owns, or when two bundles own overlapping paths.
 
+#### Scenario: One page in two bundles
+- **WHEN** cli and core both hold `start/_index.md` and neither owns it
+- **THEN** `pull` exits 2 naming `v1.0`, `start/_index.md`, cli and core with their versions
+
 #### Scenario: A page under another bundle's owned directory
 - **WHEN** core's bundle holds `reference/cli/extra.md` and cli owns `reference/cli/`
 - **THEN** `pull` exits 2 naming `reference/cli/extra.md`, core and cli
@@ -50,12 +54,16 @@ The lock SHALL carry an optional `docs` list after `bundles` (and after `history
 - **THEN** both locks are byte-identical, including their `docs` entries
 
 ### Requirement: Local and frozen pulls of docs bundles
-`--local <project>@<site-version>=<dir>` SHALL take that docs project of that site version from a local tree without a signature check, applying every other check; a local anchor's pins SHALL choose the pinned projects, and a local pinned tree's version SHALL equal its pin or the pull exits 1. Under `--frozen`, each `docs` entry SHALL be fetched by its digest and SHALL be refused with exit 1 when its site version, project or role is not in the config with that role, when its repository is not `<registry>/<project>`, when it is local, or when a pinned entry's version differs from the locked anchor's pin.
+`--local <project>@<site-version>=<dir>` SHALL take that docs project of that site version from a local tree without a signature check, applying every other check but the tag's line (a local tree may be an edge build); a local anchor's pins SHALL choose the pinned projects, and a local pinned tree's version SHALL equal its pin or the pull exits 1. A `--local` naming a site version the config lacks, or a project the version does not pull, SHALL exit 1. Under `--frozen`, each `docs` entry SHALL be fetched by its digest and SHALL be refused with exit 1 when its site version, project or role is not in the config with that role, when its repository is not `<registry>/<project>`, when it is local, when an anchor or `tags` entry's tag differs from the config's, or when a pinned entry's version or tag differs from the locked anchor's pin. A configured project of a site version that the frozen lock does not name (and no `--local` supplies) SHALL exit 1.
 
 #### Scenario: Author preview of the cli reference
 - **WHEN** `pull --local cli@v1.0=out/cli` runs and the tree pins core `2.0.0-beta.1`
 - **THEN** `_versions/v1.0/cli/` is the local tree, core is pulled at `2.0.0-beta.1`, and the lock marks cli `local`
 
 #### Scenario: Frozen lock with a changed role
-- **WHEN** the frozen lock has `core` as `pinned` in `v1.0` and the config now lists it under `tags`
+- **WHEN** the config pulls `core` as `pinned` in `v1.0` and the frozen lock, written for the same config, names it with role `tag`
 - **THEN** `pull --frozen` exits 1 naming `v1.0`, `core` and both roles
+
+#### Scenario: Frozen offline rebuild
+- **WHEN** `pull --frozen <lock> --offline` runs with every blob in the cache, after the anchor's tag has moved
+- **THEN** it unpacks the locked digests and writes a lock byte-identical to the frozen one

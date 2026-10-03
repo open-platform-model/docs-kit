@@ -3,8 +3,8 @@ package schema
 #Pull: {
 	registry: *"ghcr.io/open-platform-model/docs" | string
 	signer: {
-		issuer:                                            *"https://token.actions.githubusercontent.com" | string
-		workflow:                                          *"https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml" | string
+		issuer:                                       *"https://token.actions.githubusercontent.com" | string
+		workflow:                                     *"https://github.com/open-platform-model/docs-kit/.github/workflows/publish.yml" | string
 		refs: *["refs/tags/v[0-9]*"] | [string, ...string] // glob over the workflow ref in the certificate
 	}
 	tabs: [#Project]: {
