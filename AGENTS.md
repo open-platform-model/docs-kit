@@ -51,7 +51,7 @@ internal/bundle/              the tree model, manifest.json, deterministic pack,
 internal/tags/                SemVer, build order, full and moving tags (pure)
 internal/doctext/             maintainer comments, citations and the citation policy, summary split, wrapping
 internal/mdtext/              Markdown escaping, code spans, cells, YAML strings
-internal/mdsafe/              the markup check: goldmark as Hugo parses a page; refuses raw HTML, script URLs, heading attributes
+internal/mdsafe/              the markup check on every bundle page: goldmark as Hugo parses a page; refuses raw HTML (an authored page may keep comments), script URLs, heading attributes
 internal/cuetok/              the CUE token scanner (comments skipped) shared by gitsrc and history
 internal/extract/cuecatalog/  the cue-catalog extractor: data/catalog.json
 internal/extract/crd/         the crd extractor: data/crd.json

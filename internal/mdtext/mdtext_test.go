@@ -9,7 +9,8 @@ func TestText(t *testing.T) {
 	cases := map[string]string{
 		"pods are <sts>-<n>.<svc>":      `pods are \<sts\>-\<n\>.\<svc\>`,
 		"keep `a_b|<c>` as code":        "keep `a_b|<c>` as code",
-		"no {{< opm/x >}} shortcode":    `no {\{\< opm/x \>}} shortcode`,
+		"no {{< opm/x >}} shortcode":    `no \{\{\< opm/x \>\}\} shortcode`,
+		"## Install {.hx:fixed}":        `## Install \{.hx:fixed\}`,
 		"a [link](x) and *stars* and |": `a \[link\](x) and \*stars\* and \|`,
 		`a \ backslash`:                 `a \\ backslash`,
 	}

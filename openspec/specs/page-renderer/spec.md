@@ -35,11 +35,15 @@ A member page SHALL carry front matter `title`, `description` (the member's `met
 - **THEN** its At a glance section opens with the `> [!IMPORTANT]` alert titled `**Provided by your platform**` whose body ends "Without one, rendering a component that attaches it fails; with two, the kernel refuses every render on that platform."
 
 ### Requirement: Text is escaped for Hugo and Markdown
-Rendered prose SHALL escape `\ < > * _ [ ] |` outside code spans and write `{{` as `{\{`; table cells SHALL escape every `|`; a rendered page that still contains `{{<` or `{{%` SHALL fail the build naming the page.
+Rendered prose SHALL escape `\ < > * _ [ ] | { }` outside code spans, so no text opens raw HTML, a Hugo shortcode or a heading attribute block; table cells SHALL escape every `|`; a rendered page that still contains `{{<` or `{{%` SHALL fail the build naming the page.
 
 #### Scenario: A shortcode-looking doc comment
 - **WHEN** a member's note contains `{{< foo >}}` outside a code span
-- **THEN** the page holds `{\{\< foo \>}}` and passes the dialect lint
+- **THEN** the page holds `\{\{\< foo \>\}\}` and passes the dialect lint
+
+#### Scenario: A note that reads as a heading with attributes
+- **WHEN** a member's note paragraph is `## Install {.hx:fixed style="position:fixed"}`
+- **THEN** the page holds `## Install \{.hx:fixed style="position:fixed"\}` and passes the markup check
 
 ### Requirement: Authored pages pin own-catalog alias links to the build
 The `markdown` source SHALL rewrite every link of the form `/catalogs/<name>/<MAJOR>/<path>/` in an authored page, where `<name>` is the bundle's own catalog and `<MAJOR>` is the build version's major (or any major, for an edge build), to `/catalogs/<name>/<segment>/<path>/` with the build's own segment, and the bundle-mode lint SHALL then require it to name a page of the bundle.

@@ -35,17 +35,18 @@ const (
 	GoldmarkVersion = "v1.8.6"
 )
 
-// Mode selects the pages a check is for. Today every mode applies the same
-// rules; the mode names the producer, so a later rule can differ by it
-// (docs-kit#27 runs the check on every generated page).
+// Mode selects the rules a page gets, by who wrote its text.
 type Mode int
 
 const (
-	// Authored is text a repository wrote, transformed by a source (the
-	// enhancements section's pages).
-	Authored Mode = iota
-	// Generated is text a renderer wrote from a doc model.
-	Generated
+	// Generated is every rule: a page a renderer or a source wrote
+	// (manifest generated: true), and every page of a section bundle.
+	Generated Mode = iota
+	// Authored is a page a repository wrote and a markdown source copied as
+	// written (generated: false in a tab or docs bundle, a completed page
+	// included): every rule, except that a raw HTML node made only of HTML
+	// comments a browser closes where goldmark does is allowed.
+	Authored
 )
 
 // Page is one page under content/: its path, for messages, and its whole
@@ -89,9 +90,9 @@ func newMarkdown(opts ...goldmark.Option) goldmark.Markdown {
 // DedentMarkers, Hugo 0.167.0), so an indented code block can become live
 // markup. The marker is refused wherever it appears, code included, and
 // the body is parsed as Hugo would parse it after that step.
-func Check(p Page, _ Mode) []Violation {
+func Check(p Page, mode Mode) []Violation {
 	body, offset := splitFrontMatter(p.Body)
-	c := &checker{page: p, src: dedentMarkers(body), offset: offset}
+	c := &checker{page: p, mode: mode, src: dedentMarkers(body), offset: offset}
 	c.markers(body)
 	doc := markdown.Parser().Parse(text.NewReader(c.src))
 	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
@@ -122,6 +123,7 @@ func dedentMarkers(b []byte) []byte {
 
 type checker struct {
 	page   Page
+	mode   Mode
 	src    []byte
 	offset int // lines of front matter before src
 	out    []Violation
@@ -144,9 +146,20 @@ func (c *checker) add(n ast.Node, msg string) {
 func (c *checker) node(n ast.Node) {
 	switch n := n.(type) {
 	case *ast.RawHTML:
-		c.add(n, "raw HTML; the site would render it, so write it as Markdown or in a code span")
+		if c.comments(n.Segments) {
+			return
+		}
+		c.add(n, c.html("raw HTML")+"; the site would render it, so write it as Markdown or in a code span")
 	case *ast.HTMLBlock:
-		c.add(n, "an HTML block; the site would render it, so write it as Markdown or in a code fence")
+		segs := text.NewSegments()
+		segs.AppendAll(n.Lines().Sliced(0, n.Lines().Len()))
+		if n.HasClosure() {
+			segs.Append(n.ClosureLine)
+		}
+		if c.comments(segs) {
+			return
+		}
+		c.add(n, c.html("an HTML block")+"; the site would render it, so write it as Markdown or in a code fence")
 	case *ast.Link:
 		c.dest(n, "link", n.Destination)
 	case *ast.Image:
@@ -159,6 +172,58 @@ func (c *checker) node(n ast.Node) {
 		if len(n.Attributes()) > 0 {
 			c.add(n, "a heading attribute block ({...}); the site would set those attributes, so remove it")
 		}
+	}
+}
+
+// html names refused raw HTML; on an authored page it says what passes.
+func (c *checker) html(what string) string {
+	if c.mode == Authored {
+		return what + " other than an HTML comment a browser closes where goldmark does"
+	}
+	return what
+}
+
+// comments reports whether an authored page's raw HTML node is only HTML
+// comments, read as a browser reads them.
+func (c *checker) comments(segs *text.Segments) bool {
+	if c.mode != Authored {
+		return false
+	}
+	var b []byte
+	for i := 0; i < segs.Len(); i++ {
+		seg := segs.At(i)
+		b = append(b, seg.Value(c.src)...)
+	}
+	return onlyComments(b)
+}
+
+// onlyComments reports whether b is HTML comments separated by whitespace,
+// each as an HTML5 tokenizer reads it: it opens "<!--", is not closed
+// abruptly ("<!-->", "<!--->"), and ends at the first "-->" or "--!>"
+// after its opening. goldmark ends a comment block on the line holding
+// "-->" and keeps the rest of that line in the block, and reads "--!>" as
+// text, so anything a browser would read after its own end is refused.
+func onlyComments(b []byte) bool {
+	for {
+		b = bytes.TrimLeft(b, " \t\r\n\f")
+		if len(b) == 0 {
+			return true
+		}
+		if !bytes.HasPrefix(b, []byte("<!--")) {
+			return false
+		}
+		b = b[len("<!--"):]
+		if bytes.HasPrefix(b, []byte(">")) || bytes.HasPrefix(b, []byte("->")) {
+			return false
+		}
+		end, n := bytes.Index(b, []byte("-->")), len("-->")
+		if bang := bytes.Index(b, []byte("--!>")); bang >= 0 && (end < 0 || bang < end) {
+			end, n = bang, len("--!>")
+		}
+		if end < 0 {
+			return false
+		}
+		b = b[end+n:]
 	}
 }
 

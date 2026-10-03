@@ -15,8 +15,9 @@ import (
 // bundle, recorded before extractors and renderers were registered by kind
 // and schema. A tab bundle must stay byte-identical across that refactor
 // and every change after it that leaves catalog output alone; a change
-// that alters catalog output on purpose updates it and says so.
-const catalogDigest = "sha256:b975b0c14578f859a8fdb33b05a21da1e7d61f8048986f08ae84898c38f0efc9"
+// that alters catalog output on purpose updates it and says so. It
+// last changed when prose began escaping { and }.
+const catalogDigest = "sha256:9da8312a97ff51a4877cd179d5c4071cd36a5f33778047a3717f6f0a60022111"
 
 func TestCatalogBundleDigestUnchanged(t *testing.T) {
 	r := fixtureRepo(t)

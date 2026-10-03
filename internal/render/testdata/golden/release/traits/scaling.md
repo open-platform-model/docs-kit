@@ -37,7 +37,7 @@ spec: scaling: {
 
 ## Notes
 
-Advisory: see [docs/scaling-notes.md](https://github.com/example/demo/blob/0123456789abcdef0123456789abcdef01234567/docs/scaling-notes.md), and a pattern like {\{\< x \>}} stays escaped.
+Advisory: see [docs/scaling-notes.md](https://github.com/example/demo/blob/0123456789abcdef0123456789abcdef01234567/docs/scaling-notes.md), and a pattern like \{\{\< x \>\}\} stays escaped.
 
 ## Served by
 

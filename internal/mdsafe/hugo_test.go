@@ -42,37 +42,108 @@ func hugoBinary(t *testing.T) string {
 	return bin
 }
 
-// TestProbesWithHugo renders each probe of the docs-kit#36 reviews with
-// the site's Hugo, as a page of its own: whatever Hugo renders as live
-// markup, the check refuses; whatever the check accepts, Hugo renders
-// inert or refuses to build.
+// hugoBuildFails names the probes whose page Hugo refuses to build. A
+// probe that fails to build and is not named here fails the test: a build
+// failure says nothing about what the check accepts.
+var hugoBuildFails = map[string]bool{}
+
+// TestProbesWithHugo renders each probe with the site's Hugo, as a page of
+// its own: whatever Hugo renders as live markup, the check refuses in both
+// modes.
 func TestProbesWithHugo(t *testing.T) {
 	bin := hugoBinary(t)
 	for name, body := range probes(t) {
 		t.Run(name, func(t *testing.T) {
-			refused := len(Check(Page{Path: name, Body: body}, Authored)) > 0
-			html, built := hugoRender(t, bin, body)
-			switch {
-			case !built:
-				t.Logf("hugo refuses to build it; refused by the check: %v", refused)
-			case reActive.Match(html) && !refused:
-				t.Fatalf("hugo renders live markup and the check accepts it:\n%s", html)
-			case reActive.Match(html):
-				t.Log("hugo renders live markup; the check refuses it")
-			default:
-				t.Logf("hugo renders it inert; refused by the check: %v", refused)
+			h, built := hugoRender(t, bin, hugoSite, body)
+			if !built {
+				if !hugoBuildFails[name] {
+					t.Fatal("hugo refuses to build it, and hugoBuildFails does not name it")
+				}
+				return
 			}
+			judge(t, name, body, h, nil)
+		})
+	}
+}
+
+// judge fails when html is live and a mode accepts the probe.
+func judge(t *testing.T, name string, body, h []byte, allow map[string]bool) {
+	t.Helper()
+	a := active(h, allow)
+	for mode, m := range modes {
+		refused := len(Check(Page{Path: name, Body: body}, mode)) > 0
+		switch {
+		case a != "" && !refused:
+			t.Fatalf("%s: hugo renders %s and the check accepts it:\n%s", m, a, h)
+		case a != "":
+			t.Logf("%s: hugo renders %s; the check refuses it", m, a)
+		default:
+			t.Logf("%s: hugo renders it inert; refused by the check: %v", m, refused)
+		}
+	}
+}
+
+// siteAllow is what the pinned Hextra theme's and opmodel.dev's _markup
+// hooks write beside goldmark's elements (heading anchors, link icons, code
+// block chrome).
+var siteAllow = map[string]bool{"span": true, "svg": true, "path": true, "button": true, "figure": true, "figcaption": true}
+
+// TestProbesWithSite renders each probe again through the pinned Hextra
+// theme and opmodel.dev's _markup hooks, with the site's minifier, when
+// OPM_DOCS_SITE_DIR names an opmodel.dev site/ directory. The site's link
+// hooks fail the build on a link they cannot resolve; a probe whose build
+// fails must be refused by the check in both modes.
+func TestProbesWithSite(t *testing.T) {
+	dir := os.Getenv("OPM_DOCS_SITE_DIR")
+	if dir == "" {
+		t.Skip("OPM_DOCS_SITE_DIR names no opmodel.dev site/ directory")
+	}
+	bin := hugoBinary(t)
+	themes, err := filepath.Abs(filepath.Join(dir, "themes"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	site := map[string]string{
+		"hugo.toml": "baseURL = \"https://example.org/\"\ntheme = \"hextra\"\nthemesDir = \"" + themes + "\"\n" +
+			"disableKinds = [\"taxonomy\", \"term\", \"RSS\", \"sitemap\", \"robotsTXT\", \"home\", \"section\", \"404\"]\n" +
+			"[minify]\n  disableSVG = true\n  minifyOutput = true\n" +
+			"[markup.goldmark.renderer]\n  unsafe = true\n",
+		"layouts/_default/single.html": "{{ .Content }}",
+	}
+	hooks, err := filepath.Glob(filepath.Join(dir, "layouts", "_markup", "*.html"))
+	if err != nil || len(hooks) == 0 {
+		t.Fatalf("no _markup hooks under %s: %v", dir, err)
+	}
+	for _, f := range hooks {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		site["layouts/_markup/"+filepath.Base(f)] = string(b)
+	}
+	for name, body := range probes(t) {
+		t.Run(name, func(t *testing.T) {
+			h, built := hugoRender(t, bin, site, body)
+			if !built {
+				for mode, m := range modes {
+					if len(Check(Page{Path: name, Body: body}, mode)) == 0 {
+						t.Fatalf("%s: the site's hooks refuse to build it and the check accepts it", m)
+					}
+				}
+				return
+			}
+			judge(t, name, body, h, siteAllow)
 		})
 	}
 }
 
 // hugoRender builds one page in a fresh site and returns its HTML, or
 // false when Hugo refuses to build it.
-func hugoRender(t *testing.T, bin string, body []byte) ([]byte, bool) {
+func hugoRender(t *testing.T, bin string, site map[string]string, body []byte) ([]byte, bool) {
 	t.Helper()
 	dir := t.TempDir()
 	files := map[string]string{"content/p.md": "---\ntitle: \"p\"\n---\n\n" + string(body)}
-	for k, v := range hugoSite {
+	for k, v := range site {
 		files[k] = v
 	}
 	for p, b := range files {

@@ -218,6 +218,7 @@ func TestRefusals(t *testing.T) {
 		{"leaves tree", map[string]string{"c/x.yaml": crd("Widget", "")}, func(o *Options) { o.Dir = "./../c" }, "leaves the source tree"},
 		{"samples missing", map[string]string{"c/x.yaml": crd("Widget", "")}, func(o *Options) { o.Samples = "./nosuch" }, "samples ./nosuch does not exist; create it or remove samples"},
 		{"kind name", map[string]string{"c/x.yaml": crd("Widget<script>", "")}, nil, `c/x.yaml: kind "Widget<script>" is not a Kubernetes kind name`},
+		{"kind name with heading attributes", map[string]string{"c/x.yaml": crd("Widget{.hx:fixed}", "")}, nil, `c/x.yaml: kind "Widget{.hx:fixed}" is not a Kubernetes kind name`},
 		{"scope", map[string]string{"c/x.yaml": strings.Replace(crd("Widget", ""), "scope: Namespaced", "scope: <b>x</b>", 1)}, nil, `c/x.yaml: Widget: scope "<b>x</b>" is neither Namespaced nor Cluster`},
 		{"column type", map[string]string{"c/x.yaml": strings.Replace(crd("Widget", ""), "  - name: v1\n", "  - name: v1\n    additionalPrinterColumns:\n    - name: Ready\n      type: <img>\n      jsonPath: .x\n", 1)}, nil, `c/x.yaml: Widget: printer column "Ready" has type "<img>"; want one of integer, number, string, boolean, date`},
 		{"unknown CRD field", map[string]string{"c/x.yaml": strings.Replace(crd("Widget", ""), "  scope: Namespaced\n", "  scope: Namespaced\n  conversion:\n    strategy: None\n", 1)}, nil, `c/x.yaml: Widget: spec.conversion: unknown field "conversion"; the crd extractor reads only the fields its page shows`},
