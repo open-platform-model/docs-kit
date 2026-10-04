@@ -1,9 +1,10 @@
 // Package dialect lints pages against the OPM page dialect: the Markdown
 // subset, front matter and link forms the opmodel.dev site accepts.
 //
-// Dialect 1 is the site's shell lint (site/scripts/lint-sources.sh) rule for
-// rule, with the same messages, plus the /catalogs/ link forms. Every
-// violation prints as "<file>:<line>: <message>", the shell lint's format.
+// Dialect 1 is the rule list of docs/contracts.md C11, and this package is
+// its only implementation. The rules and messages were ported from the site's
+// retired shell lint, plus the /catalogs/ link forms. Every violation prints
+// as "<file>:<line>: <message>".
 package dialect
 
 import (
