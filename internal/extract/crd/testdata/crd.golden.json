@@ -1,6 +1,7 @@
 {
   "schema": "docs.opmodel.dev/data/crd/v1",
   "citations": "link",
+  "layout": "page",
   "page": {
     "path": "reference/widgets.md",
     "title": "Widget resources",
@@ -229,7 +230,8 @@
         "file": "config/samples/example.dev_v1_widget.yaml",
         "yaml": "apiVersion: example.dev/v1\nkind: Widget\nmetadata:\n  labels:\n    app.kubernetes.io/name: demo\n    tier: front\n  name: widget-sample\nspec:\n  color: red\n  size: 3\n"
       },
-      "reconciledBy": "widget"
+      "reconciledBy": "widget",
+      "page": null
     },
     {
       "kind": "Gadget",
@@ -271,7 +273,8 @@
         }
       ],
       "sample": null,
-      "reconciledBy": null
+      "reconciledBy": null,
+      "page": null
     },
     {
       "kind": "Sprocket",
@@ -296,7 +299,8 @@
       "status": [],
       "rules": [],
       "sample": null,
-      "reconciledBy": null
+      "reconciledBy": null,
+      "page": null
     }
   ]
 }

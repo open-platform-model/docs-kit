@@ -16,6 +16,13 @@ const SchemaID = "docs.opmodel.dev/data/crd/v1"
 // DataFile is the doc model's file name under data/.
 const DataFile = "crd.json"
 
+// The layouts a model records: one page holding every kind, or a section
+// index and one page per kind.
+const (
+	LayoutPage    = "page"
+	LayoutSection = "section"
+)
+
 // The citation policies a model records.
 const (
 	CitationsStrip = "strip"
@@ -38,16 +45,21 @@ type Model struct {
 	// Citations is the source's citation policy: under "link" the renderer
 	// links each decision citation left in the prose.
 	Citations string `json:"citations"`
-	Page      Page   `json:"page"`
-	Kinds     []Kind `json:"kinds"`
+	// Layout is LayoutPage or LayoutSection; a data file without it is
+	// LayoutPage.
+	Layout string `json:"layout"`
+	// Page is the completable page: the one page, or the section index.
+	Page  Page   `json:"page"`
+	Kinds []Kind `json:"kinds"`
 	// Read lists every file the extraction read, repository-relative, for
 	// the standalone page's lastmod; it is not written to the data file.
 	Read []string `json:"-"`
 }
 
-// Page is the one page the kinds render to.
+// Page is the completable page: the one page the kinds render to, or the
+// section index.
 type Page struct {
-	Path        string `json:"path"` // under content/, "reference/operator-resources.md"
+	Path        string `json:"path"` // under content/, "reference/operator-resources.md" or "reference/operator/_index.md"
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Weight      *int   `json:"weight"` // null when not configured
@@ -72,6 +84,12 @@ type Kind struct {
 	Rules        []Rule    `json:"rules"`
 	Sample       *Sample   `json:"sample"`
 	ReconciledBy *string   `json:"reconciledBy"`
+	// Page is the kind's page under content/ in the section layout,
+	// "reference/operator/moduleinstance.md"; nil in the page layout.
+	Page *string `json:"page"`
+	// Read lists the files read for this kind, its CRD file first, for its
+	// page's lastmod; it is not written to the data file.
+	Read []string `json:"-"`
 }
 
 // Version is one version the CRD declares.
@@ -138,6 +156,13 @@ func Decode(data []byte) (*Model, error) {
 	}
 	if m.Schema != SchemaID {
 		return nil, fmt.Errorf("doc model schema %q, want %q", m.Schema, SchemaID)
+	}
+	switch m.Layout {
+	case "":
+		m.Layout = LayoutPage
+	case LayoutPage, LayoutSection:
+	default:
+		return nil, fmt.Errorf("doc model layout %q, want %q or %q", m.Layout, LayoutPage, LayoutSection)
 	}
 	return &m, nil
 }

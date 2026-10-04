@@ -50,6 +50,12 @@ func crdBuild(t *testing.T, files map[string]string) (m *bundle.Manifest, dir st
 // build.
 func crdBuildThen(t *testing.T, files map[string]string, then func(*gittest.Repo)) (m *bundle.Manifest, dir string) {
 	t.Helper()
+	return crdBuildWith(t, crdConfig, files, then)
+}
+
+// crdBuildWith is crdBuildThen with docs-kit.cue's text given.
+func crdBuildWith(t *testing.T, cfgText string, files map[string]string, then func(*gittest.Repo)) (m *bundle.Manifest, dir string) {
+	t.Helper()
 	t.Setenv("GITHUB_REPOSITORY", "")
 	tree := filepath.Join("..", "extract", "crd", "testdata", "tree")
 	err := filepath.WalkDir(tree, func(p string, d fs.DirEntry, err error) error {
@@ -67,7 +73,7 @@ func crdBuildThen(t *testing.T, files map[string]string, then func(*gittest.Repo
 	if err != nil {
 		t.Fatal(err)
 	}
-	files["docs-kit.cue"] = crdConfig
+	files["docs-kit.cue"] = cfgText
 	files["docs/site/guide.md"] = "---\ntitle: \"Guide\"\ndescription: \"x\"\ntype: explanation\n---\n\nA guide.\n"
 	r := gittest.New(t, "https://github.com/example/widgets.git")
 	r.Write(files)
@@ -135,5 +141,51 @@ func TestCRDBundleLastmodNewest(t *testing.T) {
 	})
 	if p := pageEntry(m, "reference/widgets.md"); p.Lastmod != "2030-01-02T03:04:05Z" {
 		t.Fatalf("lastmod %q, want the sample's commit date", p.Lastmod)
+	}
+}
+
+// crdSectionConfig is crdConfig in the section layout.
+var crdSectionConfig = strings.NewReplacer(
+	`owns: ["reference/widgets.md"]`, `owns: ["reference/widgets/"]`,
+	`page:        "reference/widgets.md"`, `section:     "reference/widgets/"`,
+).Replace(crdConfig)
+
+// In the section layout an authored index completes the generated one,
+// each kind page documents its own CRD, dated by its CRD and sample, and
+// the index is dated by every file read.
+func TestCRDBundleSection(t *testing.T) {
+	index := "---\ntitle: \"Widgets\"\ndescription: \"What widgets are.\"\n---\n\nThis section lists the widget kinds.\n"
+	m, dir := crdBuildWith(t, crdSectionConfig, map[string]string{"docs/site/reference/widgets/_index.md": index}, func(r *gittest.Repo) {
+		r.Write(map[string]string{"config/samples/example.dev_v1_gadget.yaml": "apiVersion: example.dev/v1\nkind: Gadget\nmetadata:\n  name: g\n"})
+		r.CommitAt("2030-01-02T03:04:05Z", "sample")
+	})
+	body, _ := os.ReadFile(filepath.Join(dir, "content", "reference", "widgets", "_index.md"))
+	if !strings.HasPrefix(string(body), index+"\n## Kinds\n") {
+		t.Fatalf("completed index:\n%s", body)
+	}
+	if p := pageEntry(m, "reference/widgets/_index.md"); p.Generated || p.Source != "docs/site/reference/widgets/_index.md" {
+		t.Fatalf("index entry %+v", p)
+	}
+	w := pageEntry(m, "reference/widgets/widget.md")
+	if !w.Generated || w.Source != "config/crd/bases/example.dev_widgets.yaml" || w.Lastmod == "" || w.Lastmod == "2030-01-02T03:04:05Z" || w.Edit != "" {
+		t.Fatalf("widget entry %+v: its own CRD and sample date it, not the Gadget sample", w)
+	}
+	if g := pageEntry(m, "reference/widgets/gadget.md"); g.Lastmod != "2030-01-02T03:04:05Z" || g.Source == w.Source {
+		t.Fatalf("gadget entry %+v: its new sample dates it", g)
+	}
+	for _, k := range []string{"widget", "gadget", "sprocket"} {
+		if _, err := os.Stat(filepath.Join(dir, "content", "reference", "widgets", k+".md")); err != nil {
+			t.Error(err)
+		}
+	}
+}
+
+func TestCRDBundleSectionAloneDated(t *testing.T) {
+	m, _ := crdBuildWith(t, crdSectionConfig, map[string]string{}, func(r *gittest.Repo) {
+		r.Write(map[string]string{"config/samples/example.dev_v1_gadget.yaml": "apiVersion: example.dev/v1\nkind: Gadget\nmetadata:\n  name: g\n"})
+		r.CommitAt("2030-01-02T03:04:05Z", "sample")
+	})
+	if p := pageEntry(m, "reference/widgets/_index.md"); !p.Generated || p.Source != "" || p.Lastmod != "2030-01-02T03:04:05Z" {
+		t.Fatalf("standalone index %+v: no source, dated by every file read", p)
 	}
 }

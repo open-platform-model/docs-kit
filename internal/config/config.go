@@ -111,6 +111,9 @@ func Load(path string) (*Config, error) {
 	if err := checkKinds(path, raw); err != nil {
 		return nil, err
 	}
+	if err := checkCRDLayout(path, raw); err != nil {
+		return nil, err
+	}
 	v, err := schema.Unify("#Config", raw)
 	if err != nil {
 		return nil, err
@@ -270,6 +273,39 @@ func checkKinds(path string, v cue.Value) error {
 				continue
 			}
 			return fmt.Errorf("%s: bundles.%q.sources[%d]: source kind %q is not one this opm-docs builds; it builds %s", path, bundles.Selector().Unquoted(), i, k, strings.Join(known, ", "))
+		}
+	}
+	return nil
+}
+
+// checkCRDLayout refuses a crd source with both or neither of page and
+// section before the schema does: the schema's refusal comes out of the
+// #Source disjunction as one line per source kind.
+func checkCRDLayout(path string, v cue.Value) error {
+	bv := v.LookupPath(cue.ParsePath("bundles"))
+	if bv.IncompleteKind() != cue.StructKind {
+		return nil
+	}
+	bundles, err := bv.Fields()
+	if err != nil {
+		return schema.Format(err)
+	}
+	for bundles.Next() {
+		srcs, err := bundles.Value().LookupPath(cue.ParsePath("sources")).List()
+		if err != nil {
+			continue
+		}
+		for i := 0; srcs.Next(); i++ {
+			src := srcs.Value()
+			if k, err := src.LookupPath(cue.ParsePath("kind")).String(); err != nil || k != "crd" {
+				continue
+			}
+			page := src.LookupPath(cue.ParsePath("page")).Exists()
+			section := src.LookupPath(cue.ParsePath("section")).Exists()
+			if page != section {
+				continue
+			}
+			return fmt.Errorf("%s: bundles.%q.sources[%d]: a crd source takes exactly one of page (one page holding every kind) and section (an index and a page per kind)", path, bundles.Selector().Unquoted(), i)
 		}
 	}
 	return nil

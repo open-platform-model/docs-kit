@@ -1,9 +1,15 @@
-{{- range $k := .Kinds}}
+{{- range .Kinds}}
 ## {{.Kind}}
 
+{{template "crd-kind" (entry . "###")}}
+{{end}}
+
+{{- /* crd-kind is one kind's entry below its heading: the summary, then
+its parts headed by .H ("###" on the one page, "##" on a kind's page). */}}
+{{- define "crd-kind"}}{{$k := .K}}{{with .K}}
 {{with .Summary}}{{inline .}}{{end}}
 
-### At a glance
+{{$.H}} At a glance
 
 | Property | Value |
 | --- | --- |
@@ -32,32 +38,32 @@ The resource definition declares these `kubectl get` columns. A column with a pr
 {{- end}}
 {{- end}}
 
-{{template "crd-fields" (fields "Spec" .Spec)}}
+{{template "crd-fields" (fields $.H "Spec" .Spec)}}
 
-{{template "crd-fields" (fields "Status" .Status)}}
+{{template "crd-fields" (fields $.H "Status" .Status)}}
 
 {{with .Sample -}}
-### Example
+{{$.H}} Example
 
 {{fence .YAML}}yaml
 {{.YAML}}{{fence .YAML}}
 {{- end}}
 
 {{with .Notes -}}
-### Notes
+{{$.H}} Notes
 {{range .}}
 {{inline .}}
 {{end}}
 {{- end}}
 
 {{with .ReconciledBy -}}
-### Served by
+{{$.H}} Served by
 
 The operator's {{code .}} controller watches every {{$k.Kind}}.
 {{- end}}
 
 {{with .Rules -}}
-### Enforcement
+{{$.H}} Enforcement
 
 | Field | Rule | Enforced by |
 | --- | --- | --- |
@@ -65,11 +71,11 @@ The operator's {{code .}} controller watches every {{$k.Kind}}.
 | {{ruleField .Field}} | {{ruleText .}} | API server |
 {{- end}}
 {{- end}}
-{{end}}
+{{end}}{{end}}
 
 {{- define "crd-fields"}}
 {{- with .Rows}}
-### {{$.Title}}
+{{$.H}} {{$.Title}}
 
 {{if $.Default -}}
 | Field | Type | Required | Default | Description |
