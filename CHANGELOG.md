@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/open-platform-model/docs-kit/compare/v0.6.0...v0.7.0) (2026-10-04)
+
+
+### Features
+
+* **render:** render a crd source as a section of kind pages ([#48](https://github.com/open-platform-model/docs-kit/issues/48)) ([c4cf99b](https://github.com/open-platform-model/docs-kit/commit/c4cf99b4e7692e1dc1fbc4b03593720fa4e280d8))
+
 ## [0.6.0](https://github.com/open-platform-model/docs-kit/compare/v0.5.0...v0.6.0) (2026-10-03)
 
 
