@@ -10,4 +10,4 @@ One PR. Every commit is `ci`: no docs-kit release.
 
 ## 2. Archive
 
-- [ ] 2.1 `openspec archive release-key-environment` folds the `tool-release` delta into the main spec; `task openspec:check` green; commit `chore(openspec): archive release-key-environment`.
+- [x] 2.1 `openspec archive release-key-environment` folds the `tool-release` delta into the main spec; `task openspec:check` green; commit `chore(openspec): archive release-key-environment`.
