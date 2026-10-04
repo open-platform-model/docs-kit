@@ -135,6 +135,8 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.tag_name || inputs.tag }}
           fetch-depth: 0
+          # The job token stays out of .git/config while build tooling runs.
+          persist-credentials: false
 
       # No cache: a release binary never builds on a cache another run, on
       # any branch, could have written.
