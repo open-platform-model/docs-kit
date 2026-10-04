@@ -4,9 +4,9 @@
 
 ## What Changes
 
-- **`release.yml`**: the `release-please` job, the only reader of the key, runs in `environment: release` and declares `permissions: {}` (it acts only through the App token). The workflow-level grant becomes `permissions: {}`; the `goreleaser` job keeps its own `contents: write`. `actions/setup-go` in the `goreleaser` job sets `cache: false`.
-- **`.github/CODEOWNERS`**: the owners review `.github/`, `Taskfile.yml`, `release-please-config.json` and `.release-please-manifest.json`.
-- **`.github/dependabot.yml`**: weekly GitHub Actions updates, `ci`-prefixed.
+- **`release.yml`**: the `release-please` job, the only reader of the key, runs in `environment: release` and declares `permissions: {}` (it acts only through the App token, minted with only `contents`, `pull-requests` and `issues` write). The workflow-level grant becomes `permissions: {}`; the `goreleaser` job keeps its own `contents: write`. `actions/setup-go` in the `goreleaser` job sets `cache: false`, and its checkout sets `persist-credentials: false`.
+- **`.github/CODEOWNERS`**: the owners review `.github/`, `Taskfile.yml`, `release-please-config.json`, `.release-please-manifest.json` and `.goreleaser.yml`. Review is required only once the main ruleset turns on code-owner review; the file's header says so.
+- **`.github/dependabot.yml`**: weekly GitHub Actions updates, `ci`-prefixed; `open-platform-model/.github*` is ignored, since it moves by the pin procedure only.
 - `ci.yml` already declares `contents: read`; `publish.yml` is reusable and takes its grants from the caller's job (C5), so neither changes.
 
 SemVer class: none. Workflow and repository config only, committed as `ci`; no command, contract or release asset changes.

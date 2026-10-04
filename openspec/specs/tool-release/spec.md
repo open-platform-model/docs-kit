@@ -31,7 +31,7 @@ release-please SHALL release the `cobradump/` module as a second component with 
 - **THEN** the tag `cobradump/v0.2.0` exists, the Go module proxy serves that version, and no `opm-docs` release or archive is built
 
 ### Requirement: The release key is read only on main
-The release workflow SHALL read `RELEASE_APP_PRIVATE_KEY` in exactly one job, `release-please`, and that job SHALL run in the `release` environment, whose deployment branch policy admits `main` only. `release.yml` and `ci.yml` SHALL declare their token permissions explicitly, at workflow or job level, so no job depends on the repository's default `GITHUB_TOKEN` permissions; the `release-please` job, which acts only through the App token, SHALL declare none. The `goreleaser` job SHALL NOT restore an Actions cache.
+The release workflow SHALL read `RELEASE_APP_PRIVATE_KEY` in exactly one job, `release-please`, and that job SHALL run in the `release` environment, whose deployment branch policy admits `main` only. `release.yml` and `ci.yml` SHALL declare their token permissions explicitly, at workflow or job level, so no job depends on the repository's default `GITHUB_TOKEN` permissions; the `release-please` job, which acts only through the App token, SHALL declare none, and SHALL mint that token with only `contents`, `pull-requests` and `issues` write. The `goreleaser` job SHALL NOT restore an Actions cache and SHALL check out without persisting the job token.
 
 #### Scenario: A push to main
 - **WHEN** a commit is pushed to `main`
@@ -43,4 +43,4 @@ The release workflow SHALL read `RELEASE_APP_PRIVATE_KEY` in exactly one job, `r
 
 #### Scenario: Release binaries build without a cache
 - **WHEN** the `goreleaser` job builds a release
-- **THEN** `actions/setup-go` runs with `cache: false`, and no step restores an Actions cache
+- **THEN** `actions/setup-go` runs with `cache: false`, no step restores an Actions cache, and `.git/config` holds no token
