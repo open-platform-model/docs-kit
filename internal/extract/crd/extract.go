@@ -82,6 +82,9 @@ func (m *Model) section(dir string) error {
 	for i := range m.Kinds {
 		k := &m.Kinds[i]
 		p := dir + strings.ToLower(k.Kind) + ".md"
+		if strings.EqualFold(k.Kind, "index") {
+			return fmt.Errorf("the kind %s would be the page %s beside the section index %s_index.md; a section names each kind's page by its lower-cased name, so use the page layout", k.Kind, p, dir)
+		}
 		if prev, ok := byPage[p]; ok {
 			return fmt.Errorf("the kinds %s and %s would both be the page %s; a section names each kind's page by its lower-cased name", prev, k.Kind, p)
 		}

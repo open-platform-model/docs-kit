@@ -61,3 +61,14 @@ func TestDecodeLayout(t *testing.T) {
 		t.Fatal("an unknown layout decoded")
 	}
 }
+
+func TestSectionRefusesIndexKind(t *testing.T) {
+	root := writeTree(t, map[string]string{"c/a.yaml": crdYAML("Index", "")})
+	_, err := Extract(Options{Root: root, Dir: "./c", Section: "reference/w/", Doc: doctext.Strip})
+	if err == nil || !strings.Contains(err.Error(), "the kind Index would be the page reference/w/index.md beside the section index") {
+		t.Errorf("err %v", err)
+	}
+	if _, err := Extract(Options{Root: root, Dir: "./c", Page: Page{Path: "reference/w.md"}, Doc: doctext.Strip}); err != nil {
+		t.Errorf("the page layout refused the kind Index: %v", err)
+	}
+}
