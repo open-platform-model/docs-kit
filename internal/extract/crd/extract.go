@@ -29,8 +29,13 @@ type Options struct {
 	HideSamplesMatching []string
 	// StripLabels: each label removed from a shown sample when its value
 	// matches.
-	StripLabels  map[string]string
-	Page         Page
+	StripLabels map[string]string
+	// Page is the completable page: Path is the one page's file, or, when
+	// Section is set, empty (the section index is derived from Section).
+	Page Page
+	// Section, "reference/operator/", selects the section layout: an index
+	// and one page per kind.
+	Section      string
 	Order        []string          // kinds first, in this order
 	ReconciledBy map[string]string // kind: controller name
 	Doc          doctext.Policy
@@ -59,7 +64,34 @@ func Extract(o Options) (*Model, error) {
 	if o.Doc == doctext.Link {
 		citations = CitationsLink
 	}
-	return &Model{Schema: SchemaID, Citations: citations, Page: o.Page, Kinds: kinds, Read: x.reads}, nil
+	m := &Model{Schema: SchemaID, Citations: citations, Layout: LayoutPage, Page: o.Page, Kinds: kinds, Read: x.reads}
+	if o.Section != "" {
+		if err := m.section(o.Section); err != nil {
+			return nil, err
+		}
+	}
+	return m, nil
+}
+
+// section lays the model out as a section: the index at
+// <section>_index.md, each kind at <section><kind lower-cased>.md.
+func (m *Model) section(dir string) error {
+	m.Layout = LayoutSection
+	m.Page.Path = dir + "_index.md"
+	byPage := map[string]string{}
+	for i := range m.Kinds {
+		k := &m.Kinds[i]
+		p := dir + strings.ToLower(k.Kind) + ".md"
+		if strings.EqualFold(k.Kind, "index") {
+			return fmt.Errorf("the kind %s would be the page %s beside the section index %s_index.md; a section names each kind's page by its lower-cased name, so use the page layout", k.Kind, p, dir)
+		}
+		if prev, ok := byPage[p]; ok {
+			return fmt.Errorf("the kinds %s and %s would both be the page %s; a section names each kind's page by its lower-cased name", prev, k.Kind, p)
+		}
+		byPage[p] = k.Kind
+		k.Page = &p
+	}
+	return nil
 }
 
 // extraction is one Extract run: its options and every file it read.
@@ -105,6 +137,7 @@ func (x *extraction) readKinds() ([]Kind, error) {
 				return nil, fmt.Errorf("%s and %s both define the kind %s", prev, rel, k.Kind)
 			}
 			seen[k.Kind] = rel
+			n := len(x.reads)
 			if o.Samples != "" {
 				if k.Sample, err = x.sample(d); err != nil {
 					return nil, err
@@ -113,6 +146,7 @@ func (x *extraction) readKinds() ([]Kind, error) {
 			if c, ok := o.ReconciledBy[k.Kind]; ok {
 				k.ReconciledBy = &c
 			}
+			k.Read = append([]string{rel}, x.reads[n:]...)
 			kinds = append(kinds, k)
 		}
 	}

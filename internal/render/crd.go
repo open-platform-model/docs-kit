@@ -9,6 +9,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/open-platform-model/docs-kit/internal/doctext"
 	"github.com/open-platform-model/docs-kit/internal/extract/crd"
 	"github.com/open-platform-model/docs-kit/internal/mdtext"
 )
@@ -31,22 +32,30 @@ var crdTemplates = template.Must(template.New("").Funcs(crdFuncs(false)).Funcs(t
 	"code":      crdCode,
 	"codeList":  crdCodeList,
 	"ruleField": crdRuleField,
-	"fields": func(title string, rows []crd.Field) any {
+	"fields": func(h, title string, rows []crd.Field) any {
 		return struct {
-			Title   string
-			Rows    []crd.Field
-			Default bool
-		}{title, rows, slices.ContainsFunc(rows, func(f crd.Field) bool { return f.Default != nil })}
+			H, Title string
+			Rows     []crd.Field
+			Default  bool
+		}{h, title, rows, slices.ContainsFunc(rows, func(f crd.Field) bool { return f.Default != nil })}
 	},
+	"entry": func(k crd.Kind, h string) crdEntry { return crdEntry{K: k, H: h} },
 }).ParseFS(crdTemplateFiles, "templates/crd/*.tmpl"))
 
+// crdEntry is one kind's entry below its heading, its parts headed by H.
+type crdEntry struct {
+	K crd.Kind
+	H string
+}
+
 // crdRenderer renders a crd data file: one completable page holding an
-// entry per kind.
+// entry per kind, or, in the section layout, a completable section index
+// and one page per kind.
 type crdRenderer struct{}
 
 func (crdRenderer) Schema() string { return crd.SchemaID }
 
-func (crdRenderer) Render(data []byte, _ Target) ([]Page, error) {
+func (crdRenderer) Render(data []byte, t Target) ([]Page, error) {
 	m, err := crd.Decode(data)
 	if err != nil {
 		return nil, err
@@ -54,20 +63,14 @@ func (crdRenderer) Render(data []byte, _ Target) ([]Page, error) {
 	if len(m.Kinds) == 0 {
 		return nil, fmt.Errorf("data/%s lists no kind", crd.DataFile)
 	}
+	if m.Layout == crd.LayoutSection {
+		return crdSection(m, t)
+	}
 	tail, err := CRDEntries(m)
 	if err != nil {
 		return nil, err
 	}
-	var fm strings.Builder
-	fm.WriteString("---\n")
-	fmt.Fprintf(&fm, "title: %s\n", mdtext.YAMLString(m.Page.Title))
-	fmt.Fprintf(&fm, "description: %s\n", mdtext.YAMLString(m.Page.Description))
-	fm.WriteString("type: reference\n")
-	if m.Page.Weight != nil {
-		fmt.Fprintf(&fm, "weight: %d\n", *m.Page.Weight)
-	}
-	fm.WriteString("---\n\n")
-	body := fm.String() + tail
+	body := crdFrontMatter(m.Page.Title, m.Page.Description, "reference", m.Page.Weight) + tail
 	if err := mdtext.CheckShortcodes(m.Page.Path, body); err != nil {
 		return nil, err
 	}
@@ -87,16 +90,83 @@ var reBlankRuns = regexp.MustCompile(`\n{3,}`)
 // is left out; parts are separated by one blank line and the body ends in
 // one newline.
 func CRDEntries(m *crd.Model) (string, error) {
+	return crdExecute(m, "entries.md.tmpl", m)
+}
+
+// crdExecute runs one crd template under the model's citation policy and
+// folds its blank runs: parts are separated by one blank line and the
+// text ends in one newline.
+func crdExecute(m *crd.Model, name string, data any) (string, error) {
 	t, err := crdTemplates.Clone()
 	if err != nil {
 		return "", err
 	}
 	var b bytes.Buffer
-	if err := t.Funcs(crdFuncs(m.Citations == crd.CitationsLink)).ExecuteTemplate(&b, "entries.md.tmpl", m); err != nil {
+	if err := t.Funcs(crdFuncs(m.Citations == crd.CitationsLink)).ExecuteTemplate(&b, name, data); err != nil {
 		return "", err
 	}
 	s := reBlankRuns.ReplaceAllString(b.String(), "\n\n")
 	return strings.Trim(s, "\n") + "\n", nil
+}
+
+// kindsHeading opens the crd section index's generated tail, which an
+// authored index may complete.
+const kindsHeading = "## Kinds"
+
+// crdSection renders the section layout: the index, completable with
+// heading "## Kinds", then one page per kind in model order, weighted by
+// its position. A kind's page holds its entry without the kind's own
+// heading, its parts one level up.
+func crdSection(m *crd.Model, t Target) ([]Page, error) {
+	link := m.Citations == crd.CitationsLink
+	var tail strings.Builder
+	tail.WriteString(kindsHeading + "\n\n| Kind | Scope | Summary |\n| --- | --- | --- |\n")
+	for i := range m.Kinds {
+		k := &m.Kinds[i]
+		if k.Page == nil {
+			return nil, fmt.Errorf("data/%s: the kind %s has no page in the section layout", crd.DataFile, k.Kind)
+		}
+		fmt.Fprintf(&tail, "| [%s](%s) | %s | %s |\n", k.Kind, t.URL(strings.TrimSuffix(*k.Page, ".md")), k.Scope, crdInline(k.Summary, true, link))
+	}
+	index := crdFrontMatter(m.Page.Title, m.Page.Description, "", m.Page.Weight) +
+		"Each page in this section covers one resource kind, generated from its CustomResourceDefinition.\n\n" + tail.String()
+	pages := []Page{{Path: m.Page.Path, Body: index, Completable: true, Heading: kindsHeading, Tail: tail.String()}}
+	for i := range m.Kinds {
+		k := &m.Kinds[i]
+		body, err := crdExecute(m, "crd-kind", crdEntry{K: *k, H: "##"})
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", k.Kind, err)
+		}
+		desc := doctext.Clean(k.Summary)
+		if desc == "" {
+			desc = "The " + k.Kind + " resource."
+		}
+		w := i + 1
+		pages = append(pages, Page{Path: *k.Page, Body: crdFrontMatter(k.Kind, desc, "reference", &w) + body})
+	}
+	for _, p := range pages {
+		if err := mdtext.CheckShortcodes(p.Path, p.Body); err != nil {
+			return nil, err
+		}
+	}
+	return pages, nil
+}
+
+// crdFrontMatter is a page's front matter and the blank line after it;
+// typ and weight are left out when empty or nil.
+func crdFrontMatter(title, desc, typ string, weight *int) string {
+	var fm strings.Builder
+	fm.WriteString("---\n")
+	fmt.Fprintf(&fm, "title: %s\n", mdtext.YAMLString(title))
+	fmt.Fprintf(&fm, "description: %s\n", mdtext.YAMLString(desc))
+	if typ != "" {
+		fmt.Fprintf(&fm, "type: %s\n", typ)
+	}
+	if weight != nil {
+		fmt.Fprintf(&fm, "weight: %d\n", *weight)
+	}
+	fm.WriteString("---\n\n")
+	return fm.String()
 }
 
 // crdEscaper escapes what Markdown or Hugo would read as markup in prose
