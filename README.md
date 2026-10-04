@@ -152,12 +152,13 @@ A published release's pages change only through a docs revision: its full tag (`
 1. Land the fix on `main` as one single-parent commit that changes only Markdown files, or only comments in `.cue` and `.go` files. Markdown counts as code in a release whose CUE embeds files (`@extern(embed)`). `edge` shows it on the next push.
 2. Dispatch the `revision` mode with the release tag and the fix's full 40-hex hash. The workflow applies every fix the newest revision of that release already carries, then this one, to the release tree; it refuses a fix that is not on `main`, one already applied, a conflict, and any change other than documentation, naming each file. Then it pushes `<version>.<next>`, signs it and moves the moving tags. A run that failed after its push can simply be re-run: the unpromoted revision is built again to the same digest and finished. Revisions of one release run one at a time, and GitHub keeps only one waiting run per release: a revision dispatched while another waits cancels the waiting one, which shows as cancelled and must be dispatched again. The fix is a full 40-hex (SHA-1) hash; SHA-256 repositories are not supported.
 
-The steps and the documentation-only rules are in [docs/contracts.md, "Docs revisions"](docs/contracts.md#docs-revisions). catalog_opm's dispatch, beside its other `docs.yml` jobs:
+The steps and the documentation-only rules are in [docs/contracts.md, "Docs revisions"](docs/contracts.md#docs-revisions). catalog_opm's dispatch, beside its other `docs.yml` jobs (simplified: the real one also `needs` a `guard` job that refuses a `catalog-opm-docs` backfill):
 
 ```yaml
 on:
   workflow_dispatch:
     inputs:
+      project: {type: choice, options: [catalog-opm, catalog-opm-docs], required: true}
       mode: {type: choice, options: [release, revision], default: release}
       tag: {description: "the release's git tag (opm-v4.4.5)", type: string, required: true}
       fix: {description: "revision: the 40-hex commit on main to apply", type: string, default: ""}
@@ -166,15 +167,15 @@ jobs:
   docs-dispatch:
     if: github.event_name == 'workflow_dispatch'
     permissions: {contents: read, packages: write, id-token: write}
-    uses: open-platform-model/docs-kit/.github/workflows/publish.yml@v0.2.0
+    uses: open-platform-model/docs-kit/.github/workflows/publish.yml@v0.6.0
     with:
-      project: catalog-opm
+      project: ${{ inputs.project }}
       mode: ${{ inputs.mode }}
       tag: ${{ inputs.tag }}
       fix: ${{ inputs.fix }}
 ```
 
-Or from a terminal: `gh workflow run docs.yml -f mode=revision -f tag=opm-v4.4.5 -f fix=<sha>`.
+Or from a terminal: `gh workflow run docs.yml --ref main -f project=catalog-opm -f mode=revision -f tag=opm-v4.4.5 -f fix=<sha>`.
 
 ## Development
 
