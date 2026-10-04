@@ -1,0 +1,9 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      # ci never releases opm-docs (openspec/config.yaml, "Commit Standards").
+      prefix: "ci"
