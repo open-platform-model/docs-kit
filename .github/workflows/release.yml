@@ -36,15 +36,20 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: write
-  pull-requests: write
+# Each job declares what it uses; nothing inherits a workflow-level grant.
+permissions: {}
 
 jobs:
   release-please:
     name: Release Please
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    # The only job that reads RELEASE_APP_PRIVATE_KEY. The release environment
+    # admits main only, so a workflow run on any other branch cannot read the
+    # key once it lives there.
+    environment: release
+    # release-please and gh act through the App token; GITHUB_TOKEN is unused.
+    permissions: {}
     outputs:
       # The root package's outputs (path "." is unprefixed), never
       # cobradump's (cobradump--release_created, cobradump--tag_name) nor
@@ -59,6 +64,12 @@ jobs:
         with:
           client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          # The token is this job's only credential: scope it to what
+          # release-please and gh use (commits, releases, release PRs, labels),
+          # never the installation's full grant.
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
 
       - name: Run release-please
         id: release
@@ -124,10 +135,15 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.tag_name || inputs.tag }}
           fetch-depth: 0
+          # The job token stays out of .git/config while build tooling runs.
+          persist-credentials: false
 
+      # No cache: a release binary never builds on a cache another run, on
+      # any branch, could have written.
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+          cache: false
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
