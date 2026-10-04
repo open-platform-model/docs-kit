@@ -10,11 +10,12 @@ import (
 	"testing"
 )
 
-// repoOrder is the order the site's test runner passes docs/site roots in.
+// repoOrder is the order the site's retired test runner passed docs/site roots
+// in, which the order of the captured expected output follows.
 var repoOrder = []string{"opm", "core", "catalog_opm", "cli", "library", "opm-operator"}
 
 // TestConformance lints every case of the conformance set and compares the
-// output, line for line, with the shell lint's recorded output.
+// output, line for line, with the case's expected output (shell.out).
 func TestConformance(t *testing.T) {
 	cases, err := filepath.Glob("testdata/conformance/*/shell.out")
 	if err != nil || len(cases) == 0 {
