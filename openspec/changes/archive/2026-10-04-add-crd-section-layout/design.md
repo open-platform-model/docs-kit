@@ -33,7 +33,7 @@ The `crd` source (C18) renders every kind into one completable page at `page`. T
 }
 ```
 
-`matchN` (CUE v0.17) states "exactly one" in the schema. A config with both or neither fails `#Config` (exit `1`); `checkBundle` repeats the rule with a plain message first, since a failure inside the `#Source` disjunction reads poorly ("a crd source takes exactly one of page (one page holding every kind) and section (an index and a page per kind)").
+`matchN` (CUE v0.17) states "exactly one" in the schema. A config with both or neither fails `#Config` (exit `1`); `config.Load` checks the rule before unifying (`checkCRDLayout`, beside `checkKinds`) and refuses with a plain message, since a failure inside the `#Source` disjunction reads poorly ("a crd source takes exactly one of page (one page holding every kind) and section (an index and a page per kind)").
 
 ### D2. Data model, additive
 

@@ -421,7 +421,8 @@ package schema
 }
 
 // The crd source (docs-kit C18): controller-gen CRDs and their kubebuilder
-// samples, rendered as one completable reference page.
+// samples, rendered as one completable reference page (page) or as a
+// section of one page per kind (section).
 #CRD: {
 	kind:     "crd"
 	dir:      =~"^\\./[^/]"  // controller-gen output: "./config/crd/bases"
@@ -432,10 +433,14 @@ package schema
 	// Labels removed from a shown sample when they carry exactly this value
 	// (kubebuilder's scaffold labels say how the repository applies it).
 	stripLabels: [string & !=""]: string
-	page:        =~"^([a-z0-9]+(-[a-z0-9]+)*/)*[a-z0-9]+(-[a-z0-9]+)*\\.md$" // under content/, an owned path
-	title:       string & !="" // front matter when no authored page completes it
+	// Exactly one of page and section. page: one completable page holding
+	// every kind. section: the section index and one page per kind.
+	page?:    =~"^([a-z0-9]+(-[a-z0-9]+)*/)*[a-z0-9]+(-[a-z0-9]+)*\\.md$" // under content/, an owned path
+	section?: =~"^([a-z0-9]+(-[a-z0-9]+)*/)+$"                           // the directory the pages go in: "reference/operator/"
+	matchN(1, [{page!: _, ...}, {section!: _, ...}])
+	title:       string & !="" // the page's or the section index's front matter when no authored page completes it
 	description: string & !=""
-	weight?:     int & >=1 // the page's weight when no authored page completes it
+	weight?:     int & >=1 // its weight among its siblings when no authored page completes it
 	order?: [string & !="", ...string & !=""] // these kinds first, in this order; the rest by name
 	reconciledBy?: [string & !=""]: string & !="" // kind: the controller that reconciles it
 	citations?: #Citations
@@ -486,7 +491,7 @@ package schema
 | `markdown` | authored pages, copied | `dir`, `include`, `exclude` |
 | `cue-definitions` | `data/cue-definitions.json` (C17); a docs bundle only | `package`, `skip`, `section`, `title`, `description`, `weight`, `intro`, `pages`, `exclude`; `citations` |
 | `cobra` | `data/cobra.json` (C19) | `command`, `section`, `title`, `description`, `weight`, `citations` |
-| `crd` | `data/crd.json` (C18) and one completable page; a docs bundle only | `dir`, `samples`, `hideSamplesMatching`, `stripLabels`, `page`, `title`, `description`, `weight`, `order`, `reconciledBy`, `citations` |
+| `crd` | `data/crd.json` (C18) and one completable page, or a completable section index and one page per kind; a docs bundle only | `dir`, `samples`, `hideSamplesMatching`, `stripLabels`, `page` or `section`, `title`, `description`, `weight`, `order`, `reconciledBy`, `citations` |
 | `go-api` | `data/go-api.json` (C20); a docs bundle only | `module`, `root`, `packages`, `section`, `title`, `description`, `weight`, `citations` |
 | `enhancements` | `data/enhancements.json` (C21) and the section's pages, which it builds itself; a section bundle only, and the only source there | `dir`, `title`, `description` (no `citations`: its text is authored) |
 
@@ -1300,21 +1305,22 @@ An anchor is the name lowercased without `#` (`#ComponentNames` is `componentnam
 
 ## C18. The `crd` source and `data/crd.json`
 
-**Config.** `#CRD` in C6; a `crd` source belongs in a docs bundle (C15), and a tab bundle holding one exits `1`. `dir` holds controller-gen output; every `*.yaml` file in it is read, and every document in a file must be an `apiextensions.k8s.io/v1` `CustomResourceDefinition` with exactly one version that has a schema. `samples`, when set, holds kubebuilder samples. `order` puts kinds first in that order, the rest by name; `reconciledBy` maps a kind to the name of the controller that reconciles it (stated by the author, never inferred from code). `citations` is the source's citation policy ("Doc-comment rules"). Every CRD and sample file read must be a regular file (a symbolic link is refused). A `samples` directory that is set but missing exits `2`, except when the config came from outside the source tree (a backfill, C5), where it means no samples. opm-operator's file, as its change `publish-crd-bundle` writes it:
+**Config.** `#CRD` in C6; a `crd` source belongs in a docs bundle (C15), and a tab bundle holding one exits `1`. `dir` holds controller-gen output; every `*.yaml` file in it is read, and every document in a file must be an `apiextensions.k8s.io/v1` `CustomResourceDefinition` with exactly one version that has a schema. `samples`, when set, holds kubebuilder samples. `order` puts kinds first in that order, the rest by name; `reconciledBy` maps a kind to the name of the controller that reconciles it (stated by the author, never inferred from code). `citations` is the source's citation policy ("Doc-comment rules"). A source takes exactly one of `page` (the page layout: one completable page holding every kind) and `section` (the section layout: a completable index and one page per kind); both or neither exits `1` ("a crd source takes exactly one of page (one page holding every kind) and section (an index and a page per kind)"). Every CRD and sample file read must be a regular file (a symbolic link is refused). A `samples` directory that is set but missing exits `2`, except when the config came from outside the source tree (a backfill, C5), where it means no samples. opm-operator's file in the section layout (its tags up to the switch keep `page: "reference/operator-resources.md"`, `owns: ["reference/operator-resources.md"]` and the title "Operator resources", and still build):
 
 ```cue
 bundles: "opm-operator": {
-	placement: {kind: "docs", root: "/docs/", owns: ["reference/operator-resources.md"]}
+	placement: {kind: "docs", root: "/docs/", owns: ["reference/operator/"]}
 	version: {from: "tag", prefix: "v"}
 	sources: [
-		{kind: "markdown", dir: "docs/site", exclude: ["reference/operator-resources.md"]},
+		// docs/site/reference/operator/_index.md completes the section index.
+		{kind: "markdown", dir: "docs/site"},
 		{
 			kind:        "crd"
 			dir:         "./config/crd/bases"
 			samples:     "./config/samples"
-			page:        "reference/operator-resources.md"
-			title:       "Operator resources"
-			description: "One generated entry per operator resource kind: ModuleInstance, ModulePackage, Platform and TransformerRegistration."
+			section:     "reference/operator/"
+			title:       "Operator Reference"
+			description: "One generated page per operator resource kind: ModuleInstance, ModulePackage, Platform and TransformerRegistration."
 			weight:      7
 			order: ["ModuleInstance", "ModulePackage", "Platform", "TransformerRegistration"]
 			hideSamplesMatching: ["testing.opmodel.dev"]
@@ -1334,7 +1340,8 @@ bundles: "opm-operator": {
 {
   "schema": "docs.opmodel.dev/data/crd/v1",
   "citations": "link",
-  "page": {"path": "reference/operator-resources.md", "title": "Operator resources", "description": "...", "weight": 7},
+  "layout": "section",
+  "page": {"path": "reference/operator/_index.md", "title": "Operator Reference", "description": "...", "weight": 7},
   "kinds": [
     {
       "kind": "ModuleInstance", "group": "opmodel.dev", "plural": "moduleinstances",
@@ -1351,13 +1358,15 @@ bundles: "opm-operator": {
         {"field": "", "rule": "CEL rule", "values": ["<expression>"], "message": "<message>", "by": "api-server"}
       ],
       "sample": {"file": "config/samples/opmodel.dev_v1alpha1_modulepackage.yaml", "yaml": "<text>"},
-      "reconciledBy": "moduleinstance"
+      "reconciledBy": "moduleinstance",
+      "page": "reference/operator/moduleinstance.md"
     }
   ]
 }
 ```
 
 - `page.weight`, `sample` and `reconciledBy` are `null` when absent; every list is present, empty when there is nothing.
+- **`layout`** is `"page"` or `"section"`; a data file without it (written before the section layout) reads as `"page"`. `page` is always the completable page: the one page, or the section index at `<section>_index.md`. A kind's `page` is its page in the section layout, `<section><kind lower-cased>.md`, and `null` in the page layout. Two kinds whose lower-cased names are equal exit `2` in the section layout ("the kinds WIDGET and Widget would both be the page reference/w/widget.md; ...").
 - **`citations`** is the source's policy, `"strip"` or `"link"`.
 - **Prose** (`summary`, `notes`, `description`, `message`) is plain source text with whitespace folded and the citation policy applied: under `"strip"` no citation is left; under `"link"` each enhancement decision citation stays as written (`0015:D3/D16`) and every other form is removed. Code spans stay in backticks. Nothing is escaped and nothing is a link: the renderer escapes the text and, under `"link"`, links each decision citation, so a link written in a description stays text. `summary` is the schema description's first sentence (the first `. ` not ending `e.g.` or `i.e.`); the rest of that paragraph and every later one are `notes`.
 - **Fields** are listed depth-first, properties by name, written from `spec` or `status` with `[]` for an array item and `.<key>` for a map value. `type` is the schema type, or `[]<item type>`, `map[string]<value type>`, `integer or string`, `free-form object`, `string (date-time)`, `[]Condition` (the standard `metav1.Condition` list, whose own fields and rules are not listed), `any`. `default` is the default's JSON text.
@@ -1365,11 +1374,22 @@ bundles: "opm-operator": {
 
 **Refusals** (exit `2`, naming the file). Decoding is strict: a key of the CRD or of a schema node that the extractor does not read is refused with the file, the kind and its path, the document path for a CRD key and the field path inside the schema (`config/crd/bases/x.yaml: Widget: spec.conversion: unknown field "conversion"`, `...: Widget: spec.port[].name: unknown field "dependencies"`), so no rule-bearing construct disappears silently. Accepted beside what the page shows, and ignored because they enforce no rule the page would miss: `metadata` `name`, `annotations`, `labels` and `creationTimestamp`; `names.listKind` and `names.singular`; a printer column's `format` and `description`; the CRD's `status` block; `preserveUnknownFields: false` (`true` is refused); a version's `deprecated` and `deprecationWarning`; a schema node's `x-kubernetes-map-type`, `title`, `example` and `externalDocs`; a CEL rule's `reason` and `fieldPath`. `dir` and `samples` must be directories, not symbolic links, that resolve inside the source tree (a linked parent may not lead out of it). Also refused: a kind name not matching `^[A-Z][A-Za-z0-9]*$`; a `scope` other than `Namespaced` or `Cluster`; a printer-column `type` other than `integer`, `number`, `string`, `boolean` or `date`; a top-level property other than `apiVersion`, `kind`, `metadata`, `spec` and `status`, or `apiVersion`, `kind` or `metadata` carrying anything beyond their type and a description; `multipleOf`, a `format` other than `date-time`, `int32` or `int64`, a CEL `messageExpression`, `x-kubernetes-embedded-resource` and a tuple `items` anywhere in a schema; `dir` leaves the source tree or holds no `.yaml` file or no CRD; a document that is not a CRD ("config/crd/bases/x.yaml: holds a v1 ConfigMap; a crd dir holds only apiextensions.k8s.io/v1 CustomResourceDefinitions"); YAML that does not parse ("config/samples/opmodel.dev_v1alpha1_platform.yaml: does not parse as YAML: ..."); two files defining one kind; a CRD with several versions; `allOf`, `anyOf`, `oneOf`, `not` or `nullable` anywhere in a schema (the reference cannot show them, so it refuses rather than drop a rule). controller-gen's `anyOf` for an int-or-string field is among them; its message names the field and says int-or-string is not supported yet ([docs-kit#23](https://github.com/open-platform-model/docs-kit/issues/23)); `order` or `reconciledBy` naming a kind no CRD defines, or `order` naming one twice.
 
-**The page.** One page at `page`, completable (C15) with heading `## <first kind>`. Per kind, in model order: `## <Kind>`, the summary, `### At a glance` (`| Property | Value |`: Group, Version, Kind, Scope, Resource, then Short names, Categories, Subresources when present), the `kubectl get` columns table when the CRD declares columns, `### Spec` and `### Status` (`| Field | Type | Required | Description |`, with a `Default` column before Description when any row has a default), `### Example` (a `yaml` fence of backticks, three or one longer than the longest backtick or tilde run in the sample, so no sample line closes it) when a sample is shown, `### Notes`, `### Served by` ("The operator's `<controller>` controller watches every <Kind>.") when `reconciledBy` names one, and `### Enforcement` (`| Field | Rule | Enforced by |`, the rule's words, its values as code joined by `, `, then `; refused with: <message>`; "the object" for `""`; enforced by "API server"). A part with nothing to show is left out. The `###` headings repeat per kind, so the site gives the second and later ones anchor suffixes (`#spec-1`, `#spec-2`) that shift when the kind order changes, as crdref's page did; link to a kind's `##` heading, not to them. Prose is escaped by "Doc-comment rules" plus `~` and `#`, with `{{` escaped until none is left (`{{{` too); under `"link"` each decision citation becomes `[0015:D3](/enhancements/0015/decisions/)`, the only links the renderer writes; an unpaired backtick makes the whole text prose with the backtick escaped. An authored page that holds the heading of any kind, not only the first, exits `2` (C15). Standing alone, the page's front matter is `title`, `description`, `type: reference` and `weight` when set; `manifest.json` `pages[].source` is the first CRD's file, its `lastmod` the newest commit date of every CRD and sample file read, and it has no `edit`. Completed, all three are the authored page's (C15).
+**The page layout.** One page at `page`, completable (C15) with heading `## <first kind>`. Per kind, in model order: `## <Kind>`, the summary, `### At a glance` (`| Property | Value |`: Group, Version, Kind, Scope, Resource, then Short names, Categories, Subresources when present), the `kubectl get` columns table when the CRD declares columns, `### Spec` and `### Status` (`| Field | Type | Required | Description |`, with a `Default` column before Description when any row has a default), `### Example` (a `yaml` fence of backticks, three or one longer than the longest backtick or tilde run in the sample, so no sample line closes it) when a sample is shown, `### Notes`, `### Served by` ("The operator's `<controller>` controller watches every <Kind>.") when `reconciledBy` names one, and `### Enforcement` (`| Field | Rule | Enforced by |`, the rule's words, its values as code joined by `, `, then `; refused with: <message>`; "the object" for `""`; enforced by "API server"). A part with nothing to show is left out. The `###` headings repeat per kind, so the site gives the second and later ones anchor suffixes (`#spec-1`, `#spec-2`) that shift when the kind order changes, as crdref's page did; link to a kind's `##` heading, not to them. Prose is escaped by "Doc-comment rules" plus `~` and `#`, with `{{` escaped until none is left (`{{{` too); under `"link"` each decision citation becomes `[0015:D3](/enhancements/0015/decisions/)`, the only links the renderer writes; an unpaired backtick makes the whole text prose with the backtick escaped. An authored page that holds the heading of any kind, not only the first, exits `2` (C15). Standing alone, the page's front matter is `title`, `description`, `type: reference` and `weight` when set; `manifest.json` `pages[].source` is the first CRD's file, its `lastmod` the newest commit date of every CRD and sample file read, and it has no `edit`. Completed, all three are the authored page's (C15).
 
-**Parity.** The page's generated body equals opm-operator `hack/crdref`'s block, byte for byte, for opm-operator `main` at `bf8d3c5` and for `v1.0.0-beta.4` (crdref run over that tag's tree), checked 2026-10-03. `TestOperatorCRDParity` runs in every test run on a copy of the operator's CRDs, samples and page at `bf8d3c5` (`internal/render/testdata/operator`), and on a live checkout with `OPM_OPERATOR_CHECKOUT=<checkout> go test ./internal/render -run TestOperatorCRDParity`. Deliberate differences, none visible for the operator: a CEL rule on `spec` or `status` itself is listed (crdref skipped it); `{{` is escaped; decoding is strict where crdref decoded strictly only the Kubernetes CRD type, and every construct crdref accepted but did not show (`multipleOf`, another `format`, `messageExpression`, `x-kubernetes-embedded-resource`, tuple `items`, `metadata` constraints, other top-level properties) is refused; the names, scope and column types above are refused; the example's fence grows past the sample's backtick and tilde runs; a decision link is built from the citation alone, never kept from the text.
+**The section layout.** Every page lies under `section`, which lies under one of the bundle's `owns` (C15).
+
+| Path | Page |
+|---|---|
+| `<section>_index.md` | front matter `title`, `description`, `weight` when set, no `type`; "Each page in this section covers one resource kind, generated from its CustomResourceDefinition."; `## Kinds` and a table `\| Kind \| Scope \| Summary \|`, one row per kind in model order: the kind linking its page (`/docs/<section><kind lower-cased>/`), its scope, its escaped summary (citations linked under `"link"`). Completable (C15) with heading `## Kinds`. Standing alone it has no `source` and its `lastmod` is the newest commit date of every CRD and sample file read; completed, all three are the authored page's |
+| `<section><kind lower-cased>.md` | front matter `title` the kind, `description` its summary with every citation removed (or "The <Kind> resource." when it has none), `type: reference`, `weight` its 1-based position in model order; then the kind's entry as the page layout writes it, without the `## <Kind>` heading and with every part one level up (`## At a glance`, `## Spec`, `## Status`, `## Example`, `## Notes`, `## Served by`, `## Enforcement`), so its anchors carry no suffix. Generated only, never completable; `source` the kind's CRD file, `lastmod` the newest commit date of that file and the sample file read for it, no `edit` |
+
+The renderer writes no link between kinds in either layout (the only links it writes are decision citations), so the section layout has no in-page anchor to rewrite. A link another page holds into the page layout (`/docs/reference/operator-resources/#moduleinstance`) is its owner's to move to the kind's page.
+
+**Parity.** The page's generated body equals opm-operator `hack/crdref`'s block, byte for byte, for opm-operator `main` at `bf8d3c5` and for `v1.0.0-beta.4` (crdref run over that tag's tree), checked 2026-10-03. `TestOperatorCRDParity` runs in every test run on a copy of the operator's CRDs, samples and page at `bf8d3c5` (`internal/render/testdata/operator`), and on a live checkout with `OPM_OPERATOR_CHECKOUT=<checkout> go test ./internal/render -run TestOperatorCRDParity`. Parity is the page layout's; `TestOperatorCRDSection` checks that the section layout renders the same copy as the index and four kind pages in the configured order, each kind page's body that kind's page-layout entry with its parts lifted one level. Deliberate differences, none visible for the operator: a CEL rule on `spec` or `status` itself is listed (crdref skipped it); `{{` is escaped; decoding is strict where crdref decoded strictly only the Kubernetes CRD type, and every construct crdref accepted but did not show (`multipleOf`, another `format`, `messageExpression`, `x-kubernetes-embedded-resource`, tuple `items`, `metadata` constraints, other top-level properties) is refused; the names, scope and column types above are refused; the example's fence grows past the sample's backtick and tilde runs; a decision link is built from the citation alone, never kept from the text.
 
 **Consumers.** opm-operator (`publish-crd-bundle`): its `docs-kit.cue` as above; after the site reads the bundle it deletes crdref, the marker block and the `exclude`. opmodel.dev pulls `opm-operator` per site version (C16).
+
+The section layout (`add-crd-section-layout`) is additive: an `opm-docs` that predates it refuses a `section` on a `crd` source (`#CRD` is closed), so opm-operator moves its `.opm-docs-version` and its `publish.yml` ref to the docs-kit release that carries it in the same PR that switches to `section`, moves its authored `docs/site/reference/operator-resources.md` to `docs/site/reference/operator/_index.md` (it completes the index; its body must not hold `## Kinds`), and updates its own links to the old page. opmodel.dev needs no `opm-docs` bump for it: no field of `manifest.json` changes, and `pull` reads the pages as written; links on site pages to `/docs/reference/operator-resources/` are the site's to move.
 
 ## C19. Command reference: `cobradump` and the `cobra` source
 

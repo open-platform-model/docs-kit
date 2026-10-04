@@ -12,6 +12,6 @@ One PR, titled `feat(render): render a crd source as a section of kind pages`.
 
 ## 2. Contract and archive
 
-- [ ] 2.1 `docs/contracts.md` C18 (both layouts, data fields, consumers) and C6 (`#CRD` copy equal to `schema/config.cue`, the source table row); `README.md`'s source table. Verify: the C6 `#CRD` text equals `schema/config.cue`'s.
-- [ ] 2.2 `openspec archive add-crd-section-layout --yes`. Verify: `task openspec:check` green.
-- [ ] 2.3 `task check` green, then commit `docs(render): document the crd section layout`.
+- [x] 2.1 `docs/contracts.md` C18 (both layouts, data fields, consumers) and C6 (`#CRD` copy equal to `schema/config.cue`, the source table row); `README.md`'s source table. Verify: the C6 `#CRD` text equals `schema/config.cue`'s.
+- [x] 2.2 `openspec archive add-crd-section-layout --yes`. Verify: `task openspec:check` green.
+- [x] 2.3 `task check` green, then commit `docs(render): document the crd section layout`.
