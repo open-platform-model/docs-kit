@@ -11,5 +11,5 @@ One PR, after opmodel.dev#47 merges (G3.5). Every commit is `docs`: no docs-kit 
 
 ## 2. Close phase 3 in the orchestration plan
 
-- [ ] 2.1 `docs/orchestration.md`: G3.5 and step 8 marked done (opmodel.dev#47 merged), and phase 3 marked complete. Verify: the gate row, step 8 and the phase 3 section each carry the done line.
-- [ ] 2.2 `task check` green, then commit `docs: mark phase 3 of the orchestration plan done`.
+- [x] 2.1 `docs/orchestration.md`: G3.5 and step 8 marked done (opmodel.dev#47 merged), and phase 3 marked complete. Verify: the gate row, step 8 and the phase 3 section each carry the done line.
+- [x] 2.2 `task check` green, then commit `docs: mark phase 3 of the orchestration plan done`.

@@ -75,7 +75,7 @@ Sibling plans cite the gates below by name, never by another repository's sectio
 | G3.2 | `docs/opm` holds the `1.0.0-beta.1` bundle (opm's first release) |
 | G3.3 | `docs/enhancements` has an `edge` bundle |
 | G3.4 | opmodel.dev `serve-docs-from-bundles` is merged: v1.0 reads `catalog-opm-docs` and `opm` from bundles and the Enhancements section from its bundle |
-| G3.5 | opmodel.dev `retire-git-pipeline` is merged (the shell lint is gone) |
+| G3.5 | opmodel.dev `retire-git-pipeline` is merged (the shell lint is gone). Done: opmodel.dev#47 merged |
 
 ## Follow-ups now (before or beside phase 1b)
 
@@ -241,6 +241,8 @@ Durable decisions for opmodel.dev `AGENTS.md`: site versions come from `bundles.
 
 The site supports git and bundle docs side by side from phase 2 (`pull-reference-bundles` support), so each repository cuts over on its own.
 
+**Phase 3 is complete** (step 8 done).
+
 ### 1. catalog_opm: `publish-site-docs-bundle` (first)
 
 Proposal must state: a second bundle, `catalog-opm-docs` (C1 naming rule: the repository's name is already the tab), placed in `/docs/`, built from the same `opm-v*` release tags as the tab; no catalog release needed for the adoption itself (class `ci`); its first published bundle comes from the next opm release (G3.1).
@@ -277,6 +279,8 @@ Delete `resolve-versions.sh`, `materialise.sh`, `gen-lastmod.sh`, the source-rep
 ### 8. docs-kit: `retire-lint-conformance-binding` (G3.5)
 
 A small spec-driven change: REMOVE the `dialect-lint` requirement "The conformance fixture set binds both linters until phase 3" (the fixtures stay as ordinary tests of the Go lint) and rewrite C11's "Agreement with the site's shell lint until phase 3".
+
+Done: delivered by `retire-lint-conformance-binding` (archived), after opmodel.dev#47 merged (G3.5). Dialect 1 is C11's rule list, `opm-docs lint` its only implementation, and the conformance fixtures test it alone. Phase 3 is complete: the site build reads no git repository except its own.
 
 ## Owner items
 
