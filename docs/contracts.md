@@ -29,7 +29,7 @@ Every project, planned ones included, so changes built in parallel need not edit
 |---|---|---|---|---|
 | `catalog-opm` | catalog_opm (`opmodel.dev/catalogs/opm@v4`) | `opm-v` | tab, `/catalogs/opm/` | 1 |
 | `core` | core | `v` | docs, owns `reference/definitions/` | 2 |
-| `opm-controller` | opm-controller | `v` | docs, owns `reference/controller-resources.md` | 2 |
+| `opm-controller` | opm-controller | `v` | docs, owns `reference/controller/` | 2 |
 | `cli` | cli | `v` | docs, owns `reference/cli/`, carries `pins` | 2 |
 | `library` | library | `v` | docs, owns `reference/go-api/` | 2 |
 | `catalog-opm-docs` | catalog_opm | `opm-v` | docs (its `docs/site/`) | 3 |
@@ -1130,9 +1130,9 @@ A site version (`v1.0`) shows, in its `/docs/` tree, the docs bundles (C15) of t
 
 ```cue
 docs: {
-	cli:            {repo: "open-platform-model/cli"}
-	core:           {repo: "open-platform-model/core"}
-	library:        {repo: "open-platform-model/library"}
+	cli:              {repo: "open-platform-model/cli"}
+	core:             {repo: "open-platform-model/core"}
+	library:          {repo: "open-platform-model/library"}
 	"opm-controller": {repo: "open-platform-model/opm-controller"}
 }
 versions: "v1.0": {
@@ -1159,9 +1159,9 @@ Every bundle of a site version must be `placement.kind: "docs"` and its own proj
   catalog-opm/4.5/ ...                    tabs (C7)
   _versions/
     v1.0/
-      cli/           manifest.json  content/  data/
-      core/          ...
-      library/       ...
+      cli/             manifest.json  content/  data/
+      core/            ...
+      library/         ...
       opm-controller/  ...
 ```
 
@@ -1305,7 +1305,7 @@ An anchor is the name lowercased without `#` (`#ComponentNames` is `componentnam
 
 ## C18. The `crd` source and `data/crd.json`
 
-**Config.** `#CRD` in C6; a `crd` source belongs in a docs bundle (C15), and a tab bundle holding one exits `1`. `dir` holds controller-gen output; every `*.yaml` file in it is read, and every document in a file must be an `apiextensions.k8s.io/v1` `CustomResourceDefinition` with exactly one version that has a schema. `samples`, when set, holds kubebuilder samples. `order` puts kinds first in that order, the rest by name; `reconciledBy` maps a kind to the name of the reconciler that watches it (stated by the author, never inferred from code). `citations` is the source's citation policy ("Doc-comment rules"). A source takes exactly one of `page` (the page layout: one completable page holding every kind) and `section` (the section layout: a completable index and one page per kind); both or neither exits `1` ("a crd source takes exactly one of page (one page holding every kind) and section (an index and a page per kind)"). Every CRD and sample file read must be a regular file (a symbolic link is refused). A `samples` directory that is set but missing exits `2`, except when the config came from outside the source tree (a backfill, C5), where it means no samples. opm-controller's file in the section layout (its tags up to the switch keep `page: "reference/controller-resources.md"`, `owns: ["reference/controller-resources.md"]` and the title "Controller resources", and still build):
+**Config.** `#CRD` in C6; a `crd` source belongs in a docs bundle (C15), and a tab bundle holding one exits `1`. `dir` holds controller-gen output; every `*.yaml` file in it is read, and every document in a file must be an `apiextensions.k8s.io/v1` `CustomResourceDefinition` with exactly one version that has a schema. `samples`, when set, holds kubebuilder samples. `order` puts kinds first in that order, the rest by name; `reconciledBy` maps a kind to the name of the reconciler that watches it (stated by the author, never inferred from code). `citations` is the source's citation policy ("Doc-comment rules"). A source takes exactly one of `page` (the page layout: one completable page holding every kind) and `section` (the section layout: a completable index and one page per kind); both or neither exits `1` ("a crd source takes exactly one of page (one page holding every kind) and section (an index and a page per kind)"). Every CRD and sample file read must be a regular file (a symbolic link is refused). A `samples` directory that is set but missing exits `2`, except when the config came from outside the source tree (a backfill, C5), where it means no samples. opm-controller's file in the section layout (its tags before the section switch keep their page-layout config and still build):
 
 ```cue
 bundles: "opm-controller": {
@@ -1383,13 +1383,13 @@ bundles: "opm-controller": {
 | `<section>_index.md` | front matter `title`, `description`, `weight` when set, no `type`; "Each page in this section covers one resource kind, generated from its CustomResourceDefinition."; `## Kinds` and a table `\| Kind \| Scope \| Summary \|`, one row per kind in model order: the kind linking its page (`/docs/<section><kind lower-cased>/`), its scope, its escaped summary (citations linked under `"link"`). Completable (C15) with heading `## Kinds`. Standing alone it has no `source` and its `lastmod` is the newest commit date of every CRD and sample file read; completed, all three are the authored page's |
 | `<section><kind lower-cased>.md` | front matter `title` the kind, `description` its summary with every citation removed (or "The <Kind> resource." when it has none), `type: reference`, `weight` its 1-based position in model order; then the kind's entry as the page layout writes it, without the `## <Kind>` heading and with every part one level up (`## At a glance`, `## Spec`, `## Status`, `## Example`, `## Notes`, `## Served by`, `## Enforcement`), so its anchors carry no suffix. Generated only, never completable; `source` the kind's CRD file, `lastmod` the newest commit date of that file and the sample file read for it, no `edit` |
 
-The renderer writes no link between kinds in either layout (the only links it writes are decision citations), so the section layout has no in-page anchor to rewrite. A link another page holds into the page layout (`/docs/reference/controller-resources/#moduleinstance`) is its owner's to move to the kind's page.
+The renderer writes no link between kinds in either layout (the only links it writes are decision citations), so the section layout has no in-page anchor to rewrite. A link another page holds into a page-layout page (`#moduleinstance` on it) is its owner's to move to the kind's page.
 
 **Parity.** The page's generated body equals opm-controller `hack/crdref`'s block, byte for byte apart from the `### Served by` sentence (below), for opm-controller `main` at `bf8d3c5` and for `v1.0.0-beta.4` (crdref run over that tag's tree), checked 2026-10-03. `TestControllerCRDParity` runs in every test run on a copy of the controller's CRDs, samples and page at `bf8d3c5` (`internal/render/testdata/controller`), and on a live checkout with `OPM_CONTROLLER_CHECKOUT=<checkout> go test ./internal/render -run TestControllerCRDParity`. Parity is the page layout's; `TestControllerCRDSection` checks that the section layout renders the same copy as the index and four kind pages in the configured order, each kind page's body that kind's page-layout entry with its parts lifted one level. One deliberate difference is visible: the `### Served by` sentence names the reconciler without a product ("The `moduleinstance` reconciler watches every ModuleInstance." where crdref named the product), and the parity check rewrites crdref's sentence before comparing. The other deliberate differences show nothing on the controller's tree: a CEL rule on `spec` or `status` itself is listed (crdref skipped it); `{{` is escaped; decoding is strict where crdref decoded strictly only the Kubernetes CRD type, and every construct crdref accepted but did not show (`multipleOf`, another `format`, `messageExpression`, `x-kubernetes-embedded-resource`, tuple `items`, `metadata` constraints, other top-level properties) is refused; the names, scope and column types above are refused; the example's fence grows past the sample's backtick and tilde runs; a decision link is built from the citation alone, never kept from the text.
 
 **Consumers.** opm-controller (`publish-crd-bundle`): its `docs-kit.cue` as above; after the site reads the bundle it deletes crdref, the marker block and the `exclude`. opmodel.dev pulls `opm-controller` per site version (C16).
 
-The section layout (`add-crd-section-layout`) is additive: an `opm-docs` that predates it refuses a `section` on a `crd` source (`#CRD` is closed), so opm-controller moves its `.opm-docs-version` and its `publish.yml` ref to the docs-kit release that carries it in the same PR that switches to `section`, moves its authored `docs/site/reference/controller-resources.md` to `docs/site/reference/controller/_index.md`, and updates its own links to the old page. The moved page completes the index, so its front matter is what the site shows: it drops `type: reference` (a section overview declares no type, and the build refuses one: "content/reference/controller/_index.md:4: a section overview (_index.md) declares no type"), sets the title the sidebar shows ("Controller Reference"; the authored title wins over the config's `title` once it completes the index), and rewrites its intro for a section of one page per kind; its body must not hold `## Kinds`. opmodel.dev needs no `opm-docs` bump for it: no field of `manifest.json` changes, and `pull` reads the pages as written. Links to `/docs/reference/controller-resources/` are their owners' to move: opmodel.dev's site pages, and opm's `docs/site/start/_index.md`. The old URL gets no redirect.
+The section layout (`add-crd-section-layout`) is additive: an `opm-docs` that predates it refuses a `section` on a `crd` source (`#CRD` is closed), so opm-controller moves its `.opm-docs-version` and its `publish.yml` ref to the docs-kit release that carries it in the same PR that switches to `section`, moves its authored page-layout page to `docs/site/reference/controller/_index.md`, and updates its own links to the old page. The moved page completes the index, so its front matter is what the site shows: it drops `type: reference` (a section overview declares no type, and the build refuses one: "content/reference/controller/_index.md:4: a section overview (_index.md) declares no type"), sets the title the sidebar shows ("Controller Reference"; the authored title wins over the config's `title` once it completes the index), and rewrites its intro for a section of one page per kind; its body must not hold `## Kinds`. opmodel.dev needs no `opm-docs` bump for it: no field of `manifest.json` changes, and `pull` reads the pages as written. Links to the old page-layout URL are their owners' to move: opmodel.dev's site pages, and opm's `docs/site/start/_index.md`. The old URL gets no redirect.
 
 **Section cards.** The site's docs layout appends a card per child page to a section overview unless its front matter sets `cards: false`, so the index would list the kinds twice, in the `## Kinds` table and as cards. Dialect `1` admits only `title`, `description`, `type` and `weight` in front matter (C11), so neither the generated index nor an authored one completing it can set `cards: false` today; the go-api index (`## Packages`) has the same duplication. Turning the cards off is the site's decision (a layout rule for generated reference sections), or a dialect change that admits `cards`.
 

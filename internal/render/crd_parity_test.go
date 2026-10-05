@@ -11,9 +11,9 @@ import (
 	"github.com/open-platform-model/docs-kit/internal/extract/crd"
 )
 
-// controllerOptions is the crd source opm-controller's docs-kit.cue
-// declares, in the page layout. Its stripLabels value is the scaffold label
-// the frozen copy under testdata/controller carries.
+// controllerOptions is a page-layout crd source over the frozen controller
+// copy under testdata/controller, with the options crdref's page used. Its
+// stripLabels value is the scaffold label that copy carries.
 func controllerOptions(root string) crd.Options {
 	weight := 7
 	return crd.Options{
