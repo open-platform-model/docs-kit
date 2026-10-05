@@ -37,7 +37,7 @@ type Options struct {
 	// and one page per kind.
 	Section      string
 	Order        []string          // kinds first, in this order
-	ReconciledBy map[string]string // kind: controller name
+	ReconciledBy map[string]string // kind: reconciler name
 	Doc          doctext.Policy
 	// Outside: the config came from outside the source tree (a backfill),
 	// where a missing samples directory is no error.
@@ -100,7 +100,7 @@ type extraction struct {
 	reads []string
 }
 
-// readKinds reads every CRD of o.Dir, with its sample and controller.
+// readKinds reads every CRD of o.Dir, with its sample and reconciler.
 func (x *extraction) readKinds() ([]Kind, error) {
 	o := x.o
 	dir, err := within(o.Root, o.Dir)
