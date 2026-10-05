@@ -24,25 +24,6 @@ A `crd` source SHALL read every `CustomResourceDefinition` in the YAML files of 
 - **WHEN** the sample carries `app.kubernetes.io/managed-by: kustomize` and `stripLabels` names that label and value
 - **THEN** the shown sample has no such label
 
-### Requirement: The crd page is one completable page
-In the page layout (the source sets `page`, not `section`), the renderer SHALL write one page at the source's `page` path, one of the bundle's owned paths: per kind a `## <Kind>` entry with `### At a glance`, the printer-column table, `### Spec`, `### Status`, `### Example` when a sample exists, `### Notes`, `### Served by` when `reconciledBy` names a reconciler, and `### Enforcement`, in crdref's order and wording. The one exception is the `### Served by` sentence, which SHALL name the reconciler without naming a product: "The `<name>` reconciler watches every <Kind>." The page SHALL be completable, so an authored page with the same path from a `markdown` source supplies the front matter and intro; without one, the page takes the configured `title`, `description` and `weight`. Apart from that sentence, the entries SHALL match crdref's generated block for the same tree.
-
-#### Scenario: Authored intro kept
-- **WHEN** a `markdown` source over `docs/site` supplies `reference/controller-resources.md` holding front matter and an intro paragraph and no `## ModuleInstance` heading
-- **THEN** the bundle's page is that front matter and intro followed by the four generated entries
-
-#### Scenario: Citation linked
-- **WHEN** a field description cites `0021:D4` and the source has `citations: "link"`
-- **THEN** the description renders `[0021:D4](/enhancements/0021/decisions/)`
-
-#### Scenario: Parity with crdref
-- **WHEN** docs-kit's frozen copy of opm-controller's CRDs, samples and crdref page is built with the planned config
-- **THEN** the generated entries equal crdref's block between its markers, once crdref's served-by sentences, which named the product, read "The `<name>` reconciler watches every <Kind>."
-
-#### Scenario: The served-by sentence names no product
-- **WHEN** `reconciledBy` maps `Widget` to `widget`
-- **THEN** the Widget entry's `Served by` part reads "The `widget` reconciler watches every Widget." and names no product
-
 ### Requirement: CRD text never reaches the page as markup
 The site renders raw HTML, so the crd source SHALL treat every CRD and sample string as untrusted. It SHALL refuse, exiting `2` and naming the file, a field it does not read (strict decoding), a construct its page cannot show, a kind name not matching `^[A-Z][A-Za-z0-9]*$`, a scope other than `Namespaced` or `Cluster`, a printer-column type outside `integer`, `number`, `string`, `boolean` and `date`, and a CRD or sample file that is not a regular file. The renderer SHALL escape all prose, SHALL write as links only the decision citations it finds under the `link` policy, and SHALL fence a sample with more backticks than any backtick or tilde run in it.
 
@@ -78,5 +59,39 @@ A `crd` source SHALL take exactly one of `page` and `section`; a source with bot
 - **THEN** loading the config exits `1` saying a crd source takes exactly one of page and section
 
 #### Scenario: Page layout unchanged
-- **WHEN** a `crd` source sets `page`
-- **THEN** the page's generated body still equals crdref's block for the controller's tree, with the served-by exception the page requirement states
+- **WHEN** the controller's release snapshot is built once with its configured `section` and once with a `page` instead
+- **THEN** each kind's entry on the single page, its parts lifted one level, equals that kind's page body in the section
+
+### Requirement: The crd page layout writes one completable page
+In the page layout (the source sets `page`, not `section`), the renderer SHALL write one page at the source's `page` path, one of the bundle's owned paths: per kind a `## <Kind>` entry with `### At a glance`, the printer-column table, `### Spec`, `### Status`, `### Example` when a sample exists, `### Notes`, `### Served by` when `reconciledBy` names a reconciler, and `### Enforcement`, in that order. The `### Served by` sentence SHALL name the reconciler without naming a product: "The `<name>` reconciler watches every <Kind>." The page SHALL be completable, so an authored page with the same path from a `markdown` source supplies the front matter and intro; without one, the page takes the configured `title`, `description` and `weight`.
+
+#### Scenario: Authored intro kept
+- **WHEN** a `markdown` source over `docs/site` supplies `reference/controller-resources.md` holding front matter and an intro paragraph and no `## ModuleInstance` heading
+- **THEN** the bundle's page is that front matter and intro followed by the four generated entries
+
+#### Scenario: Citation linked
+- **WHEN** a field description cites `0021:D4` and the source has `citations: "link"`
+- **THEN** the description renders `[0021:D4](/enhancements/0021/decisions/)`
+
+#### Scenario: The served-by sentence names no product
+- **WHEN** `reconciledBy` maps `Widget` to `widget`
+- **THEN** the Widget entry's `Served by` part reads "The `widget` reconciler watches every Widget." and names no product
+
+### Requirement: The controller's release snapshot renders to its released pages
+docs-kit SHALL keep a release snapshot of the controller under `internal/render/testdata/controller`: the pages of one released controller docs bundle under its owned section, verified by `opm-docs pull`, the release commit's `docs-kit.cue`, CRDs, samples and authored section index, and a `SOURCE` naming the bundle tag, digest, docs revision, the opm-docs version that built it and the commit. Built with the snapshot's own crd source config and its index completed by the authored one, the section SHALL equal the released pages, page set and bodies byte for byte. A deliberate render change made after the snapshot's bundle was built SHALL be a named rewrite of the released pages in the test, which SHALL fail when the rewrite matches no page. `task snapshots:refresh` SHALL take a snapshot from a released version and a clone holding its commit, and SHALL refuse a docs revision whose fix commit changes an input of the snapshot.
+
+#### Scenario: Parity with the released controller bundle
+- **WHEN** the snapshot's CRDs and samples are rendered with its `docs-kit.cue` crd source and the index is completed with its authored `_index.md`
+- **THEN** every page equals the released page of the same path, and the released section holds no other page
+
+#### Scenario: A render change postdating the release
+- **WHEN** the snapshot's bundle was built before the served-by sentence named the reconciler
+- **THEN** the test rewrites the released sentence "The operator's `<name>` controller watches every <Kind>." to the reconciler wording before comparing
+
+#### Scenario: A stale rewrite
+- **WHEN** a refresh brings a bundle whose pages no longer hold the rewritten sentence
+- **THEN** the parity test fails and asks for the rewrite to be deleted
+
+#### Scenario: A docs revision fix touching an input
+- **WHEN** the pulled bundle is a docs revision whose fix commit changes a file under `config/crd/bases`
+- **THEN** `task snapshots:refresh` exits non-zero naming the fix commit and the file, and the snapshot is unchanged
