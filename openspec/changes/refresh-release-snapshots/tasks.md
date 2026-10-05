@@ -11,5 +11,5 @@ One PR, shipped with `rename-example-bundle`. Every commit is `test` or `docs`: 
 
 ## 2. Record the release snapshots in the docs
 
-- [ ] 2.1 `docs/contracts.md` C18 and C19 parity paragraphs state what the tests compare with, the rewrite, and the refresh command, keeping the crdref and cmdref measurements as a dated record; `README.md` names the tests and the task; the `AGENTS.md` layout lists `hack/`. Verify: `git grep -n 'OPM_CONTROLLER_CHECKOUT\|OPM_CLI_CHECKOUT\|ParityLive' -- docs README.md AGENTS.md internal` prints only `docs/orchestration.md` (a dated plan).
-- [ ] 2.2 `task check` green, then commit `docs: record that the parity tests compare with released bundles`.
+- [x] 2.1 `docs/contracts.md` C18 and C19 parity paragraphs state what the tests compare with, the rewrite, and the refresh command, keeping the crdref and cmdref measurements as a dated record; `README.md` names the tests and the task; the `AGENTS.md` layout lists `hack/`. Verify: `git grep -n 'OPM_CONTROLLER_CHECKOUT\|OPM_CLI_CHECKOUT\|ParityLive' -- docs README.md AGENTS.md internal` prints only `docs/orchestration.md` (a dated plan).
+- [x] 2.2 `task check` green, then commit `docs: record that the parity tests compare with released bundles`.

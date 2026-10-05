@@ -75,6 +75,7 @@ internal/revise/              docs revisions: read the newest revision's fixes, 
 internal/serve/               serve: the embedded skeleton Hugo site, the hugo process, the polling watcher, site mode
 cobradump/                    nested Go module (own go.mod, cobra and pflag only): Write and WritePins, the CLI's hook; released as its own component
 internal/gittest/, internal/ocitest/, internal/verify/sigtest/   test helpers
+hack/refresh-snapshots.sh     takes a parity release snapshot from a released docs bundle (task snapshots:refresh)
 docs/contracts.md             the contracts other repositories read
 docs/orchestration.md         the cross-repo plan for phases 1b, 2 and 3; deleted when they are done
 .github/workflows/            publish.yml (the reusable workflow), ci.yml, release.yml
