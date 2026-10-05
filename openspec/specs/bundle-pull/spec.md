@@ -116,8 +116,8 @@ For each site version, `pull` SHALL resolve, verify (C9, with the docs project's
 - **THEN** the next pull of `v1.0` takes revision 1 of core with no config change
 
 #### Scenario: A pinned release without a bundle
-- **WHEN** the anchor pins `opm-operator` `1.0.0-beta.5` and `docs/opm-operator` has no tag `1.0.0-beta.5`
-- **THEN** `pull` exits 2 naming the cli version, `opm-operator`, `1.0.0-beta.5` and the release to publish
+- **WHEN** the anchor pins `opm-controller` `1.0.0-beta.5` and `docs/opm-controller` has no tag `1.0.0-beta.5`
+- **THEN** `pull` exits 2 naming the cli version, `opm-controller`, `1.0.0-beta.5` and the release to publish
 
 ### Requirement: A site version unpacks and is replaced whole
 `pull` SHALL unpack each docs bundle of site version `v` into `<out>/_versions/v/<project>/`, staging the whole version beside it, and SHALL replace `<out>/_versions/v/` only after every bundle of the version has verified, linted and passed the cross-bundle checks; on any failure the previous `<out>/_versions/v/` SHALL stay. The sweep SHALL remove every `_versions/` entry the config does not name.

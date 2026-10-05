@@ -32,7 +32,7 @@ The `opm-docs` command set, its configuration file `docs-kit.cue`, and its exit 
 - **THEN** `build` exits 1 naming the kind and the kinds this `opm-docs` registers
 
 #### Scenario: Include selects one page
-- **WHEN** a `markdown` source has `dir: "docs/site"` and `include: ["reference/operator-resources.md"]`
+- **WHEN** a `markdown` source has `dir: "docs/site"` and `include: ["reference/controller-resources.md"]`
 - **THEN** only that page is copied from `docs/site`
 
 #### Scenario: Exclude a committed generated directory
