@@ -165,19 +165,22 @@ func TestCRDSectionIndexLinksChecked(t *testing.T) {
 	}
 }
 
-// TestControllerCRDSection renders opm-controller's CRDs as the section its
-// docs-kit.cue will declare: the index and one page per kind, weighted in
-// the configured order, each page's body its crdref entry with the parts
-// one level up.
+// TestControllerCRDSection renders the controller's release snapshot in
+// both layouts: the section its docs-kit.cue configures, the index and one
+// page per kind weighted in the configured order, and the single page, whose
+// entry for each kind, its parts lifted one level, is that kind's page body.
+// TestControllerCRDParity ties the section to the released pages, so this
+// ties the page layout to them too.
 func TestControllerCRDSection(t *testing.T) {
-	root := filepath.Join("testdata", "controller")
-	o := controllerOptions(root)
+	o := controllerOptions(t)
+	section := o.Section
+	o.Section = ""
+	o.Page.Path = "reference/controller-resources.md"
 	single, err := crd.Extract(o)
 	if err != nil {
 		t.Fatal(err)
 	}
-	o.Page = crd.Page{Title: "Controller Reference", Description: "One page per controller resource kind."}
-	o.Section = "reference/controller/"
+	o.Section, o.Page.Path = section, ""
 	m, err := crd.Extract(o)
 	if err != nil {
 		t.Fatal(err)
@@ -199,7 +202,7 @@ func TestControllerCRDSection(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i, p := range pages {
-		if p.Path != "reference/controller/"+want[i]+".md" {
+		if p.Path != section+want[i]+".md" {
 			t.Errorf("page %d is %s, want %s.md", i, p.Path, want[i])
 		}
 		if i == 0 {
