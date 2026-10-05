@@ -3,6 +3,7 @@ package render
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -30,6 +31,17 @@ func operatorOptions(root string) crd.Options {
 	}
 }
 
+// crdrefServedBy matches crdref's "Served by" sentence, which named the
+// product: "The operator's `x` controller watches every X."
+var crdrefServedBy = regexp.MustCompile("(?m)^The operator's (`[^`]+`) controller watches every ([A-Z][A-Za-z0-9]*)\\.$")
+
+// servedByWording rewrites crdref's "Served by" sentences into the
+// renderer's product-neutral wording, the one place the entries depart from
+// crdref's block on purpose.
+func servedByWording(block string) string {
+	return crdrefServedBy.ReplaceAllString(block, "The $1 reconciler watches every $2.")
+}
+
 // TestOperatorCRDParity compares the crd page's entries with the block
 // opm-operator's hack/crdref generated between its markers in
 // docs/site/reference/operator-resources.md: the copy under
@@ -51,7 +63,7 @@ func TestOperatorCRDParity(t *testing.T) {
 		t.Fatalf("%s holds no crdref block", root)
 	}
 	i += strings.Index(s[i:], "\n") + 1
-	want := strings.Trim(s[i:j], "\n") + "\n"
+	want := servedByWording(strings.Trim(s[i:j], "\n") + "\n")
 
 	m, err := crd.Extract(operatorOptions(root))
 	if err != nil {

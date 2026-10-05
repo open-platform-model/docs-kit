@@ -129,7 +129,7 @@ func TestCRDSectionPageFacts(t *testing.T) {
 		{"kind spec at h2", widget, "\n## Spec\n", false},
 		{"no kind heading", widget, "## Widget\n", true},
 		{"no h3 parts", widget, "\n### ", true},
-		{"served by", widget, "## Served by\n\nThe operator's `widget` controller watches every Widget.\n", false},
+		{"served by", widget, "## Served by\n\nThe `widget` reconciler watches every Widget.\n", false},
 		{"gadget weight", gadget, "weight: 2\n", false},
 	} {
 		if got := strings.Contains(c.body, c.want); got == c.absent {

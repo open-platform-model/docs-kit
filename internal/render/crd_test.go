@@ -114,7 +114,7 @@ func TestCRDPageFacts(t *testing.T) {
 		{link.Body, "| `spec` | CEL rule `self.size >= oldSelf.size`; refused with: size cannot shrink ([0021:D4](/enhancements/0021/decisions/)) | API server |", false},
 		{link.Body, "| `spec.parts` | At most one item per `name` | API server |", false},
 		{link.Body, "| `spec.size` | Greater than 0 | API server |", false},
-		{link.Body, "### Served by\n\nThe operator's `widget` controller watches every Widget.\n", false},
+		{link.Body, "### Served by\n\nThe `widget` reconciler watches every Widget.\n", false},
 		{link.Body, "### Example\n\n```yaml\napiVersion: example.dev/v1\nkind: Widget\nmetadata:\n  labels:\n    app.kubernetes.io/name: demo\n    tier: front\n  name: widget-sample\nspec:\n  color: red\n  size: 3\n```\n", false},
 		{link.Body, "## Gadget\n\nGadget is a cluster-wide gadget.\n\n### At a glance", false},
 		{link.Body, "watches every Gadget", true},

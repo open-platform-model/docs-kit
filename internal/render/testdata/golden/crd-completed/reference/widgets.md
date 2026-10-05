@@ -73,7 +73,7 @@ A widget's `spec.size` never shrinks; see \#Widget and [0021:D4/D9](/enhancement
 
 ### Served by
 
-The operator's `widget` controller watches every Widget.
+The `widget` reconciler watches every Widget.
 
 ### Enforcement
 
