@@ -40,7 +40,7 @@ Existing contracts these changes amend: C1 (project table, `generalize-build-ass
 | opmodel.dev | `add-catalog-version-history` | docs-site-change | two PRs | G1b |
 | core | `publish-definitions-bundle` | spec-driven | one PR per section | G2-core |
 | library | `publish-go-api-bundle` | spec-driven | one PR per section | G2-library |
-| opm-operator | `publish-crd-bundle` | spec-driven | one PR per section | G2-operator |
+| opm-controller | `publish-crd-bundle` | spec-driven | one PR per section | G2-controller |
 | cli | `publish-cli-bundle` | spec-driven | one PR per section | G2-cli |
 | opmodel.dev | `pull-reference-bundles` | docs-site-change | one PR per section | G2-site |
 | opmodel.dev | `add-edge-build` | docs-site-change | one PR per section | none; its `sources-main` switch is G2-edge |
@@ -64,12 +64,12 @@ Sibling plans cite the gates below by name, never by another repository's sectio
 | G2.0 | `generalize-build-assembly` is merged on docs-kit `main` |
 | G2-core | `add-cue-definitions-extractor`, `add-authored-docs` and `generalize-build-assembly` are released |
 | G2-library | `add-go-api-extractor`, `add-authored-docs` and `generalize-build-assembly` are released |
-| G2-operator | `add-crd-extractor`, `add-authored-docs` and `generalize-build-assembly` are released |
+| G2-controller | `add-crd-extractor`, `add-authored-docs` and `generalize-build-assembly` are released |
 | G2-cli | `add-cobra-extractor`, `add-authored-docs`, `pull-docs-placement` and `generalize-build-assembly` are released (the cli's G2-pins check runs `opm-docs pull`), and the tag `cobradump/v0.1.0` exists |
 | G2-site | `pull-docs-placement` and `add-authored-docs` are released |
-| G2-pins | release-mode backfills have published the bundles of core `v2.0.0-beta.1`, library `v1.0.0-beta.1` and opm-operator `v1.0.0-beta.4` (exactly what cli `main` pins), and then the cli release that first carries the hook (`v1.0.0-beta.6`) has published its bundle with those pins. Before the cli release PR merges: `opm-docs pull --local cli@v1.0=<cli out>` with a scratch `bundles.cue` holding opmodel.dev's planned `versions."v1.0"` (C16) resolves every pin; after: the same pull without `--local` succeeds anonymously (owner decision, 2026-10-03) |
-| G2-switch | opmodel.dev `pull-reference-bundles`' v1.0 switch is merged (v1.0 reads core, cli, library and opm-operator from bundles) |
-| G2-edge | opmodel.dev `add-edge-build`'s `sources-main` switch is merged: that CI-only job reads core, cli, library and opm-operator `main` from their `edge` docs bundles (opm and catalog_opm from `main`), so deleting a committed generated page breaks no check of every `main` together (owner decision 2026-10-04 on `pull-reference-bundles` OQ1) |
+| G2-pins | release-mode backfills have published the bundles of core `v2.0.0-beta.1`, library `v1.0.0-beta.1` and opm-controller `v1.0.0-beta.4` (exactly what cli `main` pins), and then the cli release that first carries the hook (`v1.0.0-beta.6`) has published its bundle with those pins. Before the cli release PR merges: `opm-docs pull --local cli@v1.0=<cli out>` with a scratch `bundles.cue` holding opmodel.dev's planned `versions."v1.0"` (C16) resolves every pin; after: the same pull without `--local` succeeds anonymously (owner decision, 2026-10-03) |
+| G2-switch | opmodel.dev `pull-reference-bundles`' v1.0 switch is merged (v1.0 reads core, cli, library and opm-controller from bundles) |
+| G2-edge | opmodel.dev `add-edge-build`'s `sources-main` switch is merged: that CI-only job reads core, cli, library and opm-controller `main` from their `edge` docs bundles (opm and catalog_opm from `main`), so deleting a committed generated page breaks no check of every `main` together (owner decision 2026-10-04 on `pull-reference-bundles` OQ1) |
 | G3.0 | `add-authored-docs` is released (phase 3 starts) |
 | G3.1 | the first `catalog-opm-docs` release bundle is published, by the `publish-docs` job of the next opm release after catalog_opm's adoption (no dispatch: an older tag's tree holds a `docs-kit.cue` without `catalog-opm-docs`, and C5 reads the tree's config first) |
 | G3.2 | `docs/opm` holds the `1.0.0-beta.1` bundle (opm's first release) |
@@ -109,13 +109,13 @@ Durable decision for opmodel.dev `AGENTS.md`: the site reads history, never comp
 
 ### One cutover per product repository (DESIGN decision 20, owner-confirmed 2026-10-03)
 
-core, cli, library and opm-operator ship their whole `docs/site/` in the same bundle as their generated reference, from adoption on. A site version chooses those four bundles through the cli's pins, so shipping only the reference now and the authored pages in phase 3 would need a second release cascade and a second site switch. While the site still builds a repository from git, its committed generated pages stay in git and are left out of the bundle with the `markdown` source's `exclude` (C6); after G2-switch and G2-edge they are deleted with the `exclude`. Phase 3 then covers catalog_opm's `docs/site/`, opm and enhancements.
+core, cli, library and opm-controller ship their whole `docs/site/` in the same bundle as their generated reference, from adoption on. A site version chooses those four bundles through the cli's pins, so shipping only the reference now and the authored pages in phase 3 would need a second release cascade and a second site switch. While the site still builds a repository from git, its committed generated pages stay in git and are left out of the bundle with the `markdown` source's `exclude` (C6); after G2-switch and G2-edge they are deleted with the `exclude`. Phase 3 then covers catalog_opm's `docs/site/`, opm and enhancements.
 
 
 ### Sequence
 
 ```text
- docs-kit                       core / library / opm-operator           cli                            opmodel.dev
+ docs-kit                       core / library / opm-controller           cli                            opmodel.dev
  ─────────────────────────────  ──────────────────────────────────────  ─────────────────────────────  ─────────────────────────────
  1 generalize-build-assembly
    merge (G2.0)
@@ -131,7 +131,7 @@ core, cli, library and opm-operator ship their whole `docs/site/` in the same bu
                                 4b OWNER: package public; release-mode
                                    backfills core v2.0.0-beta.1,
                                    library v1.0.0-beta.1,
-                                   opm-operator v1.0.0-beta.4 ──────────► 5b OWNER: merge cli#276
+                                   opm-controller v1.0.0-beta.4 ──────────► 5b OWNER: merge cli#276
                                                                             (v1.0.0-beta.6) after the
                                                                             G2-pins check ──────────────► 7 v1.0 switch (G2-pins)
                                 8 retire: generators, committed        ◄── 8 retire: cmdref, pages ◄──── merge (G2-switch)
@@ -141,22 +141,22 @@ core, cli, library and opm-operator ship their whole `docs/site/` in the same bu
 
 1. **docs-kit `generalize-build-assembly`** (one PR). Gate for everything else in phase 2.
 2. **docs-kit, in parallel**: `add-cue-definitions-extractor`, `add-crd-extractor`, `add-cobra-extractor` (also creates the `cobradump` component), `add-go-api-extractor`, `pull-docs-placement`, `add-authored-docs`, and `add-serve-command` (useful to authors from step 4 on; nothing waits for it). Each is one PR with its archive.
-3. **Releases.** The owner merges docs-kit's release PRs; `cobradump/v0.1.0` comes from its own release PR. opmodel.dev bumps its pinned `opm-docs` to each release before any producer moves to it (the site bumps first). A repository starts step 4 at its own gate (G2-core, G2-library, G2-operator, G2-cli).
-4. **core, library, opm-operator adopt.** Each adoption runs a **backfill dry run** before merging: in a worktree of the tag to backfill, `opm-docs build --release <tag> --source <tag worktree> --config docs-kit.cue` with `main`'s config, linted green, so the dispatch cannot fail on the tree. After merge, `main` publishes `edge`.
-   - **4b. Backfills (owner decision, 2026-10-03).** The owner dispatches `mode: release` for core `v2.0.0-beta.1`, library `v1.0.0-beta.1` and opm-operator `v1.0.0-beta.4`, exactly the versions cli `main` pins (library from its `go.mod`, core through the library's `DefaultSchemaModule`, the operator from the cli's pinned operator version). The config comes from `main`, the sources from the tag, and a pattern matching nothing is ignored (C5, C6). The library's garbled kernel package doc is in `v1.0.0-beta.1`'s tree: its fix is a comment-only change, so it reaches the backfilled bundle as a docs revision (`mode: revision`) or with the next library release.
-   - Open release PRs at the time of planning: library#155 (`v1.0.0-beta.2`) and opm-operator#178 (`v1.0.0-beta.5`). One that merges after its repository adopts publishes its own bundle through `publish-docs`; one that merges before needs a backfill too. Either way, if the cascade then moves the cli's pins to it, G2-pins checks that version instead.
+3. **Releases.** The owner merges docs-kit's release PRs; `cobradump/v0.1.0` comes from its own release PR. opmodel.dev bumps its pinned `opm-docs` to each release before any producer moves to it (the site bumps first). A repository starts step 4 at its own gate (G2-core, G2-library, G2-controller, G2-cli).
+4. **core, library, opm-controller adopt.** Each adoption runs a **backfill dry run** before merging: in a worktree of the tag to backfill, `opm-docs build --release <tag> --source <tag worktree> --config docs-kit.cue` with `main`'s config, linted green, so the dispatch cannot fail on the tree. After merge, `main` publishes `edge`.
+   - **4b. Backfills (owner decision, 2026-10-03).** The owner dispatches `mode: release` for core `v2.0.0-beta.1`, library `v1.0.0-beta.1` and opm-controller `v1.0.0-beta.4`, exactly the versions cli `main` pins (library from its `go.mod`, core through the library's `DefaultSchemaModule`, the controller from the cli's pinned controller version). The config comes from `main`, the sources from the tag, and a pattern matching nothing is ignored (C5, C6). The library's garbled kernel package doc is in `v1.0.0-beta.1`'s tree: its fix is a comment-only change, so it reaches the backfilled bundle as a docs revision (`mode: revision`) or with the next library release.
+   - Open release PRs at the time of planning: library#155 (`v1.0.0-beta.2`) and opm-controller#178 (`v1.0.0-beta.5`). One that merges after its repository adopts publishes its own bundle through `publish-docs`; one that merges before needs a backfill too. Either way, if the cascade then moves the cli's pins to it, G2-pins checks that version instead.
 5. **cli adopts**, then the owner merges its release PR (cli#276, `v1.0.0-beta.6`, the first cli release with the hook) only when the cli's adoption has merged and the G2-pins check passes. This is the hard gate of phase 2: a cli bundle whose pins lack bundles breaks every site pull (C16 D2).
 6. **opmodel.dev `pull-reference-bundles`, support** can merge from G2-site, before any product bundle exists, tested with fixture bundles; v1.0 still reads git.
 7. **opmodel.dev `pull-reference-bundles`, v1.0 switch** once G2-pins holds; its merge is G2-switch.
    - **7b. opmodel.dev `add-edge-build`** (any time; its `sources-main` switch is G2-edge): a CI-only build of every repository's `main` that reads the four products' `edge` bundles. No docs-kit change: C16 pulls an anchor at `edge` with every other project under `tags` (verified 2026-10-04 at `v0.6.0`).
-8. **core, cli and opm-operator retire** (after G2-switch and G2-edge): delete the generator, the committed generated pages and the `exclude`; the library has none. These land on `main` only; released bundles are unaffected. Before merging, the retire branch is checked with every other `main`: `task docs:bundle`, in a checkout whose `origin` is the GitHub repository (or with `GITHUB_REPOSITORY=open-platform-model/<repo>` set), because the bundle's `source.repo` comes from it and a local-path `origin` fails opmodel.dev's signing-repository check (`gen-docs-bundles.sh`), then, in an opmodel.dev checkout with opmodel.dev, opm and catalog_opm at `origin/main`, `OPM_BUNDLES_LOCAL="<project>@v1.0=<tree>/out/<project>" task build:edge` builds green. After merging and the next `edge` publish, opmodel.dev's `Site` run shows `sources-main` green. docs-kit's opt-in live parity tests (`TestCLICommandParityLive` with `OPM_CLI_CHECKOUT`, `TestOperatorCRDParity` with `OPM_OPERATOR_CHECKOUT`) compare with the committed pages, so after the retirements they need a checkout at a pre-retirement commit (pin it as core's parity test is pinned), or they retire.
-9. **Workspace docs** (a workspace PR at G2-switch): root `AGENTS.md`'s release-branch bullet ("A docs-only fix in `core` or `catalog_opm` cuts no release: `opmodel.dev` builds their docs from the release branch head ...") is split: a docs fix in core, cli, library or opm-operator reaches a released version through a docs revision (`mode: revision` in the repository's `Docs` workflow), never through a branch push; catalog_opm keeps the branch-head rule until phase 3 moves its `docs/site/` to `catalog-opm-docs` (G3.4). `STYLE.md`'s "Reference facts are generated in the owning repository" bullet drops "its output is committed under `docs/site/reference/` with a check that fails when it is stale" and the marker-comment sentence: generated reference is built in the owning repository's CI and published in its docs bundle, never committed.
+8. **core, cli and opm-controller retire** (after G2-switch and G2-edge): delete the generator, the committed generated pages and the `exclude`; the library has none. These land on `main` only; released bundles are unaffected. Before merging, the retire branch is checked with every other `main`: `task docs:bundle`, in a checkout whose `origin` is the GitHub repository (or with `GITHUB_REPOSITORY=open-platform-model/<repo>` set), because the bundle's `source.repo` comes from it and a local-path `origin` fails opmodel.dev's signing-repository check (`gen-docs-bundles.sh`), then, in an opmodel.dev checkout with opmodel.dev, opm and catalog_opm at `origin/main`, `OPM_BUNDLES_LOCAL="<project>@v1.0=<tree>/out/<project>" task build:edge` builds green. After merging and the next `edge` publish, opmodel.dev's `Site` run shows `sources-main` green. docs-kit's opt-in live parity tests (`TestCLICommandParityLive` with `OPM_CLI_CHECKOUT`, `TestControllerCRDParity` with `OPM_CONTROLLER_CHECKOUT`) compare with the committed pages, so after the retirements they need a checkout at a pre-retirement commit (pin it as core's parity test is pinned), or they retire.
+9. **Workspace docs** (a workspace PR at G2-switch): root `AGENTS.md`'s release-branch bullet ("A docs-only fix in `core` or `catalog_opm` cuts no release: `opmodel.dev` builds their docs from the release branch head ...") is split: a docs fix in core, cli, library or opm-controller reaches a released version through a docs revision (`mode: revision` in the repository's `Docs` workflow), never through a branch push; catalog_opm keeps the branch-head rule until phase 3 moves its `docs/site/` to `catalog-opm-docs` (G3.4). `STYLE.md`'s "Reference facts are generated in the owning repository" bullet drops "its output is committed under `docs/site/reference/` with a check that fails when it is stale" and the marker-comment sentence: generated reference is built in the owning repository's CI and published in its docs bundle, never committed.
 
 Done (phase 2): no repository commits generated pages; v1.0's reference and the four repositories' authored pages come from bundles; the site's two Reference placeholders are gone.
 
 ### Docs revisions stay manual
 
-A docs fix to a released version is a `workflow_dispatch` of the repository's `Docs` workflow with `mode: revision`, `tag` and `fix` (C3 "Docs revisions"). Nothing dispatches it automatically; automating it is tracked in docs-kit#16, with one issue per caller: catalog_opm#130, core#101, library#164, opm-operator#188, cli#282, opm#22.
+A docs fix to a released version is a `workflow_dispatch` of the repository's `Docs` workflow with `mode: revision`, `tag` and `fix` (C3 "Docs revisions"). Nothing dispatches it automatically; automating it is tracked in docs-kit#16, with one issue per caller: catalog_opm#130, core#101, library#164, opm-controller#188, cli#282, opm#22.
 
 ### What every sibling change must reference
 
@@ -168,11 +168,11 @@ A docs fix to a released version is a `workflow_dispatch` of the repository's `D
 
 Common to the four product siblings' adoption, each with its own project from C1:
 
-1. `docs-kit.cue` exactly as the extractor change's design shows (core: `add-cue-definitions-extractor` D1; opm-operator: `add-crd-extractor` D1; cli: `add-cobra-extractor` D3; library: `add-go-api-extractor` D1), including the `markdown` source over `docs/site` with its transitional `exclude`.
+1. `docs-kit.cue` exactly as the extractor change's design shows (core: `add-cue-definitions-extractor` D1; opm-controller: `add-crd-extractor` D1; cli: `add-cobra-extractor` D3; library: `add-go-api-extractor` D1), including the `markdown` source over `docs/site` with its transitional `exclude`.
 2. `.github/workflows/docs.yml` as catalog_opm's: `check` on `pull_request`, `edge` on push to `main`, `workflow_dispatch` with `mode` (`release`, `revision`), `tag` and `fix`; `permissions: {}` at the top and per job as C5's table (`check`: `contents: read`, `packages: read`; the rest: `contents: read`, `packages: write`, `id-token: write`).
-3. `release.yml`: a job `publish-docs` calling `publish.yml` with `mode: release` and the release's tag, gated on that package's release output, after the job that publishes the release (core: after `publish-cue`; library: after `release-please`; opm-operator: after `image-release`; cli: after `goreleaser` succeeds), with the publishing permissions. It runs on the push to `main` that merged the release PR (C5, DESIGN decision 9), never on `release: published`.
+3. `release.yml`: a job `publish-docs` calling `publish.yml` with `mode: release` and the release's tag, gated on that package's release output, after the job that publishes the release (core: after `publish-cue`; library: after `release-please`; opm-controller: after `image-release`; cli: after `goreleaser` succeeds), with the publishing permissions. It runs on the push to `main` that merged the release PR (C5, DESIGN decision 9), never on `release: published`.
 4. `.opm-docs-version` naming the docs-kit release that meets the repository's gate (and that the site already runs); `tools:opm-docs`, `docs:pins:check` (refuses a `publish.yml@` ref that names another release than `.opm-docs-version`), `docs:bundle` and `docs:bundle:check` (runs `docs:pins:check` first) tasks (C12: download, verify the checksum, install to `.bin/`); `docs:bundle:check` in `task check`; `.gitignore` gains `/out/` and `/.bin/`.
-5. The backfill dry run of step 4 (core, library, opm-operator), its command and result recorded in the change.
+5. The backfill dry run of step 4 (core, library, opm-controller), its command and result recorded in the change.
 6. `AGENTS.md`: a "Docs bundles" paragraph (what publishes when, how to preview with `task docs:bundle` or `opm-docs serve`, how to backfill or revise a release, that revisions are dispatched by hand).
 7. Gate: `task check` green; the PR's `Docs / check` job green.
 
@@ -192,33 +192,33 @@ Retire (after G2-switch and G2-edge): remove the generator, its tests, tasks and
 - Publish: the owner's backfill of `v1.0.0-beta.1` publishes `docs/library`; then a docs revision with the kernel doc fix (comment-only), unless a new library release that the cli pins replaces it first.
 - No retire step.
 
-### opm-operator: `publish-crd-bundle`
+### opm-controller: `publish-crd-bundle`
 
-- Adopt: `docs-kit.cue` (`add-crd-extractor` D1: `hideSamplesMatching`, `stripLabels`, `weight: 7`) with `reconciledBy` taken from what `hack/crdref`'s controller scan finds at the adopting commit, `citations: "link"`, and `exclude: ["reference/operator-resources.md"]` on the `markdown` source. Optionally a repository test comparing `reconciledBy` with the controllers. Backfill dry run of `v1.0.0-beta.4`.
-- Publish: the owner's backfill of `v1.0.0-beta.4` publishes `docs/opm-operator`.
-- Retire: delete `hack/crdref/`, its task (`dev:docs:reference`) and CI step; reduce `docs/site/reference/operator-resources.md` to its front matter and intro (no marker block, no `## <Kind>` heading); remove the `exclude`, so the authored intro completes the generated page (C15).
+- Adopt: `docs-kit.cue` (`add-crd-extractor` D1: `hideSamplesMatching`, `stripLabels`, `weight: 7`) with `reconciledBy` taken from what `hack/crdref`'s controller scan finds at the adopting commit, `citations: "link"`, and `exclude: ["reference/controller-resources.md"]` on the `markdown` source. Optionally a repository test comparing `reconciledBy` with the controllers. Backfill dry run of `v1.0.0-beta.4`.
+- Publish: the owner's backfill of `v1.0.0-beta.4` publishes `docs/opm-controller`.
+- Retire: delete `hack/crdref/`, its task (`dev:docs:reference`) and CI step; reduce `docs/site/reference/controller-resources.md` to its front matter and intro (no marker block, no `## <Kind>` heading); remove the `exclude`, so the authored intro completes the generated page (C15).
 
 ### cli: `publish-cli-bundle`
 
-- Adopt: `hack/docskit-dump/main.go` importing `github.com/open-platform-model/docs-kit/cobradump` at `v0.1.0` or later (`add-cobra-extractor` D1): `Write(cmd.NewRootCmd(), ...)`, and with the argument `pins`, `WritePins` of `library`, `core` and `opm-operator`, each read where opmodel.dev's `resolve-versions.sh` reads it today (library from the cli's `go.mod`, core from the library's default schema module, the operator from the cli's pinned operator version); a test that the program's pins equal those sources. `docs-kit.cue` (`add-cobra-extractor` D3, with `pins` and `exclude: ["reference/cli/"]`); `docs.yml` passes `setup-go: true`; `publish-docs` after `goreleaser` succeeds.
+- Adopt: `hack/docskit-dump/main.go` importing `github.com/open-platform-model/docs-kit/cobradump` at `v0.1.0` or later (`add-cobra-extractor` D1): `Write(cmd.NewRootCmd(), ...)`, and with the argument `pins`, `WritePins` of `library`, `core` and `opm-controller`, each read where opmodel.dev's `resolve-versions.sh` reads it today (library from the cli's `go.mod`, core from the library's default schema module, the controller from the cli's pinned controller version); a test that the program's pins equal those sources. `docs-kit.cue` (`add-cobra-extractor` D3, with `pins` and `exclude: ["reference/cli/"]`); `docs.yml` passes `setup-go: true`; `publish-docs` after `goreleaser` succeeds.
 - Publish (G2-pins check before cli#276 merges): `v1.0.0-beta.6` publishes `docs/cli`; confirm with the anonymous pull of G2-pins.
 - Retire: delete `internal/cmdref/`, `hack/cmdref/`, `docs/site/reference/cli/`, the `docs:reference*` tasks and the CI "command reference" jobs (`ci.yml`, `pr.yml`), and the `exclude`.
 
 ### opmodel.dev: `pull-reference-bundles`
 
-Proposal must state: no URL changes (the reference keeps `/docs/reference/cli/`, `/docs/reference/definitions/`, `/docs/reference/operator-resources/`, and gains `/docs/reference/go-api/`); the site gains docs bundles as an input and stops reading core, cli, library and opm-operator from git for v1.0; the v1.0 switch merges only at G2-pins.
+Proposal must state: no URL changes (the reference keeps `/docs/reference/cli/`, `/docs/reference/definitions/`, `/docs/reference/controller-resources/`, and gains `/docs/reference/go-api/`); the site gains docs bundles as an input and stops reading core, cli, library and opm-controller from git for v1.0; the v1.0 switch merges only at G2-pins.
 
 Support (from G2-site; v1.0 unchanged):
 
 1. Bump `site/Dockerfile` to the release carrying `pull-docs-placement` and `add-authored-docs` (before any producer moves to it).
-2. `bundles.cue`: `docs` for `cli`, `core`, `library`, `opm-operator` (C16; no `versions` yet).
+2. `bundles.cue`: `docs` for `cli`, `core`, `library`, `opm-controller` (C16; no `versions` yet).
 3. Side by side: per site version, a repository is read from bundles exactly when the version's `versions` entry names its project; otherwise from git as today. `gen-mounts.sh` mounts `site/.bundles/_versions/<v>/<project>/content` into that version's `content/docs` and drops that repository's `docs/site` git mount for that version. `versions.conf` keeps each version's `label`, `weight` and `default` until `retire-git-pipeline` moves them.
 4. Page data from manifests: "Last updated" from `pages[].lastmod`; "Edit this page" `https://github.com/<source.repo>/edit/main/<edit>` when `edit` is set; "View source" `source` at `source.commit`; none for generated pages beyond View source (C8 table, `add-authored-docs` D1). The build stamp records the lock's `docs` entries.
 5. The site's post-build link check covers `/docs/` links across bundles (C15 leaves them to it).
 6. `OPM_BUNDLES_LOCAL` accepts `<project>@v<M>.<m>=<dir>` (C16 D6) so `opm-docs serve --site` works.
-7. Fixtures: `site/tests/fixtures/bundles/_versions/v1.0/{cli,core,library,opm-operator}/` (an anchor fixture with `pins`), a test of a collision (C16 D4) and a pin without a bundle; a two-version test with one version on bundles and one on git.
+7. Fixtures: `site/tests/fixtures/bundles/_versions/v1.0/{cli,core,library,opm-controller}/` (an anchor fixture with `pins`), a test of a collision (C16 D4) and a pin without a bundle; a two-version test with one version on bundles and one on git.
 
-v1.0 switch (G2-pins): `bundles.cue` `versions: "v1.0": {anchor: {project: "cli", tag: "1.0"}, pinned: ["library", "core", "opm-operator"]}`; remove the placeholders `content/docs/reference/cli/_index.md` and `content/docs/reference/definitions/_index.md` and their check-pages exemption; `resolve-versions.sh` stops resolving those four repositories for v1.0 (it still resolves opm and catalog_opm until phase 3). Its merge is G2-switch.
+v1.0 switch (G2-pins): `bundles.cue` `versions: "v1.0": {anchor: {project: "cli", tag: "1.0"}, pinned: ["library", "core", "opm-controller"]}`; remove the placeholders `content/docs/reference/cli/_index.md` and `content/docs/reference/definitions/_index.md` and their check-pages exemption; `resolve-versions.sh` stops resolving those four repositories for v1.0 (it still resolves opm and catalog_opm until phase 3). Its merge is G2-switch.
 
 Durable decisions for opmodel.dev `AGENTS.md`: site versions come from `bundles.cue` `versions`; which repositories a version reads from git until phase 3 ends; the site bumps `opm-docs` before any producer.
 
@@ -286,9 +286,9 @@ Done: delivered by `retire-lint-conformance-binding` (archived), after opmodel.d
 
 - Merge each docs-kit release PR at the gates above, and the `cobradump` release PR; let opmodel.dev's `opm-docs` bump land before any producer's.
 - Confirm the tag rulesets cover `cobradump/v*` tags as they cover `v*`.
-- New GHCR packages, each checked public on first publish: `docs/core`, `docs/library`, `docs/opm-operator`, `docs/cli`, `docs/catalog-opm-docs`, `docs/opm`, `docs/enhancements`.
-- Phase 2 backfills: dispatch `mode: release` for core `v2.0.0-beta.1`, library `v1.0.0-beta.1`, opm-operator `v1.0.0-beta.4` after each adoption merges.
-- Hold cli#276 (`v1.0.0-beta.6`) until the cli's adoption has merged and the G2-pins check passes. library#155 and opm-operator#178 may merge at any time; one merged before its repository adopts needs a backfill too, and if the cascade bumps the cli's pins to it, G2-pins checks that version.
+- New GHCR packages, each checked public on first publish: `docs/core`, `docs/library`, `docs/opm-controller`, `docs/cli`, `docs/catalog-opm-docs`, `docs/opm`, `docs/enhancements`.
+- Phase 2 backfills: dispatch `mode: release` for core `v2.0.0-beta.1`, library `v1.0.0-beta.1`, opm-controller `v1.0.0-beta.4` after each adoption merges.
+- Hold cli#276 (`v1.0.0-beta.6`) until the cli's adoption has merged and the G2-pins check passes. library#155 and opm-controller#178 may merge at any time; one merged before its repository adopts needs a backfill too, and if the cascade bumps the cli's pins to it, G2-pins checks that version.
 - opm: install the release App, provide `vars.RELEASE_APP_CLIENT_ID` and `secrets.RELEASE_APP_PRIVATE_KEY`, cover opm with the `tags-immutable` and `tags-create-app-only` rulesets and enable immutable releases; first version `1.0.0-beta.1` (DESIGN decision 21), set by `initial-version` in `release-please-config.json`, never by a commit footer, with `docs` a visible changelog section so `docs:` commits open release PRs. Workspace edits for a newly released repository: add opm to the release-tag scope of root `AGENTS.md` ("Release Tags Are Immutable"), to the hooks and guards that list released repositories, and to `RELEASING.md`.
 - Docs revisions are dispatched by hand (docs-kit#16 tracks automating them).
 

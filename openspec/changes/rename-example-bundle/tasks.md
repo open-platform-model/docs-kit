@@ -11,5 +11,5 @@ One PR. Every commit is `test` or `docs`: no docs-kit release.
 
 ## 2. Rename the example bundle in the docs
 
-- [ ] 2.1 `docs/contracts.md`, `DESIGN.md`, `docs/orchestration.md` and `openspec/config.yaml` name `opm-controller`, `reference/controller/` and `reference/controller-resources.md`. Verify: `git grep -nIi operator -- docs DESIGN.md openspec/config.yaml` prints nothing.
-- [ ] 2.2 `task check` green, then commit `docs: rename the example bundle to opm-controller`.
+- [x] 2.1 `docs/contracts.md`, `DESIGN.md`, `docs/orchestration.md` and `openspec/config.yaml` name `opm-controller`, `reference/controller/` and `reference/controller-resources.md`. Verify: `git grep -nIi operator -- docs DESIGN.md openspec/config.yaml` prints nothing.
+- [x] 2.2 `task check` green, then commit `docs: rename the example bundle to opm-controller`.
