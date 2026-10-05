@@ -238,7 +238,7 @@ func checkGlobs(at string, src Source) error {
 
 // Nests reports whether the owned path inner lies under, or is, outer: a
 // directory ("reference/") holds every path under it; a page
-// ("reference/operator-resources.md") holds only itself.
+// ("reference/controller-resources.md") holds only itself.
 func Nests(outer, inner string) bool {
 	if strings.HasSuffix(outer, "/") {
 		return strings.HasPrefix(inner, outer)

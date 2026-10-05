@@ -42,7 +42,7 @@ type BundleInfo struct {
 	Kind    string
 	Root    string   // placement root, "/catalogs/opm/", "/docs/" or "/enhancements/"
 	Segment string   // a tab's "4.4" or "edge"
-	Owns    []string // a docs bundle's owned paths, "reference/cli/", "reference/operator-resources.md"
+	Owns    []string // a docs bundle's owned paths, "reference/cli/", "reference/controller-resources.md"
 	Pages   []string // content-relative page paths, "traits/backup.md", "_index.md"
 }
 

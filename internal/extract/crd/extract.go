@@ -33,7 +33,7 @@ type Options struct {
 	// Page is the completable page: Path is the one page's file, or, when
 	// Section is set, empty (the section index is derived from Section).
 	Page Page
-	// Section, "reference/operator/", selects the section layout: an index
+	// Section, "reference/controller/", selects the section layout: an index
 	// and one page per kind.
 	Section      string
 	Order        []string          // kinds first, in this order

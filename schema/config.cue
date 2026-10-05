@@ -110,7 +110,7 @@ package schema
 	// Exactly one of page and section. page: one completable page holding
 	// every kind. section: the section index and one page per kind.
 	page?:    =~"^([a-z0-9]+(-[a-z0-9]+)*/)*[a-z0-9]+(-[a-z0-9]+)*\\.md$" // under content/, an owned path
-	section?: =~"^([a-z0-9]+(-[a-z0-9]+)*/)+$"                           // the directory the pages go in: "reference/operator/"
+	section?: =~"^([a-z0-9]+(-[a-z0-9]+)*/)+$"                           // the directory the pages go in: "reference/controller/"
 	matchN(1, [{page!: _, ...}, {section!: _, ...}])
 	title:       string & !="" // the page's or the section index's front matter when no authored page completes it
 	description: string & !=""

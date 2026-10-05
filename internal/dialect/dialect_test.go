@@ -12,7 +12,7 @@ import (
 
 // repoOrder is the order the site's retired test runner passed docs/site roots
 // in, which the order of the captured expected output follows.
-var repoOrder = []string{"opm", "core", "catalog_opm", "cli", "library", "opm-operator"}
+var repoOrder = []string{"opm", "core", "catalog_opm", "cli", "library", "opm-controller"}
 
 // TestConformance lints every case of the conformance set and compares the
 // output, line for line, with the case's expected output (shell.out).

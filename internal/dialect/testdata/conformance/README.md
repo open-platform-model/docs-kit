@@ -23,6 +23,10 @@ after `setup.sh`), with the case directory stripped from each path and the
 summary line removed. `expect` is the site runner's own prefix form and is
 kept as copied.
 
+A case's repository directories follow the repositories' current names; a
+rename moves the directory and the paths in its `shell.out` and `expect`
+together, since no lint message depends on a repository's name.
+
 `link-catalogs/` is docs-kit's: the `/catalogs/` link forms of dialect 1.
 Its `shell.out` is written by hand.
 

@@ -19,7 +19,7 @@ func fixtureOptions(doc doctext.Policy) Options {
 	return Options{
 		Root: "testdata/tree", Dir: "./config/crd/bases", Samples: "./config/samples",
 		HideSamplesMatching: []string{"testing.opmodel.dev"},
-		StripLabels:         map[string]string{"app.kubernetes.io/name": "opm-operator", "app.kubernetes.io/managed-by": "kustomize"},
+		StripLabels:         map[string]string{"app.kubernetes.io/name": "opm-controller", "app.kubernetes.io/managed-by": "kustomize"},
 		Page:                Page{Path: "reference/widgets.md", Title: "Widget resources", Description: "One entry per widget kind.", Weight: &weight},
 		Order:               []string{"Widget"},
 		ReconciledBy:        map[string]string{"Widget": "widget"},

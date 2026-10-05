@@ -11,16 +11,20 @@ import (
 	"github.com/open-platform-model/docs-kit/internal/extract/crd"
 )
 
-// operatorOptions is the crd source opm-operator's docs-kit.cue declares.
-func operatorOptions(root string) crd.Options {
+// controllerOptions is the crd source opm-controller's docs-kit.cue
+// declares, in the page layout. Its stripLabels value is the scaffold label
+// the frozen copy under testdata/controller carries.
+func controllerOptions(root string) crd.Options {
 	weight := 7
 	return crd.Options{
 		Root: root, Dir: "./config/crd/bases", Samples: "./config/samples",
 		HideSamplesMatching: []string{"testing.opmodel.dev"},
-		StripLabels:         map[string]string{"app.kubernetes.io/name": "opm-operator", "app.kubernetes.io/managed-by": "kustomize"},
+		// TODO(cutover): "opm-controller" once testdata/controller is refreshed
+		// from the first opm-controller release.
+		StripLabels: map[string]string{"app.kubernetes.io/name": "opm-operator", "app.kubernetes.io/managed-by": "kustomize"},
 		Page: crd.Page{
-			Path: "reference/operator-resources.md", Title: "Operator resources", Weight: &weight,
-			Description: "One generated entry per operator resource kind: ModuleInstance, ModulePackage, Platform and TransformerRegistration.",
+			Path: "reference/controller-resources.md", Title: "Controller resources", Weight: &weight,
+			Description: "One generated entry per controller resource kind: ModuleInstance, ModulePackage, Platform and TransformerRegistration.",
 		},
 		Order: []string{"ModuleInstance", "ModulePackage", "Platform", "TransformerRegistration"},
 		ReconciledBy: map[string]string{
@@ -42,16 +46,17 @@ func servedByWording(block string) string {
 	return crdrefServedBy.ReplaceAllString(block, "The $1 reconciler watches every $2.")
 }
 
-// TestOperatorCRDParity compares the crd page's entries with the block
-// opm-operator's hack/crdref generated between its markers in
-// docs/site/reference/operator-resources.md: the copy under
-// testdata/operator (see its SOURCE), or the operator checkout
-// OPM_OPERATOR_CHECKOUT names.
-func TestOperatorCRDParity(t *testing.T) {
-	root := os.Getenv("OPM_OPERATOR_CHECKOUT")
+// TestControllerCRDParity compares the crd page's entries with the block
+// the controller's retired hack/crdref generated between its markers in its
+// resource reference page: the copy under testdata/controller (see its
+// SOURCE), or the checkout OPM_CONTROLLER_CHECKOUT names.
+func TestControllerCRDParity(t *testing.T) {
+	root := os.Getenv("OPM_CONTROLLER_CHECKOUT")
 	if root == "" {
-		root = filepath.Join("testdata", "operator")
+		root = filepath.Join("testdata", "controller")
 	}
+	// TODO(cutover): the frozen copy keeps the page path crdref wrote; the
+	// refresh from the first opm-controller release replaces it.
 	page, err := os.ReadFile(filepath.Join(root, "docs", "site", "reference", "operator-resources.md"))
 	if err != nil {
 		t.Fatal(err)
@@ -65,7 +70,7 @@ func TestOperatorCRDParity(t *testing.T) {
 	i += strings.Index(s[i:], "\n") + 1
 	want := servedByWording(strings.Trim(s[i:j], "\n") + "\n")
 
-	m, err := crd.Extract(operatorOptions(root))
+	m, err := crd.Extract(controllerOptions(root))
 	if err != nil {
 		t.Fatal(err)
 	}

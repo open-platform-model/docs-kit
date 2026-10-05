@@ -6,7 +6,7 @@ import (
 )
 
 func crdConfig(layout string) string {
-	return `bundles: "opm-operator": {
+	return `bundles: "opm-controller": {
 	placement: {kind: "docs", root: "/docs/", owns: ["reference/"]}
 	version: {from: "tag", prefix: "v"}
 	sources: [{kind: "crd", dir: "./c", ` + layout + ` title: "T", description: "D"}]
@@ -16,13 +16,13 @@ func crdConfig(layout string) string {
 
 // TestLoadCRDLayout: a crd source takes exactly one of page and section.
 func TestLoadCRDLayout(t *testing.T) {
-	for _, ok := range []string{`page: "reference/r.md",`, `section: "reference/operator/",`} {
+	for _, ok := range []string{`page: "reference/r.md",`, `section: "reference/controller/",`} {
 		if _, err := Load(write(t, "docs-kit.cue", crdConfig(ok))); err != nil {
 			t.Errorf("%s: %v", ok, err)
 		}
 	}
 	for name, layout := range map[string]string{
-		"both":    `page: "reference/r.md", section: "reference/operator/",`,
+		"both":    `page: "reference/r.md", section: "reference/controller/",`,
 		"neither": ``,
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -32,7 +32,7 @@ func TestLoadCRDLayout(t *testing.T) {
 			}
 		})
 	}
-	if _, err := Load(write(t, "docs-kit.cue", crdConfig(`section: "reference/operator",`))); err == nil {
+	if _, err := Load(write(t, "docs-kit.cue", crdConfig(`section: "reference/controller",`))); err == nil {
 		t.Fatal("a section without its trailing slash loaded")
 	}
 }

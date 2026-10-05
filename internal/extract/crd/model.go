@@ -59,7 +59,7 @@ type Model struct {
 // Page is the completable page: the one page the kinds render to, or the
 // section index.
 type Page struct {
-	Path        string `json:"path"` // under content/, "reference/operator-resources.md" or "reference/operator/_index.md"
+	Path        string `json:"path"` // under content/, "reference/controller-resources.md" or "reference/controller/_index.md"
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Weight      *int   `json:"weight"` // null when not configured
@@ -85,7 +85,7 @@ type Kind struct {
 	Sample       *Sample   `json:"sample"`
 	ReconciledBy *string   `json:"reconciledBy"`
 	// Page is the kind's page under content/ in the section layout,
-	// "reference/operator/moduleinstance.md"; nil in the page layout.
+	// "reference/controller/moduleinstance.md"; nil in the page layout.
 	Page *string `json:"page"`
 	// Read lists the files read for this kind, its CRD file first, for its
 	// page's lastmod; it is not written to the data file.

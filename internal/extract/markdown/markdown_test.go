@@ -94,11 +94,11 @@ func TestIncludeExclude(t *testing.T) {
 	r := gittest.New(t, "")
 	page := "---\ntitle: \"x\"\ndescription: \"x\"\ntype: reference\n---\n"
 	r.Write(map[string]string{
-		"docs/site/_index.md":                       page,
-		"docs/site/reference/operator-resources.md": page,
-		"docs/site/reference/cli/opm.md":            page,
-		"docs/site/reference/cli/opm-module.md":     page,
-		"docs/site/guide/start.md":                  page,
+		"docs/site/_index.md":                         page,
+		"docs/site/reference/controller-resources.md": page,
+		"docs/site/reference/cli/opm.md":              page,
+		"docs/site/reference/cli/opm-module.md":       page,
+		"docs/site/guide/start.md":                    page,
 	})
 	r.Commit("pages")
 	paths := func(o Options) ([]string, error) {
@@ -116,15 +116,15 @@ func TestIncludeExclude(t *testing.T) {
 		want string
 		err  string
 	}{
-		{name: "one page", o: Options{Include: []string{"reference/operator-resources.md"}}, want: "reference/operator-resources.md"},
+		{name: "one page", o: Options{Include: []string{"reference/controller-resources.md"}}, want: "reference/controller-resources.md"},
 		{name: "glob", o: Options{Include: []string{"reference/cli/opm-*.md"}}, want: "reference/cli/opm-module.md"},
 		{name: "directory exclude", o: Options{Exclude: []string{"reference/cli/"}},
-			want: "_index.md guide/start.md reference/operator-resources.md"},
+			want: "_index.md guide/start.md reference/controller-resources.md"},
 		{name: "exclude wins over include", o: Options{Include: []string{"reference/"}, Exclude: []string{"reference/cli/opm.md"}},
-			want: "reference/cli/opm-module.md reference/operator-resources.md"},
+			want: "reference/cli/opm-module.md reference/controller-resources.md"},
 		{name: "no match", o: Options{Exclude: []string{"reference/defintions/"}}, err: `exclude "reference/defintions/" matches no file`},
 		{name: "no match in a backfill", o: Options{Exclude: []string{"reference/defintions/"}, Optional: true},
-			want: "_index.md guide/start.md reference/cli/opm-module.md reference/cli/opm.md reference/operator-resources.md"},
+			want: "_index.md guide/start.md reference/cli/opm-module.md reference/cli/opm.md reference/controller-resources.md"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			got, err := paths(c.o)
