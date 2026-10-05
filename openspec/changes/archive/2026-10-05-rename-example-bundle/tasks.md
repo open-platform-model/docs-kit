@@ -11,5 +11,5 @@ One PR. Every commit is `test` or `docs`: no docs-kit release.
 
 ## 2. Rename the example bundle in the docs
 
-- [x] 2.1 `docs/contracts.md`, `DESIGN.md`, `docs/orchestration.md` and `openspec/config.yaml` name `opm-controller`, `reference/controller/` and `reference/controller-resources.md`. Verify: `git grep -nIi operator -- docs DESIGN.md openspec/config.yaml` prints nothing.
+- [x] 2.1 `docs/contracts.md`, `DESIGN.md`, `docs/orchestration.md` and `openspec/config.yaml` name `opm-controller`, `reference/controller/` and, in the dated plan and the examples, `reference/controller-resources.md`; where `docs/contracts.md` describes what the controller's released tags and authored pages hold (C1, C18), it names no old page path, since `reference/controller-resources.md` never existed. Verify: `git grep -nIi operator -- docs DESIGN.md openspec/config.yaml` prints nothing.
 - [x] 2.2 `task check` green, then commit `docs: rename the example bundle to opm-controller`.
