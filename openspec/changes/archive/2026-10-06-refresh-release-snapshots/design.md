@@ -14,7 +14,7 @@ docs-kit replaced four reference generators. Its parity tests prove the replacem
 - D2. The expected pages are the bundle's pages under its one owned section, copied after `opm-docs pull` verified the signature and signer. The test compares the page set and every body byte for byte.
 - D3. The inputs come from the release commit the bundle's manifest names, exported with `git archive`. A docs revision builds that commit with fix commits applied; the script refuses a revision whose fix touches an input, because the snapshot would then not hold what the bundle was built from.
 - D4. The cli's input is the dump its `hack/docskit-dump` prints at the release commit, run twice in an exported tree with identical output required (C14), as the publish build runs it.
-- D5. A deliberate render change that postdates the snapshot's bundle is a named rewrite of the released pages in the test. The rewrite fails the test when it matches nothing, so the refresh that makes it obsolete also deletes it. Today there is one: the served-by sentence, since opm-operator `1.0.0-beta.8` was built by opm-docs 0.7.0.
+- D5. A deliberate render change that postdates the snapshot's bundle is a named rewrite of the released pages in the test. `compareWithRelease` applies every named rewrite and fails the test on one that matches nothing, so the refresh that makes a rewrite obsolete also deletes it, and deleting it is removing its definition and its name from the call. Today there is one: the served-by sentence, since opm-operator `1.0.0-beta.8` was built by opm-docs 0.7.0.
 - D6. The script lives in `hack/` with a `snapshots:refresh` task. It needs network (GHCR, the Go proxy) and is never part of `task check`; the tests stay offline.
 
 ## Research & Decisions

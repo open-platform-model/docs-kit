@@ -85,11 +85,11 @@ docs-kit SHALL keep a release snapshot of the controller under `internal/render/
 - **THEN** every page equals the released page of the same path, and the released section holds no other page
 
 #### Scenario: A render change postdating the release
-- **WHEN** the snapshot's bundle was built before the served-by sentence named the reconciler
-- **THEN** the test rewrites the released sentence "The operator's `<name>` controller watches every <Kind>." to the reconciler wording before comparing
+- **WHEN** the test names a rewrite for a render change made after the snapshot's bundle was built
+- **THEN** it applies the rewrite to the released pages before comparing
 
 #### Scenario: A stale rewrite
-- **WHEN** a refresh brings a bundle whose pages no longer hold the rewritten sentence
+- **WHEN** a refresh brings a bundle built with the change, so a named rewrite matches no released page
 - **THEN** the parity test fails and asks for the rewrite to be deleted
 
 #### Scenario: A docs revision fix touching an input
