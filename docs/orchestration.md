@@ -64,7 +64,7 @@ Sibling plans cite the gates below by name, never by another repository's sectio
 | G2.0 | `generalize-build-assembly` is merged on docs-kit `main` |
 | G2-core | `add-cue-definitions-extractor`, `add-authored-docs` and `generalize-build-assembly` are released |
 | G2-library | `add-go-api-extractor`, `add-authored-docs` and `generalize-build-assembly` are released |
-| G2-controller | `add-crd-extractor`, `add-authored-docs` and `generalize-build-assembly` are released |
+| G2-controller (G2-operator before the rename) | `add-crd-extractor`, `add-authored-docs` and `generalize-build-assembly` are released |
 | G2-cli | `add-cobra-extractor`, `add-authored-docs`, `pull-docs-placement` and `generalize-build-assembly` are released (the cli's G2-pins check runs `opm-docs pull`), and the tag `cobradump/v0.1.0` exists |
 | G2-site | `pull-docs-placement` and `add-authored-docs` are released |
 | G2-pins | release-mode backfills have published the bundles of core `v2.0.0-beta.1`, library `v1.0.0-beta.1` and opm-controller `v1.0.0-beta.4` (exactly what cli `main` pins), and then the cli release that first carries the hook (`v1.0.0-beta.6`) has published its bundle with those pins. Before the cli release PR merges: `opm-docs pull --local cli@v1.0=<cli out>` with a scratch `bundles.cue` holding opmodel.dev's planned `versions."v1.0"` (C16) resolves every pin; after: the same pull without `--local` succeeds anonymously (owner decision, 2026-10-03) |

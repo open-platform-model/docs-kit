@@ -21,7 +21,7 @@ tests the site's build checks, not the lint.
 each case's `<repo>/docs/site` roots (in the site runner's repository order,
 after `setup.sh`), with the case directory stripped from each path and the
 summary line removed. `expect` is the site runner's own prefix form and is
-kept as copied.
+kept as copied, apart from repository renames (below).
 
 A case's repository directories follow the repositories' current names; a
 rename moves the directory and the paths in its `shell.out` and `expect`
