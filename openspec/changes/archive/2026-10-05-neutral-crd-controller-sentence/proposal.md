@@ -7,7 +7,7 @@ Every CRD reference page docs-kit renders says who serves a kind: "The operator'
 - **Template** `internal/render/templates/crd/entries.md.tmpl`: the `Served by` sentence becomes "The `<name>` reconciler watches every <Kind>." in both layouts (page and section).
 - **Goldens and tests**: the three crd goldens and the `Served by` expectations in `crd_test.go` and `crd_section_test.go` take the new sentence. `TestOperatorCRDParity` rewrites crdref's old sentence in its frozen block before comparing, the one place the entries depart from crdref on purpose.
 - **`docs/contracts.md` C18**: the page layout quotes the new sentence, and the parity paragraph lists it as the one visible deliberate difference from crdref. The `reconciledBy` comment in C6 and `schema/config.cue` says it names the reconciler.
-- **`crd-extractor` spec**: the page requirement allows the new wording; the parity scenario allows the rewritten sentence.
+- **`crd-extractor` spec**: the page requirement allows the new wording; the parity scenario allows the rewritten sentence; the source requirement calls the `reconciledBy` value a reconciler, matching the C6 comment.
 
 SemVer class: patch (`fix(render)`). No config key, data field, command or exit code changes; only the text of one rendered sentence.
 

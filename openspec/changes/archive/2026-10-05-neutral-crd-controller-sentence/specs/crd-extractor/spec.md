@@ -1,5 +1,24 @@
 ## MODIFIED Requirements
 
+### Requirement: The crd source reads controller-gen CRDs and samples
+A `crd` source SHALL read every `CustomResourceDefinition` in the YAML files of its `dir`, and, when `samples` is set, the sample of each kind there: the first document of that kind in the file kubebuilder names `<group>_<version>_<kind>.yaml` (other files are not read), shown only when it contains no `hideSamplesMatching` string, with each `stripLabels` label of a matching value removed, and SHALL write `data/crd.json` with schema `docs.opmodel.dev/data/crd/v1`: per kind its group, served versions with the storage version marked, scope, plural, short names, subresources, printer columns, the spec and status field tables (path, type, required, description cleaned by the doc-comment rules and the citation policy, default, enum), the validation rules with what enforces them, the sample text, and its `reconciledBy` reconciler when configured. Kinds SHALL be ordered by the configured `order`, then by kind name.
+
+#### Scenario: A required spec field
+- **WHEN** `ModuleInstance`'s schema lists `module` under `spec.required`
+- **THEN** the model's spec table marks `module` required
+
+#### Scenario: A second sample file of one kind
+- **WHEN** `config/samples` holds `opmodel.dev_v1alpha1_moduleinstance.yaml` and `opmodel.dev_v1alpha1_moduleinstance_jellyfin.yaml`
+- **THEN** the ModuleInstance sample comes from the first file only
+
+#### Scenario: A fixture sample is hidden
+- **WHEN** the kind's sample references `testing.opmodel.dev` and `hideSamplesMatching` is `["testing.opmodel.dev"]`
+- **THEN** that kind's entry has no `### Example`
+
+#### Scenario: Scaffold labels stripped
+- **WHEN** the sample carries `app.kubernetes.io/managed-by: kustomize` and `stripLabels` names that label and value
+- **THEN** the shown sample has no such label
+
 ### Requirement: The crd page is one completable page
 In the page layout (the source sets `page`, not `section`), the renderer SHALL write one page at the source's `page` path, one of the bundle's owned paths: per kind a `## <Kind>` entry with `### At a glance`, the printer-column table, `### Spec`, `### Status`, `### Example` when a sample exists, `### Notes`, `### Served by` when `reconciledBy` names a reconciler, and `### Enforcement`, in crdref's order and wording. The one exception is the `### Served by` sentence, which SHALL name the reconciler without naming a product: "The `<name>` reconciler watches every <Kind>." The page SHALL be completable, so an authored page with the same path from a `markdown` source supplies the front matter and intro; without one, the page takes the configured `title`, `description` and `weight`. Apart from that sentence, the entries SHALL match crdref's generated block for the same tree.
 
