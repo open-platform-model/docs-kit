@@ -40,18 +40,22 @@ func controllerOptions(t *testing.T) crd.Options {
 	}
 }
 
-// releasedServedBy matches the served-by sentence of a bundle built before
-// the renderer stopped naming the product: "The operator's `x` controller
-// watches every X."
-var releasedServedBy = regexp.MustCompile("(?m)^The operator's (`[^`]+`) controller watches every ([A-Z][A-Za-z0-9]*)\\.$")
+// servedByRewrite turns the served-by sentence of a bundle built before
+// the renderer stopped naming the product, "The operator's `x` controller
+// watches every X.", into the reconciler wording.
+var servedByRewrite = releaseRewrite{
+	name: "servedByRewrite",
+	re:   regexp.MustCompile("(?m)^The operator's (`[^`]+`) controller watches every ([A-Z][A-Za-z0-9]*)\\.$"),
+	repl: "The $1 reconciler watches every $2.",
+}
 
 // TestControllerCRDParity renders the controller's release snapshot with
 // its own config, completes the section index with the authored one, and
 // compares every page with the released bundle's. The snapshot's bundle
 // predates the reconciler wording of the served-by sentence, so its
-// sentences are rewritten before comparing; once a refresh brings a bundle
-// built with that wording the rewrite matches nothing and the test asks
-// for its removal.
+// sentences are rewritten before comparing (servedByRewrite); once a
+// refresh brings a bundle built with that wording the rewrite matches
+// nothing and the test asks for its removal.
 func TestControllerCRDParity(t *testing.T) {
 	o := controllerOptions(t)
 	if o.Section == "" {
@@ -77,13 +81,5 @@ func TestControllerCRDParity(t *testing.T) {
 		}
 		pages[0] = Page{Path: pages[0].Path, Body: body}
 	}
-	rewrote := false
-	compareWithRelease(t, o.Root, o.Section, pages, func(s string) string {
-		out := releasedServedBy.ReplaceAllString(s, "The $1 reconciler watches every $2.")
-		rewrote = rewrote || out != s
-		return out
-	})
-	if !rewrote {
-		t.Error("no released page holds the product-named served-by sentence: delete releasedServedBy and the rewrite")
-	}
+	compareWithRelease(t, o.Root, o.Section, pages, []releaseRewrite{servedByRewrite})
 }

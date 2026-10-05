@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -54,10 +55,22 @@ func citationPolicy(citations string) doctext.Policy {
 	return doctext.Strip
 }
 
+// releaseRewrite is a deliberate render change made after a snapshot's
+// bundle was built: re, replaced by repl, turns the released text into what
+// docs-kit writes now. A refresh from a bundle built with the change makes
+// the rewrite match nothing, and compareWithRelease then fails, so the
+// rewrite is deleted in the same commit as the refresh.
+type releaseRewrite struct {
+	name string
+	re   *regexp.Regexp
+	repl string
+}
+
 // compareWithRelease compares the rendered pages with the released pages
-// under <dir>/want/<section>, page set and bodies. rewrite, when set, is
-// applied to each released page first.
-func compareWithRelease(t *testing.T, dir, section string, pages []Page, rewrite func(string) string) {
+// under <dir>/want/<section>, page set and bodies, after applying each
+// rewrite to the released pages. A rewrite that matches no released page
+// fails the test.
+func compareWithRelease(t *testing.T, dir, section string, pages []Page, rewrites []releaseRewrite) {
 	t.Helper()
 	wantDir := filepath.Join(dir, "want", filepath.FromSlash(section))
 	entries, err := os.ReadDir(wantDir)
@@ -68,6 +81,7 @@ func compareWithRelease(t *testing.T, dir, section string, pages []Page, rewrite
 	for _, e := range entries {
 		want = append(want, section+e.Name())
 	}
+	matched := make([]bool, len(rewrites))
 	got := make([]string, 0, len(pages))
 	for _, p := range pages {
 		got = append(got, p.Path)
@@ -77,11 +91,18 @@ func compareWithRelease(t *testing.T, dir, section string, pages []Page, rewrite
 			continue
 		}
 		released := string(b)
-		if rewrite != nil {
-			released = rewrite(released)
+		for i, r := range rewrites {
+			out := r.re.ReplaceAllString(released, r.repl)
+			matched[i] = matched[i] || out != released
+			released = out
 		}
 		if released != p.Body {
 			t.Errorf("%s differs from the released page:\n%s", p.Path, firstDiff(released, p.Body))
+		}
+	}
+	for i, r := range rewrites {
+		if !matched[i] {
+			t.Errorf("the rewrite %s matches no released page: the snapshot's bundle already carries the change, delete the rewrite", r.name)
 		}
 	}
 	sort.Strings(got)
