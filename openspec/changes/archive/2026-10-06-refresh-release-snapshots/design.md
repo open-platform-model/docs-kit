@@ -26,7 +26,7 @@ docs-kit replaced four reference generators. Its parity tests prove the replacem
 1. Keep the frozen generator copies as dated residue - they stay true but can never follow a rename, and the old names stay in docs-kit.
 2. Delete the parity tests - the extractors keep unit tests and goldens, but nothing checks a real tree end to end.
 3. Compare with released bundles - real trees, refreshable, traceable to a digest.
-**Decision**: option 3 (supervisor-approved for the rename).
+**Decision**: option 3, which the rename to opm-controller (enhancement 0032, "The operator becomes the controller") needs, since a frozen copy cannot follow it.
 **Rationale**: it keeps an end-to-end check on real input and lets the snapshot follow the products.
 
 ### Seeding before the renamed releases exist
@@ -36,7 +36,7 @@ docs-kit replaced four reference generators. Its parity tests prove the replacem
 1. Leave the change open until those releases exist.
 2. Seed now from the newest releases (opm-operator `1.0.0-beta.8`, cli `1.0.0-beta.10`) and refresh at the cutover.
 **Decision**: option 2.
-**Rationale**: the procedure is exercised end to end now, the change can be archived, and the cutover step runs a tested command. The old names stay in the seeded snapshot until that refresh, which the rename's cutover notes track.
+**Rationale**: the procedure is exercised end to end now, the change can be archived, and the cutover step runs a tested command. The old names stay in the seeded snapshot until that refresh replaces them.
 
 ## Risks / Trade-offs
 
