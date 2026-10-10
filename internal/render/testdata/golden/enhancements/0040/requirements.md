@@ -7,6 +7,8 @@ weight: 3
 
 ## registration-acceptance
 
+Capability page: [`registration-acceptance`](/enhancements/capabilities/registration-acceptance/).
+
 ### MODIFIED Requirements
 
 #### Requirement: Every claim receives a verdict

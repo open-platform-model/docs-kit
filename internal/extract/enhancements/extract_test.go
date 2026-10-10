@@ -130,7 +130,7 @@ func TestPages(t *testing.T) {
 		"0040/_index.md 0040/design.md 0040/proposal.md 0040/requirements.md 0040/tasks.md " +
 		"0041/_index.md 0041/design.md 0041/proposal.md 0041/requirements.md " +
 		"0042/_index.md 0042/design.md 0042/proposal.md " +
-		"_index.md graph.md"
+		"_index.md capabilities/_index.md capabilities/registration-acceptance.md capabilities/single-build-render.md graph.md"
 	if got := strings.Join(paths, " "); got != want {
 		t.Fatalf("pages\n%s\nwant\n%s", got, want)
 	}
@@ -615,5 +615,64 @@ func mkdir(t *testing.T, root, dir string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Join(root, filepath.FromSlash(dir)), 0o755); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestCapabilityPages(t *testing.T) {
+	_, byPath := fixture(t)
+	p := byPath["capabilities/registration-acceptance.md"]
+	if p.Title != "Registration acceptance" || p.Source != "openspec/specs/registration-acceptance/spec.md" || p.Type != "explanation" ||
+		!strings.HasPrefix(p.Description, "Decide whether a provider's claim to supply contracts to a platform is accepted.") || strings.Contains(p.Description, "Acceptance re-derives") {
+		t.Errorf("capability page %+v", p)
+	}
+	if strings.HasPrefix(p.Body, "# ") || !strings.HasPrefix(p.Body, "## Purpose") {
+		t.Errorf("the spec's title heading is not removed: %q", p.Body[:40])
+	}
+	i := strings.Index(p.Body, "## Entries that changed it")
+	if i < 0 {
+		t.Fatalf("no history table:\n%s", p.Body)
+	}
+	want := "| Entry | Date |\n| --- | --- |\n| seed | 2026-10-14 |\n| [0040: Fixture Delivered](/enhancements/0040/) | 2026-10-21 |\n"
+	if got := p.Body[i+len("## Entries that changed it\n\n"):]; got != want {
+		t.Errorf("history rows\n%s\nwant\n%s", got, want)
+	}
+	if strings.Contains(p.Body, "0041") {
+		t.Error("a rejected entry has a row")
+	}
+	if s := byPath["capabilities/single-build-render.md"]; !strings.Contains(s.Body, "| seed | 2026-10-14 |") {
+		t.Errorf("single-build-render history:\n%s", s.Body)
+	}
+	idx := byPath["capabilities/_index.md"]
+	if idx.Source != "" || len(idx.Inputs) != 2 || !strings.Contains(idx.Body, "[Single build render](/enhancements/capabilities/single-build-render/) |") {
+		t.Errorf("capabilities index %+v", idx)
+	}
+}
+
+func TestCapabilityLinks(t *testing.T) {
+	_, byPath := fixture(t)
+	req := byPath["0026/requirements.md"].Body
+	if !strings.Contains(req, "## single-build-render\n\nCapability page: [`single-build-render`](/enhancements/capabilities/single-build-render/).") {
+		t.Errorf("no capability link for a capability in specs/:\n%s", req)
+	}
+	if strings.Contains(req, "capabilities/authored-platform") {
+		t.Error("a link to a capability page that does not exist")
+	}
+	x := &extraction{o: options(t, fixtureRepo), dir: ".", pages: map[string]target{"openspec/specs/single-build-render/spec.md": {url: "/enhancements/capabilities/single-build-render/", title: "Single build render"}}}
+	got, err := x.clean("openspec/changes/0026-x/design.md", "[spec](../../specs/single-build-render/spec.md)\n")
+	if err != nil || got != "[spec](/enhancements/capabilities/single-build-render/)\n" {
+		t.Errorf("link to a main spec: %q %v", got, err)
+	}
+}
+
+func TestPurposeSentence(t *testing.T) {
+	for _, c := range []struct{ in, want string }{
+		{"# x Specification\n\n## Purpose\nOne sentence. Two\nsentences.\n\n## Requirements\n", "One sentence."},
+		{"## Purpose\n\nNo full stop here\nat all\n\nSecond paragraph.\n", "No full stop here at all"},
+		{"## Requirements\n\nPurpose is missing.\n", "The capability x."},
+		{"## Purpose\n## Requirements\n", "The capability x."},
+	} {
+		if got := purposeSentence(c.in, "x"); got != c.want {
+			t.Errorf("purposeSentence(%q) = %q, want %q", c.in, got, c.want)
+		}
 	}
 }

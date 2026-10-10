@@ -60,7 +60,7 @@ func builtEnhancements(t *testing.T, r *gittest.Repo) (string, *bundle.Manifest)
 func TestEnhancementsSectionBuild(t *testing.T) {
 	r := enhancementsRepo(t)
 	dir, m := builtEnhancements(t, r)
-	if m.Version != "edge" || m.Placement.Kind != "section" || m.Placement.Root != "/enhancements/" || len(m.Pages) != 35 {
+	if m.Version != "edge" || m.Placement.Kind != "section" || m.Placement.Root != "/enhancements/" || len(m.Pages) != 38 {
 		t.Fatalf("manifest %s %+v, %d pages", m.Version, m.Placement, len(m.Pages))
 	}
 	if len(m.Data) != 1 || m.Data[0].Path != "enhancements.json" || m.Data[0].Schema != "docs.opmodel.dev/data/enhancements/v2" {
@@ -206,13 +206,16 @@ func checkOpenSpecPages(t *testing.T, m *bundle.Manifest) {
 		p := &m.Pages[i]
 		// A requirements page is built from several delta specs: it has a
 		// lastmod and no single source.
-		single := !strings.HasSuffix(p.Path, "/requirements.md")
+		single := !strings.HasSuffix(p.Path, "/requirements.md") && p.Path != "capabilities/_index.md"
 		if !p.Generated || p.Edit != "" || (single && p.Source == "") || p.Lastmod == "" {
 			t.Errorf("page %+v: a section page is generated, has a source (but a requirements page) and lastmod, and never an edit", p)
 		}
 	}
 	if p := pageEntry(m, "0026/requirements.md"); p.Source != "" {
 		t.Errorf("requirements page %+v has a source", p)
+	}
+	if p := pageEntry(m, "capabilities/single-build-render.md"); p.Source != "openspec/specs/single-build-render/spec.md" {
+		t.Errorf("capability page %+v", p)
 	}
 	if p := pageEntry(m, "0026/design.md"); p.Source != "openspec/changes/0026-module-dictated-catalog-versions/design.md" {
 		t.Errorf("design page %+v", p)

@@ -139,6 +139,9 @@ func Extract(o Options) (*Result, error) {
 	}
 	m := &Model{Schema: SchemaID, Repo: o.Repo, Entries: []Entry{}}
 	x := &extraction{o: o, dir: dir, pages: map[string]target{}}
+	if err := x.readCapabilities(); err != nil {
+		return nil, err
+	}
 	for _, d := range dirs {
 		var e Entry
 		if d.layout == LayoutOpenSpec {
@@ -152,6 +155,9 @@ func Extract(o Options) (*Result, error) {
 		m.Entries = append(m.Entries, e)
 	}
 	if err := x.sectionPages(); err != nil {
+		return nil, err
+	}
+	if err := x.capabilityPages(m); err != nil {
 		return nil, err
 	}
 	for i := range x.out {
@@ -176,6 +182,7 @@ type extraction struct {
 	dir   string            // the entry root, cleaned: "." or "sub"
 	pages map[string]target // a source file, relative to Root -> its page
 	out   []Page
+	caps  []capability // the main specs, in name order
 }
 
 // target is a page a relative link can resolve to.

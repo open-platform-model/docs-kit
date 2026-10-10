@@ -19,8 +19,8 @@ One PR, titled `feat(extract): read OpenSpec-layout enhancement entries`. Run `t
 
 ## 3. Capability pages
 
-- [ ] 3.1 `capabilities/_index.md` and `capabilities/<cap>.md` with the "Entries that changed it" table (design.md, Capability pages). Verify: tests with a seed row, a delivered entry row and a rejected entry that has no row; a build test passes bundle-mode lint.
-- [ ] 3.2 `task check` green, then commit `feat(extract): publish a page for each capability`.
+- [x] 3.1 `capabilities/_index.md` and `capabilities/<cap>.md` with the "Entries that changed it" table (design.md, Capability pages). Verify: tests with a seed row, a delivered entry row and a rejected entry that has no row; a build test passes bundle-mode lint.
+- [x] 3.2 `task check` green, then commit `feat(extract): publish a page for each capability`.
 
 ## 4. The link policy
 

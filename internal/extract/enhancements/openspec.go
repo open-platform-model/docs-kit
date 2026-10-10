@@ -234,7 +234,11 @@ func (x *extraction) specPages(d entryDir, e *Entry) error {
 			x.pages[doc.File] = tgt
 			for _, cs := range caps {
 				x.pages[cs.file] = tgt
-				pg.Parts = append(pg.Parts, Part{Heading: "## " + cs.name, Source: cs.file, Body: cs.text, Demote: true})
+				part := Part{Heading: "## " + cs.name, Source: cs.file, Body: cs.text, Demote: true}
+				if x.hasCapability(cs.name) {
+					part.Intro = "Capability page: [`" + cs.name + "`](" + capabilityURL(cs.name) + ")."
+				}
+				pg.Parts = append(pg.Parts, part)
 				pg.Inputs = append(pg.Inputs, cs.file)
 			}
 		} else {
@@ -444,4 +448,14 @@ func nonNil(l []string) []string {
 		return []string{}
 	}
 	return l
+}
+
+// hasCapability reports whether the main specs hold the capability.
+func (x *extraction) hasCapability(name string) bool {
+	for i := range x.caps {
+		if x.caps[i].name == name {
+			return true
+		}
+	}
+	return false
 }

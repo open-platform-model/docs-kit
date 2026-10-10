@@ -287,6 +287,8 @@ A render SHALL refuse a module whose own dependencies import two majors of one c
 
 ## registration-acceptance
 
+Capability page: [`registration-acceptance`](/enhancements/capabilities/registration-acceptance/).
+
 ### ADDED Requirements
 
 #### Requirement: A provider may state a compatibility window
@@ -416,6 +418,8 @@ Acceptance SHALL compare the catalog's committed requirements with the platform'
 **Migration**: Read "A contract has one provider per resolution".
 
 ## single-build-render
+
+Capability page: [`single-build-render`](/enhancements/capabilities/single-build-render/).
 
 ### ADDED Requirements
 
