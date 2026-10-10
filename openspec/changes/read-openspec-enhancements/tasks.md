@@ -24,8 +24,8 @@ One PR, titled `feat(extract): read OpenSpec-layout enhancement entries`. Run `t
 
 ## 4. The link policy
 
-- [ ] 4.1 `internal/doctext` `Link` links `enhancement NNNN` and `enhancements NNNN and NNNN`; the `crd` extractor unwraps and its renderer links the same forms. Verify: `go test ./internal/doctext/... ./internal/extract/crd/... ./internal/render/... ./internal/build/...`; existing goldens unchanged.
-- [ ] 4.2 `task check` green, then commit `feat(extract): link enhancement references under the link policy`.
+- [x] 4.1 `internal/doctext` `Link` links `enhancement NNNN` and `enhancements NNNN and NNNN`; the `crd` extractor unwraps and its renderer links the same forms. Verify: `go test ./internal/doctext/... ./internal/extract/crd/... ./internal/render/... ./internal/build/...`; existing goldens unchanged.
+- [x] 4.2 `task check` green, then commit `feat(extract): link enhancement references under the link policy`.
 
 ## 5. Contract and archive
 

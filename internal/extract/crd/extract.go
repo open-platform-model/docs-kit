@@ -645,14 +645,19 @@ func (c *collector) flatten(s string) string {
 // reLinked is a decision citation as the link policy links it.
 var reLinked = regexp.MustCompile(`\[(\d{4}:D[0-9DR:/]*)\]\(/enhancements/\d{4}/decisions/\)`)
 
+// reEnhLinked is an enhancement reference as the link policy links it:
+// "enhancement 0013", or one id of "enhancements 0013 and 0014".
+var reEnhLinked = regexp.MustCompile(`\[((?:[Ee]nhancement\s+)?\d{4})\]\(/enhancements/\d{4}/\)`)
+
 // cleanParagraphs cleans prose under the policy and keeps it plain: under
-// "link" a decision citation stays as written (the renderer links it, from
-// the citation alone), every other citation form is removed.
+// "link" a decision citation and an enhancement reference stay as written
+// (the renderer links them, from the text alone), every other citation
+// form is removed.
 func cleanParagraphs(doc doctext.Policy, paras []string) []string {
 	out := doc.CleanParagraphs(paras)
 	if doc == doctext.Link {
 		for i := range out {
-			out[i] = reLinked.ReplaceAllString(out[i], "$1")
+			out[i] = reEnhLinked.ReplaceAllString(reLinked.ReplaceAllString(out[i], "$1"), "$1")
 		}
 	}
 	return out

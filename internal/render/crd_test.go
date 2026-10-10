@@ -225,3 +225,27 @@ func TestCRDCompleteRefusesAnyKindHeading(t *testing.T) {
 		t.Errorf("err %v", err)
 	}
 }
+
+// Under the link policy the extractor keeps "enhancement NNNN" plain and
+// the renderer links it; a link written in a description stays text, and a
+// reference that is a citation or an experiment pointer is not linked.
+func TestCRDEnhancementReferenceLinks(t *testing.T) {
+	desc := "Widget is a widget. Owned by enhancements 0013 and 0014, after enhancement 0021 and [x](/enhancements/0099/). " +
+		"Measured in enhancement 0010 experiment 3, per enhancement 0015:D3."
+	body := renderProbe(t, probeTree(t, desc, "a: b\n"))
+	for _, want := range []string{
+		"enhancements [0013](/enhancements/0013/) and [0014](/enhancements/0014/)",
+		"[enhancement 0021](/enhancements/0021/)",
+		"[0015:D3](/enhancements/0015/decisions/)",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the page lacks %q:\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, "(/enhancements/0099/)") && regexp.MustCompile(`(^|[^\\])\]\(/enhancements/0099/`).MatchString(body) {
+		t.Errorf("a description forged a link:\n%s", body)
+	}
+	if strings.Contains(body, "enhancement 0010") {
+		t.Errorf("an experiment pointer is left:\n%s", body)
+	}
+}

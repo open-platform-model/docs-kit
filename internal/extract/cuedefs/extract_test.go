@@ -372,3 +372,13 @@ func TestShapeCodeSpan(t *testing.T) {
 		t.Errorf("shape %q, want %q", d.Shape, want)
 	}
 }
+
+func TestLinkPolicyEnhancementReference(t *testing.T) {
+	raw := []string{"The unit an author publishes, see enhancement 0013."}
+	if got := parseDoc("#Module", raw, doctext.Link).summary; got != "The unit an author publishes, see [enhancement 0013](/enhancements/0013/)." {
+		t.Errorf("link summary %q", got)
+	}
+	if got := parseDoc("#Module", raw, doctext.Strip).summary; got != "The unit an author publishes, see enhancement 0013." {
+		t.Errorf("strip summary %q", got)
+	}
+}

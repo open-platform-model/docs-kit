@@ -374,3 +374,13 @@ func TestIgnoredKeys(t *testing.T) {
 		t.Errorf("rules %+v", k.Rules)
 	}
 }
+
+// Under the link policy the model keeps an enhancement reference as plain
+// text, as it keeps a decision citation; the renderer links both.
+func TestEnhancementReferencesStayPlain(t *testing.T) {
+	got := cleanParagraphs(doctext.Link, []string{"Owned by enhancements 0013 and 0014, see enhancement 0021 (0010:D4)."})
+	want := "Owned by enhancements 0013 and 0014, see enhancement 0021 (0010:D4)."
+	if len(got) != 1 || got[0] != want {
+		t.Errorf("cleanParagraphs = %q, want %q", got, want)
+	}
+}
