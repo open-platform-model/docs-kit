@@ -1,0 +1,14 @@
+id: "0040"
+slug: fixture-delivered
+title: Fixture Delivered
+summary: >-
+  Fixture Delivered, a fixture
+  entry.
+status: delivered
+category: runtime
+breaking: false
+affects:
+  - cli
+authors:
+  - someone@example.com
+created: "2026-09-20"

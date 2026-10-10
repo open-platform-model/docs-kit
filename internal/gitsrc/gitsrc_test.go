@@ -140,3 +140,29 @@ func TestHasFile(t *testing.T) {
 		t.Error("a path relative to a subdirectory Dir was found")
 	}
 }
+
+func TestShallow(t *testing.T) {
+	ctx := context.Background()
+	r := newRepo(t)
+	if r.Shallow(ctx) {
+		t.Error("a full repository is shallow")
+	}
+	if err := os.WriteFile(filepath.Join(r.Dir, "b.md"), []byte("b"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"add", "b.md"}, {"commit", "-q", "-m", "two"}} {
+		if out, err := exec.CommandContext(ctx, "git", append([]string{"-C", r.Dir}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	clone := filepath.Join(t.TempDir(), "clone")
+	if out, err := exec.CommandContext(ctx, "git", "clone", "-q", "--depth", "1", "file://"+r.Dir, clone).CombinedOutput(); err != nil {
+		t.Fatalf("git clone: %v\n%s", err, out)
+	}
+	if !(Repo{Dir: clone}).Shallow(ctx) {
+		t.Error("a depth-1 clone is not shallow")
+	}
+	if (Repo{Dir: t.TempDir()}).Shallow(ctx) {
+		t.Error("a directory that is no repository is shallow")
+	}
+}

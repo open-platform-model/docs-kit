@@ -155,6 +155,14 @@ func (r Repo) LastMod(ctx context.Context, commit, path string) string {
 	return t.UTC().Format(time.RFC3339)
 }
 
+// Shallow reports whether the repository is a shallow clone, whose history
+// stops at a boundary commit: a date taken from it is not the date of the
+// last change.
+func (r Repo) Shallow(ctx context.Context) bool {
+	out, err := r.git(ctx, "rev-parse", "--is-shallow-repository")
+	return err == nil && out == "true"
+}
+
 // HasFile reports whether path, relative to the repository root, is a regular file
 // (executable or not) in rev's tree; a directory, a symlink, a submodule
 // or a path rev does not have is not.

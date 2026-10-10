@@ -10,22 +10,22 @@ One PR, titled `feat(extract): read OpenSpec-layout enhancement entries`. Run `t
 
 ## 2. The openspec reader and data schema v2
 
-- [ ] 2.1 `model.go`: schema `v2`, `layout`, the two entry shapes, encode and decode (design.md, Data schema v2). Verify: the legacy golden gains `layout` and the new schema id only.
-- [ ] 2.2 `internal/gitsrc`: `Shallow`. `internal/build/enhancements.go` passes `LastMod` as `Options.LastCommit`. Verify: a `gitsrc` test on a shallow clone and a full one.
-- [ ] 2.3 The openspec reader: entry discovery, `config.yaml` checks, pages (`_index`, `proposal`, `design`, `requirements`, `tasks`), `progress`, `capabilities`, `aliases`, `updated` (design.md, Pages of an openspec entry, Redirects, `updated` from git). Verify: tests on the worked example's entry (golden data file and pages), each refusal in the spec, and `updated` on a real git repository.
-- [ ] 2.4 A build test of the mixed fixture: manifest pages, sources, lastmod, and bundle-mode lint pass. Verify: `go test ./internal/build/...`.
-- [ ] 2.5 `task check` green, then commit `feat(extract): read OpenSpec-layout enhancement entries`.
+- [x] 2.1 `model.go`: schema `v2`, `layout`, the two entry shapes, encode and decode (design.md, Data schema v2). Verify: the legacy golden gains `layout` and the new schema id only.
+- [x] 2.2 `internal/gitsrc`: `Shallow`. `internal/build/enhancements.go` passes `LastMod` as `Options.LastCommit`. Verify: a `gitsrc` test on a shallow clone and a full one.
+- [x] 2.3 The openspec reader: entry discovery, `config.yaml` checks, pages (`_index`, `proposal`, `design`, `requirements`, `tasks`), `progress`, `capabilities`, `aliases`, `updated` (design.md, Pages of an openspec entry, Redirects, `updated` from git). Verify: tests on the worked example's entry (golden data file and pages), each refusal in the spec, and `updated` on a real git repository.
+- [x] 2.4 `internal/dialect/links.go` `reEnhOK` admits `proposal`, `requirements`, `tasks` and `capabilities/<cap>/`, and its message names the capability form (the entry pages link the new slugs, so the dialect moves with the reader). Verify: `go test ./internal/dialect/...` with a new conformance case of accepted and refused forms.
+- [x] 2.5 A build test of the mixed fixture: manifest pages, sources, lastmod, and bundle-mode lint pass. Verify: `go test ./internal/build/...`.
+- [x] 2.6 `task check` green, then commit `feat(extract): read OpenSpec-layout enhancement entries`.
 
 ## 3. Capability pages
 
 - [ ] 3.1 `capabilities/_index.md` and `capabilities/<cap>.md` with the "Entries that changed it" table (design.md, Capability pages). Verify: tests with a seed row, a delivered entry row and a rejected entry that has no row; a build test passes bundle-mode lint.
 - [ ] 3.2 `task check` green, then commit `feat(extract): publish a page for each capability`.
 
-## 4. Dialect links and the link policy
+## 4. The link policy
 
-- [ ] 4.1 `internal/dialect/links.go` `reEnhOK` and its message; section links to capability pages must name a page. Verify: `go test ./internal/dialect/...` with accept and refuse cases.
-- [ ] 4.2 `internal/doctext` `Link` links `enhancement NNNN` and `enhancements NNNN and NNNN`; the `crd` extractor unwraps and its renderer links the same forms. Verify: `go test ./internal/doctext/... ./internal/extract/crd/... ./internal/render/... ./internal/build/...`; existing goldens unchanged.
-- [ ] 4.3 `task check` green, then commit `feat(lint): link enhancement references and admit the new enhancement pages`.
+- [ ] 4.1 `internal/doctext` `Link` links `enhancement NNNN` and `enhancements NNNN and NNNN`; the `crd` extractor unwraps and its renderer links the same forms. Verify: `go test ./internal/doctext/... ./internal/extract/crd/... ./internal/render/... ./internal/build/...`; existing goldens unchanged.
+- [ ] 4.2 `task check` green, then commit `feat(extract): link enhancement references under the link policy`.
 
 ## 5. Contract and archive
 

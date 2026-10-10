@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/open-platform-model/docs-kit/internal/bundle"
+	"github.com/open-platform-model/docs-kit/internal/extract/enhancements"
 	"github.com/open-platform-model/docs-kit/internal/gittest"
 )
 
@@ -59,17 +60,13 @@ func builtEnhancements(t *testing.T, r *gittest.Repo) (string, *bundle.Manifest)
 func TestEnhancementsSectionBuild(t *testing.T) {
 	r := enhancementsRepo(t)
 	dir, m := builtEnhancements(t, r)
-	if m.Version != "edge" || m.Placement.Kind != "section" || m.Placement.Root != "/enhancements/" || len(m.Pages) != 18 {
+	if m.Version != "edge" || m.Placement.Kind != "section" || m.Placement.Root != "/enhancements/" || len(m.Pages) != 35 {
 		t.Fatalf("manifest %s %+v, %d pages", m.Version, m.Placement, len(m.Pages))
 	}
-	if len(m.Data) != 1 || m.Data[0].Path != "enhancements.json" || m.Data[0].Schema != "docs.opmodel.dev/data/enhancements/v1" {
+	if len(m.Data) != 1 || m.Data[0].Path != "enhancements.json" || m.Data[0].Schema != "docs.opmodel.dev/data/enhancements/v2" {
 		t.Fatalf("data %+v", m.Data)
 	}
-	for _, p := range m.Pages {
-		if !p.Generated || p.Edit != "" || p.Source == "" || p.Lastmod == "" {
-			t.Errorf("page %+v: a section page is generated, has a source and lastmod, and never an edit", p)
-		}
-	}
+	checkOpenSpecPages(t, m)
 	if p := pageEntry(m, "0003/decisions.md"); p.Source != "archive/0003/03-decisions.md" {
 		t.Errorf("archived document %+v", p)
 	}
@@ -160,5 +157,64 @@ func TestEnhancementsSectionSkippedInARelease(t *testing.T) {
 	res, err := Run(context.Background(), Options{Source: r.Dir, Out: out, Tool: "0.5.0", Release: "v1.0.1"})
 	if err != nil || len(res) != 1 || res[0].Project != "guide" {
 		t.Fatalf("results %+v: %v", res, err)
+	}
+}
+
+// The updated date of an openspec entry is the date of the last commit
+// that touched its folder.
+func TestEnhancementsUpdatedFromGit(t *testing.T) {
+	r := enhancementsRepo(t)
+	r.Write(map[string]string{"openspec/changes/0042-fixture-no-specs/design.md": "# Design\n\nChanged.\n"})
+	r.Git("add", "-A")
+	r.GitAt("2026-11-02T22:30:00-05:00", "commit", "-q", "-m", "change 0042")
+	dir, _ := builtEnhancements(t, r)
+	data, err := os.ReadFile(filepath.Join(dir, "data", "enhancements.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := enhancements.Decode(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, e := range m.Entries {
+		got[e.ID] = e.Updated
+	}
+	if got["0042"] != "2026-11-03" || got["0026"] != "2026-09-30" || got["0003"] != "2026-06-01" {
+		t.Errorf("updated dates %v: want 0042 on the UTC day of its commit, 0026 on the first commit, 0003 as stored", got)
+	}
+}
+
+// A shallow clone does not hold the history an entry's date needs.
+func TestEnhancementsShallowCloneRefused(t *testing.T) {
+	r := enhancementsRepo(t)
+	r.Write(map[string]string{"openspec/changes/0042-fixture-no-specs/design.md": "# Design\n\nChanged.\n"})
+	r.Git("add", "-A")
+	r.Git("commit", "-q", "-m", "change 0042")
+	shallow := gittest.New(t, "https://github.com/open-platform-model/enhancements.git")
+	shallow.Git("fetch", "-q", "--depth", "1", "file://"+r.Dir, "main")
+	shallow.Git("checkout", "-q", "FETCH_HEAD")
+	_, err := buildEnhancements(t, shallow, "")
+	if err == nil || !strings.Contains(err.Error(), "is a shallow clone") || !strings.Contains(err.Error(), "fetch-depth: 0") {
+		t.Fatalf("err = %v, want the shallow clone named with its fix", err)
+	}
+}
+
+func checkOpenSpecPages(t *testing.T, m *bundle.Manifest) {
+	t.Helper()
+	for i := range m.Pages {
+		p := &m.Pages[i]
+		// A requirements page is built from several delta specs: it has a
+		// lastmod and no single source.
+		single := !strings.HasSuffix(p.Path, "/requirements.md")
+		if !p.Generated || p.Edit != "" || (single && p.Source == "") || p.Lastmod == "" {
+			t.Errorf("page %+v: a section page is generated, has a source (but a requirements page) and lastmod, and never an edit", p)
+		}
+	}
+	if p := pageEntry(m, "0026/requirements.md"); p.Source != "" {
+		t.Errorf("requirements page %+v has a source", p)
+	}
+	if p := pageEntry(m, "0026/design.md"); p.Source != "openspec/changes/0026-module-dictated-catalog-versions/design.md" {
+		t.Errorf("design page %+v", p)
 	}
 }

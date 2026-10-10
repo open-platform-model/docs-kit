@@ -34,6 +34,11 @@ type Options struct {
 	// specs and the old-layout entries, relative to Dir. An empty value is
 	// the default of the source config.
 	Changes, Specs, Legacy string
+	// LastCommit is the RFC 3339 date of the last commit, at or before the
+	// commit built, that touched path (relative to Root); "" when none
+	// did. An error stops the build. The date of an openspec entry's
+	// `updated` comes from it; without it an entry takes its created date.
+	LastCommit func(path string) (string, error)
 }
 
 // The source config's defaults for Options.Changes, Specs and Legacy.
@@ -61,6 +66,21 @@ type Page struct {
 	Weight      int    // 0 for none
 	Body        string
 	Source      string // the repository file it came from, "0025/01-problem.md"
+	// Parts, when set, are the page's body in place of Body: each part is
+	// cleaned as the file Source it came from, so its relative links
+	// resolve there. The page then has no single Source.
+	Parts []Part
+	// Inputs lists every repository file a page of Parts was built from.
+	Inputs []string
+}
+
+// Part is one source file's text inside a page, under its own heading.
+type Part struct {
+	Heading string // "## single-build-render", "" for none
+	Intro   string // generated text between the heading and the body
+	Source  string // the repository file
+	Body    string // the file's text
+	Demote  bool   // the file's headings go one level down
 }
 
 // Result is the data file's model and the section's pages, in path order.
@@ -95,9 +115,15 @@ type config struct {
 	SupersededBy *string  `json:"superseded_by"`
 }
 
-// entryDir is one entry's directory: its id and its path relative to Root.
+// entryDir is one entry's directory: its id, its path relative to Root and
+// its layout. An openspec change also has the slug and, once archived, the
+// date of its folder name.
 type entryDir struct {
-	id, dir string
+	id, dir  string
+	layout   string
+	archived bool
+	slug     string
+	date     string
 }
 
 // Extract reads every entry under the entry root and returns the data
@@ -107,14 +133,19 @@ func Extract(o Options) (*Result, error) {
 	if err := checkDir(o.Root, dir, "enhancements dir "+dir); err != nil {
 		return nil, err
 	}
-	dirs, err := entryDirs(o.Root, dir, dirOr(o.Legacy, defaultLegacy))
+	dirs, err := allEntryDirs(o, dir)
 	if err != nil {
 		return nil, err
 	}
 	m := &Model{Schema: SchemaID, Repo: o.Repo, Entries: []Entry{}}
 	x := &extraction{o: o, dir: dir, pages: map[string]target{}}
 	for _, d := range dirs {
-		e, err := x.entry(d)
+		var e Entry
+		if d.layout == LayoutOpenSpec {
+			e, err = x.specEntry(d)
+		} else {
+			e, err = x.entry(d)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -125,7 +156,12 @@ func Extract(o Options) (*Result, error) {
 	}
 	for i := range x.out {
 		p := &x.out[i]
-		if p.Body, err = x.clean(p.Source, p.Body); err != nil {
+		if len(p.Parts) > 0 {
+			p.Body, err = x.assemble(p.Parts)
+		} else {
+			p.Body, err = x.clean(p.Source, p.Body)
+		}
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -150,6 +186,30 @@ type target struct {
 
 // rel is p (relative to the entry root) relative to Root.
 func (x *extraction) rel(p string) string { return path.Join(x.dir, p) }
+
+// allEntryDirs lists the entries of both layouts by id, and refuses an id
+// that is found twice.
+func allEntryDirs(o Options, dir string) ([]entryDir, error) {
+	legacy, err := entryDirs(o.Root, dir, dirOr(o.Legacy, defaultLegacy))
+	if err != nil {
+		return nil, err
+	}
+	spec, err := openspecDirs(o.Root, dir, dirOr(o.Changes, defaultChanges))
+	if err != nil {
+		return nil, err
+	}
+	all := make([]entryDir, 0, len(legacy)+len(spec))
+	all = append(append(all, legacy...), spec...)
+	seen := map[string]string{}
+	for _, d := range all {
+		if prev, dup := seen[d.id]; dup {
+			return nil, fmt.Errorf("entry %s is both %s/ and %s/; an entry lives in one place", d.id, prev, d.dir)
+		}
+		seen[d.id] = d.dir
+	}
+	sort.Slice(all, func(i, j int) bool { return all[i].id < all[j].id })
+	return all, nil
+}
 
 // entryDirs lists the old-layout entry directories, <legacy>/NNNN/, by id.
 // A directory NNNN/ at the entry root is a live old-layout entry, which
@@ -186,7 +246,7 @@ func entryDirs(root, dir, legacy string) ([]entryDir, error) {
 		if err := checkDir(root, d, "entry "+d); err != nil {
 			return nil, err
 		}
-		out = append(out, entryDir{id: e.Name(), dir: d})
+		out = append(out, entryDir{id: e.Name(), dir: d, layout: LayoutLegacy, archived: true})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].id < out[j].id })
 	return out, nil
@@ -244,15 +304,14 @@ func (x *extraction) entry(d entryDir) (Entry, error) {
 	if err != nil {
 		return Entry{}, fmt.Errorf("entry %s: %w", d.id, err)
 	}
-	id, _ := strconv.Atoi(d.id)
 	e := Entry{
 		ID: d.id, Slug: c.Slug, Title: c.Title, Summary: c.Summary, Status: c.Status, Category: c.Category,
-		Affects: c.Affects, Created: c.Created, Updated: c.Updated, Archived: true,
+		Affects: c.Affects, Created: c.Created, Updated: c.Updated, Archived: true, Layout: LayoutLegacy,
 		DependsOn: c.DependsOn, Amends: c.Amends, Supersedes: c.Supersedes, Revives: c.Revives, SupersededBy: c.SupersededBy,
 		Page: d.id, Documents: []Document{},
 	}
 	x.pages[readme] = target{url: "/enhancements/" + d.id + "/", title: d.id + ": " + c.Title}
-	x.out = append(x.out, Page{Path: d.id + "/_index.md", Title: d.id + ": " + c.Title, Description: c.Summary, Weight: id + 1, Body: body, Source: readme})
+	x.out = append(x.out, Page{Path: d.id + "/_index.md", Title: d.id + ": " + c.Title, Description: c.Summary, Weight: atoi(d.id) + 1, Body: body, Source: readme})
 	files, err := docFiles(x.o.Root, d)
 	if err != nil {
 		return Entry{}, err
@@ -305,24 +364,33 @@ func docFiles(root string, d entryDir) ([]string, error) {
 	return out, nil
 }
 
-// readConfig reads and checks an entry's config.yaml.
-func readConfig(root string, d entryDir) (*config, error) {
+// decodeConfig reads an entry's config.yaml into into, and returns its path.
+func decodeConfig(root string, d entryDir, into any) (string, error) {
 	file := path.Join(d.dir, "config.yaml")
 	raw, err := readFile(root, file)
 	if err != nil {
-		return nil, fmt.Errorf("entry %s: %w", d.id, err)
+		return file, fmt.Errorf("entry %s: %w", d.id, err)
 	}
 	f, err := cueyaml.Extract(file, []byte(raw))
 	if err != nil {
-		return nil, fmt.Errorf("entry %s: %w", d.id, err)
+		return file, fmt.Errorf("entry %s: %w", d.id, err)
 	}
 	v := cuecontext.New().BuildFile(f)
 	if err := v.Err(); err != nil {
-		return nil, fmt.Errorf("entry %s: %s: %w", d.id, file, err)
+		return file, fmt.Errorf("entry %s: %s: %w", d.id, file, err)
 	}
+	if err := v.Decode(into); err != nil {
+		return file, fmt.Errorf("entry %s: %s: %w", d.id, file, err)
+	}
+	return file, nil
+}
+
+// readConfig reads and checks an old-layout entry's config.yaml.
+func readConfig(root string, d entryDir) (*config, error) {
 	var c config
-	if err := v.Decode(&c); err != nil {
-		return nil, fmt.Errorf("entry %s: %s: %w", d.id, file, err)
+	file, err := decodeConfig(root, d, &c)
+	if err != nil {
+		return nil, err
 	}
 	if c.ID != d.id {
 		return nil, fmt.Errorf("entry %s: %s says id %q; an entry's id is its directory's name", d.id, file, c.ID)
@@ -398,4 +466,10 @@ func (x *extraction) sectionPages() error {
 		x.out = append(x.out, p.page)
 	}
 	return nil
+}
+
+// atoi is the number of a four-digit id.
+func atoi(id string) int {
+	n, _ := strconv.Atoi(id)
+	return n
 }
