@@ -473,9 +473,13 @@ package schema
 // The enhancements repository's entries, INDEX.md and GRAPH.md, as the
 // /enhancements/ section (docs-kit C21); a section bundle only. Its text is
 // authored, so it takes no citations policy: citations stay as written.
+// changes, specs and legacy are relative to dir.
 #Enhancements: {
 	kind:        "enhancements"
 	dir:         *"." | =~"^[^/.][^.]*$" // the entry root, repo-relative
+	changes:     *"openspec/changes" | =~"^[^/.][^.]*$" // OpenSpec changes: <id>-<slug>/ and archive/<date>-<id>-<slug>/
+	specs:       *"openspec/specs" | =~"^[^/.][^.]*$"   // the capability specs: <capability>/spec.md
+	legacy:      *"archive" | =~"^[^/.][^.]*$"          // old-layout entries: NNNN/
 	title:       *"Enhancements" | string & !="" // the section page's title
 	description: string & !=""                   // the section page's description
 }
@@ -493,7 +497,7 @@ package schema
 | `cobra` | `data/cobra.json` (C19) | `command`, `section`, `title`, `description`, `weight`, `citations` |
 | `crd` | `data/crd.json` (C18) and one completable page, or a completable section index and one page per kind; a docs bundle only | `dir`, `samples`, `hideSamplesMatching`, `stripLabels`, `page` or `section`, `title`, `description`, `weight`, `order`, `reconciledBy`, `citations` |
 | `go-api` | `data/go-api.json` (C20); a docs bundle only | `module`, `root`, `packages`, `section`, `title`, `description`, `weight`, `citations` |
-| `enhancements` | `data/enhancements.json` (C21) and the section's pages, which it builds itself; a section bundle only, and the only source there | `dir`, `title`, `description` (no `citations`: its text is authored) |
+| `enhancements` | `data/enhancements.json` (C21) and the section's pages, which it builds itself; a section bundle only, and the only source there | `dir`, `changes`, `specs`, `legacy`, `title`, `description` (no `citations`: its text is authored) |
 
 **Adding an extractor** (one OpenSpec change per kind): an `Extractor` in `internal/build` (`Kind`, `Extract(ctx, Input) (Data, error)`), registered in its `extractors` table; a `Renderer` in `internal/render` (`Schema`, `Render(data, Target) ([]Page, error)`), registered by its data schema; its kind added to `#Source` with `citations?: #Citations` and its own options; its data file documented as a contract of its own. A renderer page may set `Completable` with its `Heading`, further `Headings` and `Tail` (C15). An extractor's `Data.Inputs` lists, per page, every file a page was built from; a standalone page's `lastmod` is then the newest of them.
 
@@ -1544,9 +1548,13 @@ A **section** is one bundle outside every site version and outside the version s
 **The source.** `#Enhancements` (C6):
 
 ```cue
+// changes, specs and legacy are relative to dir.
 #Enhancements: {
 	kind:        "enhancements"
 	dir:         *"." | =~"^[^/.][^.]*$" // the entry root, repo-relative
+	changes:     *"openspec/changes" | =~"^[^/.][^.]*$" // OpenSpec changes: <id>-<slug>/ and archive/<date>-<id>-<slug>/
+	specs:       *"openspec/specs" | =~"^[^/.][^.]*$"   // the capability specs: <capability>/spec.md
+	legacy:      *"archive" | =~"^[^/.][^.]*$"          // old-layout entries: NNNN/
 	title:       *"Enhancements" | string & !="" // the section page's title
 	description: string & !=""                   // the section page's description
 }
@@ -1561,7 +1569,9 @@ bundles: enhancements: {
 }
 ```
 
-It reads, under `dir`, every entry directory `NNNN/` and `archive/NNNN/` except `0000` (the template), plus `INDEX.md` and `GRAPH.md`. Each entry needs a `config.yaml` whose `id` equals its directory's name, a `README.md`, and exactly one `0<n>-*.md` for each `n` from 1 to 7 (no `08-*.md` or `09-*.md`). Every file read is a regular file (a symlink, file or directory, is refused), and an id both live and archived is refused. Each fault exits `2` naming the entry and the files. `config.yaml` is read as YAML; `title` and `summary` must be non-empty (whitespace collapsed), `created` and `updated` dates (`YYYY-MM-DD`), `slug`, `status`, `category` and each `affects` lower-case words, `depends_on` and `amends` four-digit ids, `supersedes`, `revives` and `superseded_by` four-digit ids or `legacy:NNN`.
+It reads two layouts under `dir`, plus `INDEX.md` and `GRAPH.md`. The **legacy reader** reads the old-layout entries `<legacy>/NNNN/` (`archive/NNNN/` by default) and nothing else: a directory `NNNN/` at the entry root is a live old-layout entry, which it refuses ("entry NNNN is a live old-layout folder; convert it ... or move it under archive/"). Each such entry needs a `config.yaml` whose `id` equals its directory's name, a `README.md`, and exactly one `0<n>-*.md` for each `n` from 1 to 7 (no `08-*.md` or `09-*.md`). The **openspec reader** reads the OpenSpec changes `<changes>/<id>-<slug>/` and `<changes>/archive/<date>-<id>-<slug>/` (`openspec/changes` by default) as entries, skips every `seed-<capability>` change, and refuses a folder named any other way. Each such entry needs a `config.yaml` whose `id` and `slug` equal the folder's, a generated `README.md`, `proposal.md` and `design.md`; `tasks.md` and `specs/<capability>/spec.md` are read when present. `<specs>/<capability>/spec.md` (`openspec/specs` by default) are the main capability specs. Every file read is a regular file (a symlink, file or directory, is refused), an id found twice, in either reader or both, is refused, and a missing `changes`, `specs` or `legacy` directory holds nothing. Each fault exits `2` naming the entry and the files. `config.yaml` is read as YAML; `title` and `summary` must be non-empty (whitespace collapsed), `created` a date (`YYYY-MM-DD`; an old-layout entry also `updated`), `slug`, `status`, `category` and each `affects` lower-case words. An old-layout `depends_on` and `amends` are four-digit ids, `supersedes`, `revives` and `superseded_by` four-digit ids or `legacy:NNN`. An openspec `after` and `superseded_by.ids` are four-digit ids, `accepted` reads `"<YYYY-MM-DD> <commit>"`, and `breaking` is a boolean or unset; a stored `updated` is ignored.
+
+**The `updated` date of an openspec entry** is the UTC date of the last commit, at or before the commit built, that touched the entry's folder (`git log -1` on the folder, as `lastmod` reads a page's file); an entry no commit touched (an uncommitted entry in a local preview) takes `created`. The build refuses a shallow clone when an openspec entry exists: "... is a shallow clone, so the date ... is unknown; check out the full history (actions/checkout with fetch-depth: 0)". What the docs build must provide is the full history of the commit built; `publish.yml` checks out with `fetch-depth: 0` already. An archive move or a regenerated `README.md` that changes a file is a commit that touched the folder.
 
 **Pages**, each recorded `generated: true` with `source` (its file) and `lastmod` (that file's git date):
 
@@ -1571,8 +1581,14 @@ It reads, under `dir`, every entry directory `NNNN/` and `archive/NNNN/` except 
 | `graph.md` | `GRAPH.md` | `title: "Relationship graph"`, `description: "How the enhancements depend on and amend one another, by category."`, `type: explanation`, `weight: 1` |
 | `<NNNN>/_index.md` | the entry's `README.md` | `title: "<NNNN>: <config title>"`, `description` the config `summary`, `weight` the id plus 1 |
 | `<NNNN>/<slug>.md` | the entry's `0<n>-*.md` | `title: "<NNNN>: <document title>"`, `description` the document's, `type: explanation`, `weight` `n` |
+| `<NNNN>/_index.md` | an openspec entry's `README.md` | as above |
+| `<NNNN>/proposal.md`, `design.md`, `requirements.md`, `tasks.md` | an openspec entry's `proposal.md`, `design.md`, the delta specs `specs/<capability>/spec.md`, `tasks.md` (the last two when present) | `title: "<NNNN>: Proposal"` (`Design`, `Requirements`, `Tasks`), `description` "What changes, and why." / "How it works, and why this way." / "Exactly what must hold, by capability." / "Which repository still has work.", `type: explanation`, `weight` 1 to 4 |
+| `capabilities/_index.md` | the main specs | `title: "Capabilities"`, a description, no `type` |
+| `capabilities/<capability>.md` | `<specs>/<capability>/spec.md` | `title` the name as words ("Single build render"), `description` the first sentence of its Purpose, `type: explanation` |
 
 An archived entry keeps its URL: `archive/0003/` publishes at `/enhancements/0003/`. The seven documents, by `n`: `problem` "Problem statement" ("What is wrong today, and for whom."), `design` "Design" ("How the proposal works."), `decisions` "Decisions" ("Each decision, numbered, with its rationale."), `graduation` "Graduation criteria" ("What has to be true before the design moves on."), `risks` "Risks and alternatives" ("What could go wrong, and what was weighed instead."), `operational` "Operational concerns" ("What it means for running and upgrading OPM."), `questions` "Open questions" ("What is still undecided."). The source builds these pages itself from the repository's text; no renderer reads `data/enhancements.json` for them (C6: the extractor's `Data.Pages`).
+
+**An openspec entry's pages.** `requirements.md` holds one `## <capability>` block for each delta spec in name order: the delta text cleaned like any page, its leading `# ` heading removed and every heading one level down (`## ADDED Requirements` becomes `###`; a level-6 heading is refused), under a line linking the capability's page when `<specs>` holds that capability. It has no `source` in `manifest.json`; its `lastmod` is the newest of the delta files. `evidence/` is no page: a link to it resolves to GitHub at the commit built. A link to `specs/` of the entry or to one of its delta files resolves to the requirements page, a link to `<specs>` or a main spec to the capabilities pages. A capability page ends with `## Entries that changed it`: a row (entry, archive date) for each archived change whose `specs/` holds that capability, the entry linked to `/enhancements/<NNNN>/` only when its status is `delivered` (the deltas of a rejected, withdrawn or superseded entry never reached the main spec), and `seed` for a `seed-` change; rows run by date, then id. The page dialect (C11) admits `/enhancements/<NNNN>/proposal/`, `requirements/` and `tasks/`, `/enhancements/capabilities/` and `/enhancements/capabilities/<capability>/` beside the seven old slugs.
 
 **Transforms**, applied to each file in order (each refusal exits `2` naming the file and line):
 
@@ -1594,26 +1610,38 @@ Every page of a section bundle and every page `manifest.json` marks `generated: 
 
 A goldmark bump follows opmodel.dev's Hugo bump: `mdsafe.HugoVersion` and `mdsafe.GoldmarkVersion` name the pair, a test fails when `go.mod` requires another goldmark, and a CI job renders every review probe with that Hugo and requires the check to refuse whatever it renders as live markup. Anything else the dialect refuses (component tags, images) fails the build's lint too; the enhancements repository fixes it in its sources. The lint is never relaxed for a section: its pages get every rule, comments included.
 
-**`data/enhancements.json`** (`docs.opmodel.dev/data/enhancements/v1`), entries by id; `authors` and `history` are not copied; fields the site needs later are added, never changed:
+**`data/enhancements.json`** (`docs.opmodel.dev/data/enhancements/v2`), entries by id; `authors` and `history` are not copied; fields the site needs later are added, never changed. v2 replaced `docs.opmodel.dev/data/enhancements/v1`: an old-layout entry has every v1 field and gains `layout`; a consumer reads `layout` first.
 
 ```json
 {
-  "schema": "docs.opmodel.dev/data/enhancements/v1",
+  "schema": "docs.opmodel.dev/data/enhancements/v2",
   "repo": "open-platform-model/enhancements",
   "entries": [
     {
-      "id": "0025", "slug": "self-describing-modules", "title": "Self-Describing Modules",
-      "summary": "...", "status": "draft", "category": "schema", "affects": ["core", "library"],
-      "created": "2026-09-08", "updated": "2026-09-29", "archived": false,
-      "dependsOn": ["0010", "0015", "0019"], "amends": [], "supersedes": [], "revives": [], "supersededBy": null,
-      "page": "0025",
-      "documents": [{"slug": "problem", "title": "Problem statement", "page": "0025/problem", "file": "0025/01-problem.md"}]
+      "id": "0003", "layout": "legacy", "slug": "module-publishing-workflow", "title": "...",
+      "summary": "...", "status": "superseded", "category": "distribution", "affects": ["cli"],
+      "created": "2026-05-01", "updated": "2026-06-01", "archived": true,
+      "dependsOn": [], "amends": [], "supersedes": ["legacy:003"], "revives": [], "supersededBy": "0025",
+      "page": "0003",
+      "documents": [{"slug": "problem", "title": "Problem statement", "page": "0003/problem", "file": "archive/0003/01-problem.md"}]
+    },
+    {
+      "id": "0026", "layout": "openspec", "slug": "module-dictated-catalog-versions", "title": "...",
+      "summary": "...", "status": "accepted", "category": "schema", "breaking": true, "affects": ["core", "library"],
+      "created": "2026-09-08", "updated": "2026-10-16", "archived": false,
+      "after": ["0010"], "supersededBy": [],
+      "accepted": {"date": "2026-10-16", "commit": "4be19d0"},
+      "progress": {"done": 0, "total": 5},
+      "capabilities": ["authored-platform", "single-build-render"],
+      "page": "0026",
+      "documents": [{"slug": "proposal", "title": "Proposal", "page": "0026/proposal", "file": "openspec/changes/0026-module-dictated-catalog-versions/proposal.md"}],
+      "aliases": [{"from": "0026/problem", "to": "0026/proposal"}]
     }
   ]
 }
 ```
 
-Every list is present (empty when the config has none); `supersededBy` is a string or `null`; `page` and each document's `page` are paths under the section's root; `file` is repository-relative.
+Every list is present (empty when the config has none). An old-layout entry's `supersededBy` is a string or `null`; an openspec entry's is a list of ids. `page` and each document's `page` are paths under the section's root; `file` is repository-relative, and the `requirements` document's is the entry's `specs` directory. In an openspec entry `breaking` is `true`, `false` or `null` (unset in a draft), `accepted` an object or `null`, `progress` the count of `- [ ]` and `- [x]` lines of `tasks.md` outside code fences (zeros without the file), `capabilities` the directory names under the entry's `specs/`, and `documents` the proposal, design, requirements (with `specs/`) and tasks (with `tasks.md`) pages. `aliases` lists the old page slug of each retired document and the page that replaces it, as page paths: `problem` and `questions` to `proposal`, `risks` and `operational` to `design`, `decisions` to `requirements`, `graduation` to `tasks` (`design` needs none); the target is the entry's own page when the entry lacks it. An old-layout entry has no `aliases`. docs-kit writes data only: a consumer adds Hugo `aliases` to the target page from it. docs-kit cannot know which ids had old pages, so an entry created after the migration carries the aliases too.
 
 **Pull** (C7). `bundles.cue` names each section under `sections`, with the only repository allowed to sign it and its root:
 
@@ -1625,7 +1653,7 @@ sections: enhancements: {repo: "open-platform-model/enhancements", root: "/enhan
 
 **Previews.** A repository with no GitHub origin, outside GitHub Actions, is named `local/<directory>` (`source.repo`), and every source link of its bundle names that made-up repository: `build` warns that the bundle is a preview, and `push` refuses any bundle whose `source.repo` starts with `local/`.
 
-**Consumers.** The enhancements repository (enhancements#86, after the source fixes the spike of `add-enhancements-bundle` lists): `docs-kit.cue` as above, `.opm-docs-version`, and `docs.yml` calling `publish.yml` in `check` mode on pull requests and `edge` mode on push to `main`, never `release` or `revision`. opmodel.dev: bumps its `opm-docs` to a release carrying this contract first (C12), then adds `sections` to `bundles.cue`, builds the Enhancements section from `<out>/enhancements/edge/` (pages from `content/`, header data from `data/enhancements.json`), keeps an adapter only for what Hugo still needs (each page's `url` outside every version, since the dialect allows no `url` key), and copies the conformance fixtures `link-enhancements-graph` and the changed `link-enhancements` (C11).
+**Consumers.** The enhancements repository (enhancements#86, after the source fixes the spike of `add-enhancements-bundle` lists): `docs-kit.cue` as above, `.opm-docs-version`, and `docs.yml` calling `publish.yml` in `check` mode on pull requests and `edge` mode on push to `main`, never `release` or `revision`. opmodel.dev: bumps its `opm-docs` to a release carrying this contract first (C12), accepts data schema v1 and v2 (the OpenSpec layout moved the file to v2) and reads `layout`, `breaking`, `after`, `progress`, the list form of `supersededBy` and `aliases`, then adds `sections` to `bundles.cue`, builds the Enhancements section from `<out>/enhancements/edge/` (pages from `content/`, header data from `data/enhancements.json`), keeps an adapter only for what Hugo still needs (each page's `url` outside every version, since the dialect allows no `url` key), and copies the conformance fixtures `link-enhancements-graph` and the changed `link-enhancements` (C11).
 
 ## Site decisions
 
