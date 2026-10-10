@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/open-platform-model/docs-kit/compare/v0.7.0...v0.7.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* **render:** name the reconciler, not the product, in the crd served-by sentence ([#54](https://github.com/open-platform-model/docs-kit/issues/54)) ([d968e97](https://github.com/open-platform-model/docs-kit/commit/d968e975ad26b9ba2fb15a2c0cdaff31cee2d4c0))
+
 ## [0.7.0](https://github.com/open-platform-model/docs-kit/compare/v0.6.0...v0.7.0) (2026-10-04)
 
 
