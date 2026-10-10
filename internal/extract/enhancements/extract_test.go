@@ -432,29 +432,44 @@ func TestOpenSpecEntryVariants(t *testing.T) {
 	}
 }
 
+// aliasMap is an entry's aliases by old page.
+func aliasMap(t *testing.T, m *Model, id string) map[string]string {
+	t.Helper()
+	out := map[string]string{}
+	for _, a := range entryOf(t, m, id).Aliases {
+		out[a.From] = a.To
+	}
+	return out
+}
+
 // A migrated entry (it holds evidence/migration-map.md) redirects its old
-// page slugs; one without a requirements or tasks page redirects those
-// slugs to its own page. A new entry gets no aliases.
+// page slugs; a new entry and an archived new entry get none.
 func TestOpenSpecAliases(t *testing.T) {
 	res, _ := fixture(t)
 	for _, id := range []string{"0042", "0040", "0041"} {
-		if a := entryOf(t, res.Model, id).Aliases; len(a) != 0 {
+		if a := aliasMap(t, res.Model, id); len(a) != 0 {
 			t.Errorf("%s is a new entry and has aliases %v", id, a)
 		}
 	}
-	full := map[string]string{}
-	for _, a := range entryOf(t, res.Model, "0026").Aliases {
-		full[a.From] = a.To
+	full := aliasMap(t, res.Model, "0026")
+	want := map[string]string{
+		"0026/problem": "0026/proposal", "0026/questions": "0026/proposal",
+		"0026/risks": "0026/design", "0026/operational": "0026/design",
+		"0026/decisions": "0026/requirements", "0026/graduation": "0026/tasks",
 	}
-	if full["0026/decisions"] != "0026/requirements" || full["0026/graduation"] != "0026/tasks" || full["0026/problem"] != "0026/proposal" || full["0026/risks"] != "0026/design" || full["0026/questions"] != "0026/proposal" || full["0026/operational"] != "0026/design" {
-		t.Errorf("0026 aliases %v", full)
+	if len(full) != len(want) {
+		t.Errorf("0026 aliases %v, want %v (design needs none)", full, want)
 	}
-	if _, ok := full["0026/design"]; ok {
-		t.Error("design is a new slug as well: it needs no alias")
+	for from, to := range want {
+		if full[from] != to {
+			t.Errorf("0026 alias %s = %q, want %q", from, full[from], to)
+		}
 	}
+}
 
-	// Marking the entry that has neither a requirements nor a tasks page as
-	// migrated points those slugs at its own page.
+// A migrated entry without a requirements or tasks page redirects those
+// slugs to its own page; a symbolic link is no migration marker.
+func TestOpenSpecAliasesMarker(t *testing.T) {
 	root := copyFixture(t)
 	const c42 = "openspec/changes/0042-fixture-no-specs/"
 	mkdir(t, root, c42+"evidence")
@@ -463,15 +478,11 @@ func TestOpenSpecAliases(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := map[string]string{}
-	for _, a := range entryOf(t, res.Model, "0042").Aliases {
-		got[a.From] = a.To
-	}
+	got := aliasMap(t, res.Model, "0042")
 	if got["0042/decisions"] != "0042" || got["0042/graduation"] != "0042" || got["0042/problem"] != "0042/proposal" {
 		t.Errorf("0042 aliases %v", got)
 	}
 
-	// A symbolic link is no marker.
 	remove(t, root, c42+"evidence/migration-map.md")
 	if err := os.Symlink("../design.md", filepath.Join(root, c42, "evidence", "migration-map.md")); err != nil {
 		t.Fatal(err)
@@ -480,7 +491,7 @@ func TestOpenSpecAliases(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if a := entryOf(t, res.Model, "0042").Aliases; len(a) != 0 {
+	if a := aliasMap(t, res.Model, "0042"); len(a) != 0 {
 		t.Errorf("a symbolic link marked the entry as migrated: %v", a)
 	}
 }
