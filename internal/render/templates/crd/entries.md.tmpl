@@ -59,7 +59,7 @@ The resource definition declares these `kubectl get` columns. A column with a pr
 {{with .ReconciledBy -}}
 {{$.H}} Served by
 
-The operator's {{code .}} controller watches every {{$k.Kind}}.
+The {{code .}} reconciler watches every {{$k.Kind}}.
 {{- end}}
 
 {{with .Rules -}}

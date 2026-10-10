@@ -116,7 +116,7 @@ package schema
 	description: string & !=""
 	weight?:     int & >=1 // its weight among its siblings when no authored page completes it
 	order?: [string & !="", ...string & !=""] // these kinds first, in this order; the rest by name
-	reconciledBy?: [string & !=""]: string & !="" // kind: the controller that reconciles it
+	reconciledBy?: [string & !=""]: string & !="" // kind: the reconciler that watches it
 	citations?: #Citations
 }
 
