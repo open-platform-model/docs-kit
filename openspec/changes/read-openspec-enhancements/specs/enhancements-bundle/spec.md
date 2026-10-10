@@ -99,15 +99,19 @@ When `specs/` holds a capability, the source SHALL publish `capabilities/_index.
 - **THEN** it has no row
 
 ### Requirement: Redirect data maps old page slugs
-Each openspec entry SHALL list `aliases` as `{from, to}` page paths: `problem` and `questions` to `proposal`, `risks` and `operational` to `design`, `decisions` to `requirements`, `graduation` to `tasks`. When the entry lacks the target page, `to` SHALL be the entry's own page. A legacy entry SHALL have none.
+An openspec entry that holds `evidence/migration-map.md` (a migrated entry, one that had old pages) SHALL list `aliases` as `{from, to}` page paths: `problem` and `questions` to `proposal`, `risks` and `operational` to `design`, `decisions` to `requirements`, `graduation` to `tasks`. When the entry lacks the target page, `to` SHALL be the entry's own page. An openspec entry without a regular file `evidence/migration-map.md` (a new entry) SHALL have none, and so SHALL a legacy entry.
 
 #### Scenario: Decisions go to requirements
-- **WHEN** entry 0026 has a requirements page
+- **WHEN** migrated entry 0026 has a requirements page
 - **THEN** its aliases include `{from: "0026/decisions", to: "0026/requirements"}`
 
 #### Scenario: No tasks page
-- **WHEN** entry 0005 has no `tasks.md`
+- **WHEN** migrated entry 0005 has no `tasks.md`
 - **THEN** `{from: "0005/graduation", to: "0005"}` is among its aliases
+
+#### Scenario: A new entry
+- **WHEN** an openspec entry has no `evidence/migration-map.md`, or it is a symbolic link
+- **THEN** its `aliases` is an empty list
 
 ### Requirement: The page dialect admits the new enhancement links
 The dialect SHALL accept `/enhancements/<NNNN>/proposal/`, `requirements/`, `tasks/`, `/enhancements/capabilities/` and `/enhancements/capabilities/<cap>/`, with the old seven slugs, and bundle-mode lint of a section SHALL require each to name a page of the bundle.
@@ -121,7 +125,7 @@ The dialect SHALL accept `/enhancements/<NNNN>/proposal/`, `requirements/`, `tas
 - **THEN** bundle-mode lint reports that no page `capabilities/missing/` exists
 
 ### Requirement: The link policy links enhancement references
-Under the `link` citation policy, prose outside a code span SHALL turn `enhancement NNNN` into a link to `/enhancements/NNNN/` and each id of `enhancements NNNN and NNNN` into one; a `NNNN:Dn` citation SHALL still link to the decisions page. Under `strip`, `enhancement NNNN` SHALL stay as written.
+Under the `link` citation policy, prose outside a code span SHALL turn `enhancement NNNN` into a link to `/enhancements/NNNN/` and each id of `enhancements NNNN and NNNN` into one. A `NNNN:Dn` citation SHALL still link to the decisions page, and `strip` SHALL leave `enhancement NNNN` as written. The `crd` and `go-api` sources SHALL show the same links.
 
 #### Scenario: One enhancement
 - **WHEN** a comment reads `(enhancement 0013)` under `link`
@@ -130,3 +134,7 @@ Under the `link` citation policy, prose outside a code span SHALL turn `enhancem
 #### Scenario: Two enhancements
 - **WHEN** a comment reads `(enhancements 0010 and 0026)` under `link`
 - **THEN** `0010` and `0026` each link to their entry page
+
+#### Scenario: A citation form
+- **WHEN** a comment reads `enhancement 0010:D28` or `enhancement 0010 experiment 3` under `link`
+- **THEN** the decision citation links to the decisions page as before, and the experiment pointer is removed, with no link to `/enhancements/0010/`

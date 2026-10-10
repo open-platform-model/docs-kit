@@ -259,7 +259,16 @@ func (x *extraction) specPages(d entryDir, e *Entry) error {
 	for _, cs := range caps {
 		e.Capabilities = append(e.Capabilities, cs.name)
 	}
-	e.Aliases = aliases(id, have)
+	// Only a migrated entry had old pages to redirect from; a new entry gets
+	// none. docs-kit cannot read that from the id, so the migration marks it
+	// with evidence/migration-map.md.
+	migrated, err := regularFile(x.o.Root, path.Join(d.dir, "evidence", "migration-map.md"))
+	if err != nil {
+		return err
+	}
+	if migrated {
+		e.Aliases = aliases(id, have)
+	}
 	return nil
 }
 
@@ -303,7 +312,8 @@ func (x *extraction) deltaSpecs(d entryDir) ([]deltaSpec, error) {
 }
 
 // aliases lists the old page of each retired slug and the page that
-// replaces it: the entry's own page when the entry has no such page.
+// replaces it: the entry's own page when the entry has no such page. The
+// caller asks for it only for a migrated entry.
 func aliases(id string, have map[string]bool) []Alias {
 	var out []Alias
 	for _, m := range []struct{ from, to string }{
@@ -440,6 +450,19 @@ func exists(root, file string) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// regularFile reports whether file exists and is a regular file; a symbolic
+// link is not one.
+func regularFile(root, file string) (bool, error) {
+	fi, err := os.Lstat(filepath.Join(root, filepath.FromSlash(file)))
+	switch {
+	case os.IsNotExist(err):
+		return false, nil
+	case err != nil:
+		return false, err
+	}
+	return fi.Mode().IsRegular(), nil
 }
 
 // nonNil is l, or an empty list when l is nil, so the JSON holds [].

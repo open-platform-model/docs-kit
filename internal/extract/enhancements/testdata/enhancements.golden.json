@@ -282,32 +282,7 @@
           "file": "openspec/changes/archive/2026-10-21-0040-fixture-delivered/tasks.md"
         }
       ],
-      "aliases": [
-        {
-          "from": "0040/problem",
-          "to": "0040/proposal"
-        },
-        {
-          "from": "0040/decisions",
-          "to": "0040/requirements"
-        },
-        {
-          "from": "0040/graduation",
-          "to": "0040/tasks"
-        },
-        {
-          "from": "0040/risks",
-          "to": "0040/design"
-        },
-        {
-          "from": "0040/operational",
-          "to": "0040/design"
-        },
-        {
-          "from": "0040/questions",
-          "to": "0040/proposal"
-        }
-      ]
+      "aliases": []
     },
     {
       "id": "0041",
@@ -355,32 +330,7 @@
           "file": "openspec/changes/archive/2026-10-22-0041-fixture-rejected/specs"
         }
       ],
-      "aliases": [
-        {
-          "from": "0041/problem",
-          "to": "0041/proposal"
-        },
-        {
-          "from": "0041/decisions",
-          "to": "0041/requirements"
-        },
-        {
-          "from": "0041/graduation",
-          "to": "0041"
-        },
-        {
-          "from": "0041/risks",
-          "to": "0041/design"
-        },
-        {
-          "from": "0041/operational",
-          "to": "0041/design"
-        },
-        {
-          "from": "0041/questions",
-          "to": "0041/proposal"
-        }
-      ]
+      "aliases": []
     },
     {
       "id": "0042",
@@ -420,32 +370,7 @@
           "file": "openspec/changes/0042-fixture-no-specs/design.md"
         }
       ],
-      "aliases": [
-        {
-          "from": "0042/problem",
-          "to": "0042/proposal"
-        },
-        {
-          "from": "0042/decisions",
-          "to": "0042"
-        },
-        {
-          "from": "0042/graduation",
-          "to": "0042"
-        },
-        {
-          "from": "0042/risks",
-          "to": "0042/design"
-        },
-        {
-          "from": "0042/operational",
-          "to": "0042/design"
-        },
-        {
-          "from": "0042/questions",
-          "to": "0042/proposal"
-        }
-      ]
+      "aliases": []
     }
   ]
 }

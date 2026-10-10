@@ -20,6 +20,7 @@ The `enhancements` source (docs/contracts.md C21) reads `NNNN/` and `archive/NNN
 3. Read only `<legacy>/NNNN/` and ignore a live `NNNN/` - an entry vanishes from the site silently.
 **Decision**: option 2. A directory named `NNNN` at the entry root is refused: "entry NNNN/ is a legacy live folder; convert it to openspec/changes/ or move it to archive/".
 **Rationale**: Principle VI prefers refusing to guessing. The enhancements repository keeps its docs-kit pin until the migration merges, so nothing refuses in practice.
+**Consequence for the migration**: the `enhancements` repository adopts a docs-kit release that carries this change only in the migration's last commit, after step M4 has deleted the live `NNNN/` folders and the template folder `0000/`. Until then its pin and its `docs.yml` ref stay on the release that reads the old layout. A migration branch that must build the site before M4 uses the old release, not this one.
 
 ### Source config
 
@@ -89,12 +90,12 @@ The requirements page holds one `## <cap>` heading per capability in name order,
 
 ### Redirects
 
-**Decision**: the map of the design record's N9 (`problem` and `questions` to `proposal`; `design`, `risks` and `operational` to `design`; `decisions` to `requirements`; `graduation` to `tasks`), as `aliases` `{from, to}` page paths, skipping `design` to `design`. When an entry has no `requirements` or `tasks` page, the alias points at the entry's own page. The ten legacy entries have none. docs-kit writes data only; the site's adapter adds Hugo `aliases` from it (Hugo `aliases` through `AddPage` is not verified).
-**Trade-off**: docs-kit cannot know which ids had old pages, so an entry created after the migration also carries these aliases, and the site writes five redirect stubs for URLs that never existed.
+**Decision**: the map of the design record's N9 (`problem` and `questions` to `proposal`; `design`, `risks` and `operational` to `design`; `decisions` to `requirements`; `graduation` to `tasks`), as `aliases` `{from, to}` page paths, skipping `design` to `design`. Only a migrated entry carries them: an openspec entry that holds a regular file `evidence/migration-map.md`, which the migration writes for every entry it converts and which a new entry never has. When an entry has no `requirements` or `tasks` page, the alias points at the entry's own page. A new entry and the ten legacy entries have none. docs-kit writes data only; the site's adapter adds Hugo `aliases` from it (Hugo `aliases` through `AddPage` is not verified).
+**Rationale**: docs-kit cannot tell from an id which entries had old pages, but the migration map is the one file that only a converted entry holds, so no site redirect stub points at a URL that never existed. A symbolic link is no marker, for the same reason a symbolic link is refused elsewhere in the entry.
 
 ### Dialect links and the link policy
 
-`reEnhOK` admits `proposal`, `requirements`, `tasks`, `capabilities/` and `capabilities/<cap>/` beside the seven old slugs, and the error message names the new forms. The `link` policy (`internal/doctext`) additionally turns `enhancement NNNN` into `[enhancement NNNN](/enhancements/NNNN/)` and, in `enhancements NNNN and NNNN`, each id into a link to its page; the `NNNN:Dn` form keeps its `/decisions/` link. The `crd` model keeps plain prose and links in its renderer, so its extractor unwraps the new links as it unwraps the decision links, and its renderer links the same forms. The `strip` policy leaves `enhancement NNNN` as written, as it does today.
+`reEnhOK` admits `proposal`, `requirements`, `tasks`, `capabilities/` and `capabilities/<cap>/` beside the seven old slugs, and the error message names the new forms. The `link` policy (`internal/doctext`) additionally turns `enhancement NNNN` into `[enhancement NNNN](/enhancements/NNNN/)` and, in `enhancements NNNN and NNNN` (a list joined by commas and `and`), each id into a link to its page; the `NNNN:Dn` form keeps its `/decisions/` link. A reference followed by a citation or an experiment pointer (`enhancement 0010:D28`, `enhancement 0010 experiment 3`) is not linked: the removal rules own it. A capital first letter links too. The `go-api` printer keeps these links as it keeps the decision links. The `crd` model keeps plain prose and links in its renderer, so its extractor unwraps the new links as it unwraps the decision links, and its renderer links the same forms. The `strip` policy leaves `enhancement NNNN` as written, as it does today.
 
 ### Fixtures
 
@@ -107,9 +108,11 @@ The extractor fixture becomes a mixed repository: two legacy entries under `arch
 - The alias map and the stub trade-off: C21.
 - The `enhancement NNNN` link policy: C21 and the Doc-comment rules of `docs/contracts.md`.
 - Hugo `aliases` through `AddPage` is not verified: stays with the change.
+- The `enhancements` repository adopts this docs-kit only in the migration's last commit, after M4: lands in the migration plan and C21.
 
 ## Risks / Trade-offs
 
 - A shallow clone now refuses an enhancements build that holds an openspec entry. The publish workflow is full depth; a local `serve` of a shallow clone gets the message.
 - The v2 identifier makes a consumer that checks `v1` exactly refuse the file. opmodel.dev reads `data/enhancements.json` without checking the identifier today; its change must still accept both before the pin moves.
-- The `link` policy change reaches every source that uses `link`; the new forms are additive and a text without them is byte for byte as before.
+- The `link` policy change reaches every source that uses `link`; the new forms are additive and a text without them is byte for byte as before. A source whose prose says "enhancement NNNN" gains links; `opm-operator` is the only source on `link`.
+- A migrated entry whose `evidence/migration-map.md` is removed later loses its redirects. The migration keeps the file in the entry.
