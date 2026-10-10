@@ -8,6 +8,8 @@ status: draft
 category: runtime
 affects:
   - cli
+  - catalog_opm
+  - .github
 authors:
   - someone@example.com
 created: "2026-09-20"

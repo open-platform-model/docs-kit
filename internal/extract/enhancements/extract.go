@@ -95,6 +95,10 @@ var (
 	reWord     = regexp.MustCompile(`^[a-z0-9]+([.-][a-z0-9]+)*$`)
 	reDate     = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 	reDocFile  = regexp.MustCompile(`^0([1-9])-.*\.md$`)
+	// reRepo is a repository name in an openspec `affects`: lower-case words
+	// joined by `.`, `-` or `_`, with an optional leading `.` (`catalog_opm`,
+	// `opmodel.dev`, `.github`). The producer owns the closed list.
+	reRepo = regexp.MustCompile(`^\.?[a-z0-9]+([._-][a-z0-9]+)*$`)
 )
 
 // config is the part of an entry's config.yaml the section publishes.

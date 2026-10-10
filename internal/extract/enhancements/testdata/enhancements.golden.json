@@ -342,7 +342,9 @@
       "category": "runtime",
       "breaking": null,
       "affects": [
-        "cli"
+        "cli",
+        "catalog_opm",
+        ".github"
       ],
       "created": "2026-09-20",
       "updated": "2026-10-02",

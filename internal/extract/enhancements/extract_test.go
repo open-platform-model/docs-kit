@@ -557,6 +557,41 @@ func TestOpenSpecRefusals(t *testing.T) {
 	}
 }
 
+// TestOpenSpecAffects checks an openspec entry may affect every kind of
+// repository name the producer's closed list holds, and a value no
+// repository name can have is refused.
+func TestOpenSpecAffects(t *testing.T) {
+	res, err := Extract(options(t, fixtureRepo))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, e := range res.Model.Entries {
+		if e.ID == "0042" {
+			got = e.Affects
+		}
+	}
+	if want := "cli catalog_opm .github"; strings.Join(got, " ") != want {
+		t.Fatalf("0042 affects = %q, want %q", got, want)
+	}
+	const cfg = "openspec/changes/0042-fixture-no-specs/config.yaml"
+	for _, name := range []string{"core", "opm-operator", "opmodel.dev", "catalog_opm", ".github", "opm-suite-installer"} {
+		root := copyFixture(t)
+		replace(t, root, cfg, "  - .github\n", "  - "+name+"\n")
+		if _, err := Extract(options(t, root)); err != nil {
+			t.Errorf("affects %q: %v, want it accepted", name, err)
+		}
+	}
+	for _, name := range []string{`"two words"`, "Core", `"a/b"`, `"../x"`, `"a\\b"`, `""`, ".", "..", "_x", "-x", "x_", "a..b", "a__b", "a._b", `".git/"`} {
+		root := copyFixture(t)
+		replace(t, root, cfg, "  - .github\n", "  - "+name+"\n")
+		_, err := Extract(options(t, root))
+		if err == nil || !strings.Contains(err.Error(), "is not a repository name") {
+			t.Errorf("affects %s: err = %v, want it refused as not a repository name", name, err)
+		}
+	}
+}
+
 // TestSeedsAreNoEntries checks a seed change is no entry and no page, and
 // a symlinked change is refused.
 func TestSeedsAndSymlinks(t *testing.T) {

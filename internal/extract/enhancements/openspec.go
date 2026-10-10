@@ -54,7 +54,7 @@ func (c *specConfig) check() error {
 		return fmt.Errorf(`accepted %q must read "<YYYY-MM-DD> <commit>"`, c.Accepted)
 	}
 	for _, a := range c.Affects {
-		if !reWord.MatchString(a) {
+		if !reRepo.MatchString(a) {
 			return fmt.Errorf("affects: %q is not a repository name", a)
 		}
 	}
