@@ -123,7 +123,7 @@ func TestPages(t *testing.T) {
 	if p := byPath["0003/_index.md"]; p.Source != "archive/0003/README.md" || p.Weight != 4 || p.Title != "0003: Module Publishing Workflow" {
 		t.Errorf("archived entry page %+v", p)
 	}
-	if p := byPath["0025/decisions.md"]; p.Source != "0025/03-decisions.md" || p.Type != "explanation" || p.Weight != 3 || p.Description != "Each decision, numbered, with its rationale." {
+	if p := byPath["0025/decisions.md"]; p.Source != "archive/0025/03-decisions.md" || p.Type != "explanation" || p.Weight != 3 || p.Description != "Each decision, numbered, with its rationale." {
 		t.Errorf("document page %+v", p)
 	}
 	if p := byPath["0025/_index.md"]; p.Description != "Let a module state facts about itself as a whole, as named bundles of traits." {
@@ -140,51 +140,51 @@ func TestRefusals(t *testing.T) {
 		msg    string
 	}{
 		{"two decision files", func(t *testing.T, root string) {
-			write(t, root, "0025/03-decisions-old.md", "# Old\n")
-		}, "entry 0025 holds 0025/03-decisions-old.md and 0025/03-decisions.md"},
+			write(t, root, "archive/0025/03-decisions-old.md", "# Old\n")
+		}, "entry 0025 holds archive/0025/03-decisions-old.md and archive/0025/03-decisions.md"},
 		{"a missing document", func(t *testing.T, root string) {
-			remove(t, root, "0025/05-risks.md")
+			remove(t, root, "archive/0025/05-risks.md")
 		}, "entry 0025 has no 05-*.md"},
 		{"an eighth document", func(t *testing.T, root string) {
-			write(t, root, "0025/08-extra.md", "# Extra\n")
-		}, "entry 0025 holds 0025/08-extra.md"},
+			write(t, root, "archive/0025/08-extra.md", "# Extra\n")
+		}, "entry 0025 holds archive/0025/08-extra.md"},
 		{"an id that is not the directory", func(t *testing.T, root string) {
-			replace(t, root, "0025/config.yaml", `id: "0025"`, `id: "0026"`)
-		}, `0025/config.yaml says id "0026"`},
-		{"an entry live and archived", func(t *testing.T, root string) {
-			if err := os.MkdirAll(filepath.Join(root, "archive", "0025"), 0o755); err != nil {
+			replace(t, root, "archive/0025/config.yaml", `id: "0025"`, `id: "0026"`)
+		}, `archive/0025/config.yaml says id "0026"`},
+		{"a live old-layout folder", func(t *testing.T, root string) {
+			if err := os.MkdirAll(filepath.Join(root, "0030"), 0o755); err != nil {
 				t.Fatal(err)
 			}
-		}, "entry 0025 is both 0025/ and archive/0025/"},
+		}, "entry 0030 is a live old-layout folder (0030/); convert it to a change under the changes directory or move it under archive/"},
 		{"no README", func(t *testing.T, root string) {
-			remove(t, root, "0025/README.md")
-		}, "0025/README.md is missing"},
+			remove(t, root, "archive/0025/README.md")
+		}, "archive/0025/README.md is missing"},
 		{"no INDEX", func(t *testing.T, root string) {
 			remove(t, root, "INDEX.md")
 		}, "INDEX.md is missing"},
 		{"a dangling link", func(t *testing.T, root string) {
-			write(t, root, "0025/06-operational.md", "# Operational\n\nSee [missing.md](missing.md).\n")
-		}, `0025/06-operational.md:3: link "missing.md" names nothing in the repository at cccccccccccc (0025/missing.md)`},
+			write(t, root, "archive/0025/06-operational.md", "# Operational\n\nSee [missing.md](missing.md).\n")
+		}, `archive/0025/06-operational.md:3: link "missing.md" names nothing in the repository at cccccccccccc (archive/0025/missing.md)`},
 		{"a link out of the repository", func(t *testing.T, root string) {
-			write(t, root, "0025/06-operational.md", "# Operational\n\nSee [up](../../x.md).\n")
-		}, `link "../../x.md" climbs out of the repository`},
-		{"a link to an archived entry's old place", func(t *testing.T, root string) {
-			write(t, root, "0025/06-operational.md", "# Operational\n\nSee [0003](../0003/).\n")
-		}, `link "../0003/" names nothing in the repository`},
+			write(t, root, "archive/0025/06-operational.md", "# Operational\n\nSee [up](../../../x.md).\n")
+		}, `link "../../../x.md" climbs out of the repository`},
+		{"a link to an entry that is not there", func(t *testing.T, root string) {
+			write(t, root, "archive/0025/06-operational.md", "# Operational\n\nSee [0004](../0004/).\n")
+		}, `link "../0004/" names nothing in the repository`},
 		{"an unsafe scheme", func(t *testing.T, root string) {
-			write(t, root, "0025/06-operational.md", "# Operational\n\n[x](javascript:alert(1))\n")
+			write(t, root, "archive/0025/06-operational.md", "# Operational\n\n[x](javascript:alert(1))\n")
 		}, "the scheme javascript: is not allowed"},
 		{"a shortcode", func(t *testing.T, root string) {
-			write(t, root, "0025/06-operational.md", "# Operational\n\n```text\n{{< figure >}}\n```\n")
-		}, "0025/06-operational.md:4: holds a Hugo shortcode delimiter"},
+			write(t, root, "archive/0025/06-operational.md", "# Operational\n\n```text\n{{< figure >}}\n```\n")
+		}, "archive/0025/06-operational.md:4: holds a Hugo shortcode delimiter"},
 		{"an unclosed comment", func(t *testing.T, root string) {
-			write(t, root, "0025/06-operational.md", "# Operational\n\n<!-- never closed\n\nText.\n")
-		}, "0025/06-operational.md:3: an HTML comment opens with <!-- and never closes"},
+			write(t, root, "archive/0025/06-operational.md", "# Operational\n\n<!-- never closed\n\nText.\n")
+		}, "archive/0025/06-operational.md:3: an HTML comment opens with <!-- and never closes"},
 		{"a malformed date", func(t *testing.T, root string) {
-			replace(t, root, "0025/config.yaml", `created: "2026-09-08"`, `created: "yesterday"`)
+			replace(t, root, "archive/0025/config.yaml", `created: "2026-09-08"`, `created: "yesterday"`)
 		}, "must be dates"},
 		{"a malformed relation", func(t *testing.T, root string) {
-			replace(t, root, "0025/config.yaml", `  - "0003"`, `  - "3"`)
+			replace(t, root, "archive/0025/config.yaml", `  - "0003"`, `  - "3"`)
 		}, `depends_on: "3" is not an entry id`},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -202,11 +202,11 @@ func TestRefusals(t *testing.T) {
 func TestSymlinks(t *testing.T) {
 	t.Run("file", func(t *testing.T) {
 		root := copyFixture(t)
-		remove(t, root, "0025/05-risks.md")
-		if err := os.Symlink(filepath.Join(root, "INDEX.md"), filepath.Join(root, "0025", "05-risks.md")); err != nil {
+		remove(t, root, "archive/0025/05-risks.md")
+		if err := os.Symlink(filepath.Join(root, "INDEX.md"), filepath.Join(root, "archive", "0025", "05-risks.md")); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := Extract(options(t, root)); err == nil || !strings.Contains(err.Error(), "0025/05-risks.md is not a regular file") {
+		if _, err := Extract(options(t, root)); err == nil || !strings.Contains(err.Error(), "archive/0025/05-risks.md is not a regular file") {
 			t.Fatalf("err = %v", err)
 		}
 	})
@@ -229,10 +229,10 @@ func TestSymlinks(t *testing.T) {
 	})
 	t.Run("entry", func(t *testing.T) {
 		root := copyFixture(t)
-		if err := os.Symlink(filepath.Join(root, "0025"), filepath.Join(root, "0026")); err != nil {
+		if err := os.Symlink(filepath.Join(root, "archive", "0025"), filepath.Join(root, "archive", "0026")); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := Extract(options(t, root)); err == nil || !strings.Contains(err.Error(), "entry 0026 is reached through the symlink 0026") {
+		if _, err := Extract(options(t, root)); err == nil || !strings.Contains(err.Error(), "entry archive/0026 is reached through the symlink archive/0026") {
 			t.Fatalf("err = %v", err)
 		}
 	})
@@ -241,9 +241,9 @@ func TestSymlinks(t *testing.T) {
 // TestClean checks the transforms on single texts.
 func TestClean(t *testing.T) {
 	x := &extraction{o: options(t, fixtureRepo), dir: ".", pages: map[string]target{
-		"INDEX.md":             {url: "/enhancements/", title: "the index"},
-		"0025/README.md":       {url: "/enhancements/0025/", title: "0025: Self-Describing Modules"},
-		"0025/03-decisions.md": {url: "/enhancements/0025/decisions/", title: "0025: Decisions"},
+		"INDEX.md":                     {url: "/enhancements/", title: "the index"},
+		"archive/0025/README.md":       {url: "/enhancements/0025/", title: "0025: Self-Describing Modules"},
+		"archive/0025/03-decisions.md": {url: "/enhancements/0025/decisions/", title: "0025: Decisions"},
 	}}
 	for _, c := range []struct{ name, in, want string }{
 		{"heading and blank lines", "\n# Title\n\n\nBody.\n", "Body.\n"},
@@ -262,9 +262,9 @@ func TestClean(t *testing.T) {
 		{"angle external", "[x](<https://a.example/b c>)\n", "[x](<https://a.example/b c>)\n"},
 		{"angle fragment with a blank", "[x](<03-decisions.md#a b>)\n", "[x](</enhancements/0025/decisions/#a b>)\n"},
 		{"entry directory", "[0025](./)\n", "[0025](/enhancements/0025/)\n"},
-		{"root", "[all](../)\n", "[all](/enhancements/)\n"},
-		{"github file", "[s](schemas/target.cue#L1)\n", "[s](https://github.com/open-platform-model/enhancements/blob/" + testCommit + "/0025/schemas/target.cue#L1)\n"},
-		{"github directory", "[s](schemas)\n", "[s](https://github.com/open-platform-model/enhancements/tree/" + testCommit + "/0025/schemas)\n"},
+		{"root", "[all](../../)\n", "[all](/enhancements/)\n"},
+		{"github file", "[s](schemas/target.cue#L1)\n", "[s](https://github.com/open-platform-model/enhancements/blob/" + testCommit + "/archive/0025/schemas/target.cue#L1)\n"},
+		{"github directory", "[s](schemas)\n", "[s](https://github.com/open-platform-model/enhancements/tree/" + testCommit + "/archive/0025/schemas)\n"},
 		{"fragment and absolute", "[a](#x) [b](/docs/concepts/) [c](mailto:a@b.example)\n", "[a](#x) [b](/docs/concepts/) [c](mailto:a@b.example)\n"},
 		{"reference definition", "[r]: 03-decisions.md \"t\"\n", "[r]: /enhancements/0025/decisions/ \"t\"\n"},
 		{"html escaped", "a <b>c</b> <!x <?y </z\n", "a \\<b>c\\</b> \\<!x \\<?y \\</z\n"},
@@ -275,7 +275,7 @@ func TestClean(t *testing.T) {
 		{"title escaped", "[README.md](README.md) <i>\n", "[0025: Self-Describing Modules](/enhancements/0025/) \\<i>\n"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			got, err := x.clean("0025/02-design.md", c.in)
+			got, err := x.clean("archive/0025/02-design.md", c.in)
 			if err != nil {
 				t.Fatal(err)
 			}

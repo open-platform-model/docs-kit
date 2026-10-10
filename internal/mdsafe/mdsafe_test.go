@@ -237,7 +237,7 @@ func TestProbesThroughTheSection(t *testing.T) {
 	for name, body := range probes(t) {
 		t.Run(name, func(t *testing.T) {
 			root := fixture(t)
-			if err := os.WriteFile(filepath.Join(root, "0025", "06-operational.md"), append([]byte("# Operational\n\n"), body...), 0o600); err != nil {
+			if err := os.WriteFile(filepath.Join(root, "archive", "0025", "06-operational.md"), append([]byte("# Operational\n\n"), body...), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			res, err := enhancements.Extract(enhancements.Options{Root: root, Dir: ".", Repo: "open-platform-model/enhancements",

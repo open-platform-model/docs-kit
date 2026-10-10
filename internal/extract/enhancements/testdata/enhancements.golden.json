@@ -81,7 +81,7 @@
       ],
       "created": "2026-09-08",
       "updated": "2026-09-29",
-      "archived": false,
+      "archived": true,
       "dependsOn": [
         "0003"
       ],
@@ -95,43 +95,43 @@
           "slug": "problem",
           "title": "Problem statement",
           "page": "0025/problem",
-          "file": "0025/01-problem.md"
+          "file": "archive/0025/01-problem.md"
         },
         {
           "slug": "design",
           "title": "Design",
           "page": "0025/design",
-          "file": "0025/02-design.md"
+          "file": "archive/0025/02-design.md"
         },
         {
           "slug": "decisions",
           "title": "Decisions",
           "page": "0025/decisions",
-          "file": "0025/03-decisions.md"
+          "file": "archive/0025/03-decisions.md"
         },
         {
           "slug": "graduation",
           "title": "Graduation criteria",
           "page": "0025/graduation",
-          "file": "0025/04-graduation.md"
+          "file": "archive/0025/04-graduation.md"
         },
         {
           "slug": "risks",
           "title": "Risks and alternatives",
           "page": "0025/risks",
-          "file": "0025/05-risks.md"
+          "file": "archive/0025/05-risks.md"
         },
         {
           "slug": "operational",
           "title": "Operational concerns",
           "page": "0025/operational",
-          "file": "0025/06-operational.md"
+          "file": "archive/0025/06-operational.md"
         },
         {
           "slug": "questions",
           "title": "Open questions",
           "page": "0025/questions",
-          "file": "0025/07-questions.md"
+          "file": "archive/0025/07-questions.md"
         }
       ]
     }

@@ -18,6 +18,9 @@ func (enhancementsExtractor) Kind() string { return "enhancements" }
 func (enhancementsExtractor) Extract(ctx context.Context, in Input) (Data, error) {
 	var cfg struct {
 		Dir         string `json:"dir"`
+		Changes     string `json:"changes"`
+		Specs       string `json:"specs"`
+		Legacy      string `json:"legacy"`
 		Title       string `json:"title"`
 		Description string `json:"description"`
 	}
@@ -31,7 +34,7 @@ func (enhancementsExtractor) Extract(ctx context.Context, in Input) (Data, error
 	}
 	res, err := enhancements.Extract(enhancements.Options{
 		Root: in.Source, Dir: cfg.Dir, Repo: in.Repo, Commit: in.Commit, Paths: paths,
-		Title: cfg.Title, Description: cfg.Description,
+		Title: cfg.Title, Description: cfg.Description, Changes: cfg.Changes, Specs: cfg.Specs, Legacy: cfg.Legacy,
 	})
 	if err != nil {
 		return Data{}, fmt.Errorf("enhancements %s: %w", cfg.Dir, err)

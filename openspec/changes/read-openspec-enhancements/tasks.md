@@ -4,9 +4,9 @@ One PR, titled `feat(extract): read OpenSpec-layout enhancement entries`. Run `t
 
 ## 1. Source config and the legacy reader
 
-- [ ] 1.1 `schema/config.cue` `#Enhancements` gains `changes`, `specs`, `legacy` (design.md, Source config); `internal/config` refuses overlapping paths. Verify: `go test ./internal/config/...` with defaults, a custom value, an absolute path, a path with `..` and overlapping paths.
-- [ ] 1.2 `internal/extract/enhancements` `Options` takes the three directories; the legacy reader reads `<legacy>/NNNN/` only and refuses a live `NNNN/`; `internal/build/enhancements.go` passes the config through. The fixture's live and template entries move under `archive/`. Verify: `go test ./internal/extract/enhancements/... ./internal/build/...` including a live-folder refusal.
-- [ ] 1.3 `task check` green, then commit `feat(extract): give the enhancements source changes, specs and legacy directories`.
+- [x] 1.1 `schema/config.cue` `#Enhancements` gains `changes`, `specs`, `legacy` (design.md, Source config); `internal/config` refuses overlapping paths. Verify: `go test ./internal/config/...` with defaults, a custom value, an absolute path, a path with `..` and overlapping paths.
+- [x] 1.2 `internal/extract/enhancements` `Options` takes the three directories; the legacy reader reads `<legacy>/NNNN/` only and refuses a live `NNNN/`; `internal/build/enhancements.go` passes the config through. The fixture's live and template entries move under `archive/`. Verify: `go test ./internal/extract/enhancements/... ./internal/build/...` including a live-folder refusal.
+- [x] 1.3 `task check` green, then commit `feat(extract): give the enhancements source changes, specs and legacy directories`.
 
 ## 2. The openspec reader and data schema v2
 

@@ -74,7 +74,7 @@ func TestEnhancementsSectionBuild(t *testing.T) {
 		t.Errorf("archived document %+v", p)
 	}
 	body, _ := os.ReadFile(filepath.Join(dir, "content", "0025", "_index.md"))
-	if want := "https://github.com/open-platform-model/enhancements/blob/" + r.Head() + "/0025/config.yaml"; !strings.Contains(string(body), want) {
+	if want := "https://github.com/open-platform-model/enhancements/blob/" + r.Head() + "/archive/0025/config.yaml"; !strings.Contains(string(body), want) {
 		t.Errorf("no link to %s in\n%s", want, body)
 	}
 }
@@ -111,11 +111,11 @@ func TestEnhancementsSectionRefusesRelease(t *testing.T) {
 func TestEnhancementsLinkAtTheCommit(t *testing.T) {
 	r := enhancementsRepo(t)
 	r.Write(map[string]string{
-		"0025/notes.md":          "Notes.\n",
-		"0025/06-operational.md": "# Operational\n\nSee [the notes](notes.md).\n",
+		"archive/0025/notes.md":          "Notes.\n",
+		"archive/0025/06-operational.md": "# Operational\n\nSee [the notes](notes.md).\n",
 	})
 	_, err := buildEnhancements(t, r, "")
-	if err == nil || !strings.Contains(err.Error(), `0025/06-operational.md:3: link "notes.md" names nothing in the repository at`) {
+	if err == nil || !strings.Contains(err.Error(), `archive/0025/06-operational.md:3: link "notes.md" names nothing in the repository at`) {
 		t.Fatalf("err = %v", err)
 	}
 }

@@ -30,6 +30,25 @@ type Options struct {
 	// Title and Description are the section page's front matter.
 	Title       string
 	Description string
+	// Changes, Specs and Legacy are the OpenSpec changes, the capability
+	// specs and the old-layout entries, relative to Dir. An empty value is
+	// the default of the source config.
+	Changes, Specs, Legacy string
+}
+
+// The source config's defaults for Options.Changes, Specs and Legacy.
+const (
+	defaultChanges = "openspec/changes"
+	defaultSpecs   = "openspec/specs"
+	defaultLegacy  = "archive"
+)
+
+// dirOr is v, or def when v is empty, cleaned.
+func dirOr(v, def string) string {
+	if v == "" {
+		v = def
+	}
+	return path.Clean(filepath.ToSlash(v))
 }
 
 // Page is one page of the section, its body cleaned and its links
@@ -57,9 +76,6 @@ var (
 	reDate     = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 	reDocFile  = regexp.MustCompile(`^0([1-9])-.*\.md$`)
 )
-
-// template is the entry id reserved for the template; it is not published.
-const template = "0000"
 
 // config is the part of an entry's config.yaml the section publishes.
 type config struct {
@@ -91,7 +107,7 @@ func Extract(o Options) (*Result, error) {
 	if err := checkDir(o.Root, dir, "enhancements dir "+dir); err != nil {
 		return nil, err
 	}
-	dirs, err := entryDirs(o.Root, dir)
+	dirs, err := entryDirs(o.Root, dir, dirOr(o.Legacy, defaultLegacy))
 	if err != nil {
 		return nil, err
 	}
@@ -135,38 +151,42 @@ type target struct {
 // rel is p (relative to the entry root) relative to Root.
 func (x *extraction) rel(p string) string { return path.Join(x.dir, p) }
 
-// entryDirs lists the entry directories, live ones and archive/NNNN/, by
-// id, leaving out the template; an id both live and archived is refused.
-func entryDirs(root, dir string) ([]entryDir, error) {
+// entryDirs lists the old-layout entry directories, <legacy>/NNNN/, by id.
+// A directory NNNN/ at the entry root is a live old-layout entry, which
+// this reader no longer reads: it is refused, so no entry drops out of the
+// site unseen.
+func entryDirs(root, dir, legacy string) ([]entryDir, error) {
+	ents, err := os.ReadDir(filepath.Join(root, filepath.FromSlash(dir)))
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range ents {
+		if reID.MatchString(e.Name()) && !e.Type().IsRegular() {
+			d := path.Join(dir, e.Name())
+			return nil, fmt.Errorf("entry %s is a live old-layout folder (%s/); convert it to a change under the changes directory or move it under %s/", e.Name(), d, path.Join(dir, legacy))
+		}
+	}
+	parent := path.Join(dir, legacy)
+	ents, err = os.ReadDir(filepath.Join(root, filepath.FromSlash(parent)))
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := checkDir(root, parent, parent); err != nil {
+		return nil, err
+	}
 	var out []entryDir
-	seen := map[string]string{}
-	for _, parent := range []string{dir, path.Join(dir, "archive")} {
-		ents, err := os.ReadDir(filepath.Join(root, filepath.FromSlash(parent)))
-		if os.IsNotExist(err) && parent != dir {
+	for _, e := range ents {
+		if !reID.MatchString(e.Name()) {
 			continue
 		}
-		if err != nil {
+		d := path.Join(parent, e.Name())
+		if err := checkDir(root, d, "entry "+d); err != nil {
 			return nil, err
 		}
-		if parent != dir {
-			if err := checkDir(root, parent, parent); err != nil {
-				return nil, err
-			}
-		}
-		for _, e := range ents {
-			if !reID.MatchString(e.Name()) || e.Name() == template {
-				continue
-			}
-			d := path.Join(parent, e.Name())
-			if err := checkDir(root, d, "entry "+d); err != nil {
-				return nil, err
-			}
-			if prev, dup := seen[e.Name()]; dup {
-				return nil, fmt.Errorf("entry %s is both %s/ and %s/; an entry lives in one place", e.Name(), prev, d)
-			}
-			seen[e.Name()] = d
-			out = append(out, entryDir{id: e.Name(), dir: d})
-		}
+		out = append(out, entryDir{id: e.Name(), dir: d})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].id < out[j].id })
 	return out, nil
@@ -227,7 +247,7 @@ func (x *extraction) entry(d entryDir) (Entry, error) {
 	id, _ := strconv.Atoi(d.id)
 	e := Entry{
 		ID: d.id, Slug: c.Slug, Title: c.Title, Summary: c.Summary, Status: c.Status, Category: c.Category,
-		Affects: c.Affects, Created: c.Created, Updated: c.Updated, Archived: path.Dir(d.dir) != x.dir,
+		Affects: c.Affects, Created: c.Created, Updated: c.Updated, Archived: true,
 		DependsOn: c.DependsOn, Amends: c.Amends, Supersedes: c.Supersedes, Revives: c.Revives, SupersededBy: c.SupersededBy,
 		Page: d.id, Documents: []Document{},
 	}
