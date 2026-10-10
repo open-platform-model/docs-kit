@@ -144,8 +144,8 @@ func TestHasFile(t *testing.T) {
 func TestShallow(t *testing.T) {
 	ctx := context.Background()
 	r := newRepo(t)
-	if r.Shallow(ctx) {
-		t.Error("a full repository is shallow")
+	if sh, err := r.Shallow(ctx); err != nil || sh {
+		t.Errorf("a full repository is shallow: %v %v", sh, err)
 	}
 	if err := os.WriteFile(filepath.Join(r.Dir, "b.md"), []byte("b"), 0o600); err != nil {
 		t.Fatal(err)
@@ -159,10 +159,19 @@ func TestShallow(t *testing.T) {
 	if out, err := exec.CommandContext(ctx, "git", "clone", "-q", "--depth", "1", "file://"+r.Dir, clone).CombinedOutput(); err != nil {
 		t.Fatalf("git clone: %v\n%s", err, out)
 	}
-	if !(Repo{Dir: clone}).Shallow(ctx) {
-		t.Error("a depth-1 clone is not shallow")
+	if sh, err := (Repo{Dir: clone}).Shallow(ctx); err != nil || !sh {
+		t.Errorf("a depth-1 clone is not shallow: %v %v", sh, err)
 	}
-	if (Repo{Dir: t.TempDir()}).Shallow(ctx) {
-		t.Error("a directory that is no repository is shallow")
+	if _, err := (Repo{Dir: t.TempDir()}).Shallow(ctx); err == nil {
+		t.Error("a directory that is no repository gave no error")
+	}
+	if _, err := r.LastCommitDate(ctx, "no-such-rev", "a.md"); err == nil {
+		t.Error("an unknown revision gave no error")
+	}
+	if d, err := r.LastCommitDate(ctx, "HEAD", "a.md"); err != nil || d != "2026-09-30T12:00:00Z" {
+		t.Errorf("date %q %v", d, err)
+	}
+	if d, err := r.LastCommitDate(ctx, "HEAD", "untouched.md"); err != nil || d != "" {
+		t.Errorf("an untouched path: %q %v", d, err)
 	}
 }

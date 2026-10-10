@@ -13,7 +13,7 @@ The enhancements repository moves from its own folder layout (`NNNN/` with seven
 - **Links.** The page dialect admits `proposal`, `requirements`, `tasks` and `capabilities/<cap>/` under `/enhancements/`. The `link` citation policy links `enhancement NNNN` to `/enhancements/NNNN/`.
 - **Contract.** `docs/contracts.md` C21 and the spec `enhancements-bundle` describe both readers and the v2 file.
 
-Release class: MINOR (`feat`). The v1 fields of a legacy entry do not change. The schema identifier moves to `v2`, so the site accepts v1 and v2 before the enhancements repository moves its pinned docs-kit release.
+Release class: a breaking contract change on 0.x, so a MINOR bump whose squash-merge message carries a `BREAKING CHANGE:` footer as the migration note: the schema identifier moves to `v2`, and the legacy reader refuses a live `NNNN/` folder. The v1 fields of a legacy entry do not change. Order: opmodel.dev accepts v1 and v2, then the enhancements repository moves its pinned docs-kit release with its migration.
 
 ## Capabilities
 

@@ -36,15 +36,19 @@ func (enhancementsExtractor) Extract(ctx context.Context, in Input) (Data, error
 	shallow := -1 // asked at the first openspec entry: 1 shallow, 0 not
 	lastCommit := func(path string) (string, error) {
 		if shallow < 0 {
+			sh, err := repo.Shallow(ctx)
+			if err != nil {
+				return "", err
+			}
 			shallow = 0
-			if repo.Shallow(ctx) {
+			if sh {
 				shallow = 1
 			}
 		}
 		if shallow == 1 {
 			return "", fmt.Errorf("%s is a shallow clone, so the date of the last commit that touched this entry is unknown; check out the full history (actions/checkout with fetch-depth: 0)", in.Source)
 		}
-		return repo.LastMod(ctx, in.Commit, path), nil
+		return repo.LastCommitDate(ctx, in.Commit, path)
 	}
 	res, err := enhancements.Extract(enhancements.Options{
 		Root: in.Source, Dir: cfg.Dir, Repo: in.Repo, Commit: in.Commit, Paths: paths,

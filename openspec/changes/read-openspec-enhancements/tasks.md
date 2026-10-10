@@ -29,6 +29,6 @@ One PR, titled `feat(extract): read OpenSpec-layout enhancement entries`. Run `t
 
 ## 5. Contract and archive
 
-- [x] 5.1 `docs/contracts.md` C6 (`#Enhancements` equal to `schema/config.cue`), C21 (both readers, v2 file, pages, redirects, the full-depth requirement, consumers) and the Doc-comment rules (link policy); `README.md` and `AGENTS.md` (layout). Verify: the C6 copy equals the schema.
+- [ ] 5.1 `docs/contracts.md` C6 (`#Enhancements` equal to `schema/config.cue`), C21 (both readers, v2 file, pages, redirects, the full-depth requirement, consumers) and the Doc-comment rules (link policy); `README.md` and `AGENTS.md` (layout). Verify: the C6 copy equals the schema.
 - [ ] 5.2 `openspec archive read-openspec-enhancements --yes`, then `openspec validate enhancements-bundle --strict`. Verify: the main spec holds the new requirements.
 - [ ] 5.3 `task check` green, then commit `docs(extract): document reading both enhancement layouts`.
