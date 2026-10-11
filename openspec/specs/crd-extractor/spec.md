@@ -31,7 +31,7 @@ In the page layout (the source sets `page`, not `section`), the renderer SHALL w
 - **WHEN** a `markdown` source over `docs/site` supplies `reference/operator-resources.md` holding front matter and an intro paragraph and no `## ModuleInstance` heading
 - **THEN** the bundle's page is that front matter and intro followed by the four generated entries
 
-#### Scenario: Enhancement reference linked
+#### Scenario: Citation linked
 - **WHEN** a field description names `enhancement 0021` and the source has `citations: "link"`
 - **THEN** the description renders `[enhancement 0021](/enhancements/0021/)`
 

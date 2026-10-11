@@ -34,11 +34,11 @@ For each member the extractor SHALL record `spec.cue`, the formatted authored sp
 The extractor SHALL drop maintainer comments (a comment group starting with `WHY` or a `////` banner, and a `WHY` line inside a doc comment), strip enhancement citations and `SPEC.md` and experiment references by the rules `docs/contracts.md` "Doc-comment rules" lists, re-wrap a changed comment paragraph in a spec block, and require each member's doc comment to open with its `metadata.description` followed by a period. The remaining paragraphs SHALL be the member's `notes`.
 
 #### Scenario: Citation removed from prose
-- **WHEN** a doc paragraph reads `Exactly one provider serves it (NNNN:Dn).`
+- **WHEN** a doc paragraph reads `Exactly one provider serves it` followed by a decision citation in the old form (an id, a colon and a decision number) in parentheses
 - **THEN** the note reads `Exactly one provider serves it.`
 
 #### Scenario: WHY block dropped
-- **WHEN** a definition holds a comment group starting `// WHY: NNNN Dn ...`
+- **WHEN** a definition holds a comment group starting `// WHY:` followed by a decision citation in the old form (an id, a space and a decision number)
 - **THEN** no text of that group appears in `notes`, `spec.cue` or any field's `doc`
 
 ### Requirement: Served-by, marks and enforcement are derived

@@ -42,7 +42,7 @@ The site renders raw HTML, so the crd source SHALL treat every CRD and sample st
 - **THEN** the example's fence is longer than three backticks and the `<script>` line stays inside it
 
 #### Scenario: A description cannot forge a link
-- **WHEN** a field description holds `[NNNN:Dn](/enhancements/NNNN/decisions/)` and `[x](javascript:alert(1))`
+- **WHEN** a field description holds `[NNNN:Dn](/enhancements/MMMM/decisions/)` and `[x](javascript:alert(1))`
 - **THEN** both stay text with their brackets escaped, and only a bare citation becomes a link to its own enhancement
 
 #### Scenario: An unread field is refused

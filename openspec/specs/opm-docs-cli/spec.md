@@ -39,7 +39,7 @@ The `opm-docs` command set, its configuration file `docs-kit.cue`, and its exit 
 - **WHEN** a `markdown` source has `dir: "docs/site"` and `exclude: ["reference/cli/"]`
 - **THEN** every page of `docs/site` except those under `reference/cli/` is copied
 
-#### Scenario: Enhancement reference linked
+#### Scenario: Citations linked
 - **WHEN** a source with `citations: "link"` documents a comment that names `enhancement 0010`
 - **THEN** the page holds `[enhancement 0010](/enhancements/0010/)`
 
