@@ -1,3 +1,11 @@
+# The enhancement store: the design record of OPM. `openspec instructions` lists its specs; read
+# one entry with `openspec show <id>-<slug> --store opm-enhancements`. Register a checkout once per
+# machine with `openspec store register <path> --id opm-enhancements`; without it the commands
+# print a warning and go on.
+references:
+  - id: opm-enhancements
+    remote: https://github.com/open-platform-model/enhancements.git
+
 schema: spec-driven
 
 context: |
@@ -103,13 +111,25 @@ context: |
 
   ### Comments and References
   - Default to no reference: say what the code does and why, in the comment's own words.
-  - docs-kit has no enhancement entry. Cite a design decision as `DESIGN decision 9`, never a
-    bare `D9`, which names nothing. An enhancement, when one applies, is cited as enhancement 0021 ("The classes the policy covers")
-    (id, colon, decision; enhancement 0021 ("The classes the policy covers", "The CLI's ceiling on operator versions compares `MAJOR.MINOR` only" and "A `-beta.N` release line is pre-stable on the path to GA, and breaks only as a declared, migrated change")).
+  - Cite a design decision of this repo as `DESIGN decision 9`, never a bare `D9`, which names
+    nothing.
+  - In a comment, name an enhancement by its id beside the reason in words, once at the symbol:
+    `(enhancement 0010)`, or `(enhancements 0010 and 0011)` for two. An enhancement id appears only
+    beside a reason in words, never alone, and never with a decision number (no `NNNN:Dn`, no
+    `NNNN Dn`, no `NNNN:OQn`): the store has no stable decision numbers. A `// WHY` block that
+    holds only an id is a lone id: write the reason. The code that strips or reads the old forms
+    keeps them in its tests and testdata, because a docs revision builds old release tags.
   - Never cite a section, slice, phase, task or design-doc-local id (`§8.1`, `task 4.2`).
   - Never put a reference in a page the tool renders, a template, a fixture a reader copies or
     a CLI output string. Those reach people with no access to the design record.
   - No `Was:` rename history in comments; `git log` owns it.
+
+  ## Enhancements
+  - Enhancements live in the OpenSpec store `opm-enhancements` (see `references:`). Read an entry
+    with `openspec show <id>-<slug> --store opm-enhancements`; its `tasks.md` says which repo
+    still has work.
+  - A change here that delivers a line of an entry's `tasks.md` says so in its proposal
+    (`## Enhancement`, `Delivers NNNN, task X.Y.`).
 
   ## Validation Gates (before merge)
   1. task fmt:check — every Go file gofmt-formatted
@@ -151,6 +171,10 @@ rules:
       and the change ships section by section."
     - Complexity additions MUST include justification (Principle VI).
     - Cite DESIGN.md decisions as `DESIGN decision N`.
+    - "If the change delivers a line of an enhancement's `tasks.md`, add `## Enhancement` with one
+      line `Delivers NNNN, task X.Y.` per task; otherwise `None.`. Read the entry with `openspec
+      show <id>-<slug> --store opm-enhancements` and name its reason in words rather than
+      restating its design."
 
   design:
     - "Focus: HOW we'll implement it technically"
@@ -239,6 +263,7 @@ operations:
     guidance:
       - "The archive rides the implementing PR: archive on the change's branch, before merge,
         never as a separate commit on main."
+      - "If the change delivers a line of an enhancement's `tasks.md`, a PR on `enhancements` ticks that line."
       - "Before archiving, read design.md's Durable decisions section. Every entry marked for
         promotion MUST already be landed in its target file; if one is not, stop and land it
         first. An archived change must not be the only home of a contract."
