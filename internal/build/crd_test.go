@@ -126,6 +126,9 @@ func TestCRDBundleAlone(t *testing.T) {
 	if !strings.Contains(string(body), "[enhancement 0021](/enhancements/0021/)") {
 		t.Errorf("citations: \"link\" did not link the enhancement reference")
 	}
+	if strings.Contains(string(body), "/decisions/") {
+		t.Errorf("citations: \"link\" kept a link to a decisions page")
+	}
 	p := pageEntry(m, "reference/widgets.md")
 	if !p.Generated || p.Source != "config/crd/bases/example.dev_widgets.yaml" || p.Lastmod == "" || p.Edit != "" {
 		t.Fatalf("entry %+v: a generated page has a source and lastmod, and no edit", p)

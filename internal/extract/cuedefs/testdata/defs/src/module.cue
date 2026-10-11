@@ -1,7 +1,7 @@
 package defs
 
-// #Module: the unit an author publishes (enhancement 0010). It holds components
-// and the values they read.
+// #Module: the unit an author publishes (0010:D4). It holds components
+// and the values they read. It follows enhancement 0010.
 //
 // A module names its components in #components; each is a #Component.
 //

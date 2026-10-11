@@ -10,6 +10,6 @@ Each page in this section covers one resource kind, generated from its CustomRes
 
 | Kind | Scope | Summary |
 | --- | --- | --- |
-| [Widget](/docs/reference/widgets/widget/) | Namespaced | Widget asks the controller to build one widget ([enhancement 0021](/enhancements/0021/)). |
+| [Widget](/docs/reference/widgets/widget/) | Namespaced | Widget asks the controller to build one widget. |
 | [Gadget](/docs/reference/widgets/gadget/) | Cluster | Gadget is a cluster-wide gadget. |
 | [Sprocket](/docs/reference/widgets/sprocket/) | Namespaced | Sprocket has no sample. |

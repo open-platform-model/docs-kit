@@ -100,7 +100,7 @@ func TestGoAPIBundle(t *testing.T) {
 		t.Fatal(err)
 	}
 	body, _ := os.ReadFile(filepath.Join(dir, "content", "reference", "go-api", "widget.md"))
-	if !strings.Contains(string(body), "makes widgets ([enhancement 0010](/enhancements/0010/)).") {
+	if !strings.Contains(string(body), "It follows [enhancement 0010](/enhancements/0010/).") {
 		t.Errorf("citations: link is not applied:\n%s", body)
 	}
 }

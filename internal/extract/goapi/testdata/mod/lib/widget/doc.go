@@ -1,5 +1,5 @@
-// Package widget makes widgets (enhancement 0010). It is the fixture of the go-api
-// extractor.
+// Package widget makes widgets (0010:D28). It is the fixture of the go-api
+// extractor. It follows enhancement 0010.
 //
 // A [Widget] comes from [New] and spins with [Widget.Spin]; a
 // [gadget.Gadget] holds one. Every call takes a [context.Context].

@@ -106,12 +106,12 @@ func TestCRDPageFacts(t *testing.T) {
 		absent     bool
 	}{
 		{link.Body, "title: \"Widget resources\"\ndescription: \"One entry per widget kind.\"\ntype: reference\nweight: 7\n---\n\n## Widget\n", false},
-		{link.Body, "Widget asks the controller to build one widget ([enhancement 0021](/enhancements/0021/)).", false},
-		{link.Body, "see \\#Widget and [enhancement 0021](/enhancements/0021/).", false},
+		{link.Body, "Widget asks the controller to build one widget.", false},
+		{link.Body, "see \\#Widget and. Owned by [enhancement 0021](/enhancements/0021/).", false},
 		{link.Body, "| `spec.color` | `string` | No | `\"blue\"` | Color picks the paint, a \\<name\\> or `a\\|b`. |", false},
 		{link.Body, "| Size\\|Count | integer | `.spec.size` | 1 |", false},
 		{link.Body, "| the object | CEL rule `size(self.metadata.name) < 20`; refused with: name must be short | API server |", false},
-		{link.Body, "| `spec` | CEL rule `self.size >= oldSelf.size`; refused with: size cannot shrink ([enhancement 0021](/enhancements/0021/)) | API server |", false},
+		{link.Body, "| `spec` | CEL rule `self.size >= oldSelf.size`; refused with: size cannot shrink | API server |", false},
 		{link.Body, "| `spec.parts` | At most one item per `name` | API server |", false},
 		{link.Body, "| `spec.size` | Greater than 0 | API server |", false},
 		{link.Body, "### Served by\n\nThe `widget` reconciler watches every Widget.\n", false},
@@ -119,7 +119,8 @@ func TestCRDPageFacts(t *testing.T) {
 		{link.Body, "## Gadget\n\nGadget is a cluster-wide gadget.\n\n### At a glance", false},
 		{link.Body, "watches every Gadget", true},
 		{link.Body, "watches every Sprocket", true},
-		{strip.Body, "build one widget (enhancement 0021).", false},
+		{strip.Body, "build one widget.", false},
+		{strip.Body, "Owned by enhancement 0021.", false},
 		{strip.Body, "/enhancements/", true},
 	} {
 		if got := strings.Contains(c.body, c.want); got == c.absent {

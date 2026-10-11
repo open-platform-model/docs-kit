@@ -23,7 +23,7 @@ type Widget struct {
 	// Name names the widget.
 	Name string
 	// WHY: maintainers only.
-	Size   int // in mm (enhancement 0010)
+	Size   int // in mm (0010:D3)
 	hidden bool
 }
 

@@ -1,11 +1,11 @@
 ---
 title: "Widget"
-description: "Widget asks the controller to build one widget (enhancement 0021)."
+description: "Widget asks the controller to build one widget."
 type: reference
 weight: 1
 ---
 
-Widget asks the controller to build one widget ([enhancement 0021](/enhancements/0021/)).
+Widget asks the controller to build one widget.
 
 ## At a glance
 
@@ -65,7 +65,7 @@ spec:
 
 It is the smallest \*unit\*.
 
-A widget's `spec.size` never shrinks; see \#Widget and [enhancement 0021](/enhancements/0021/).
+A widget's `spec.size` never shrinks; see \#Widget and. Owned by [enhancement 0021](/enhancements/0021/).
 
 ## Served by
 
@@ -77,7 +77,7 @@ The `widget` reconciler watches every Widget.
 | --- | --- | --- |
 | the object | CEL rule `size(self.metadata.name) < 20`; refused with: name must be short | API server |
 | `spec` | Required | API server |
-| `spec` | CEL rule `self.size >= oldSelf.size`; refused with: size cannot shrink ([enhancement 0021](/enhancements/0021/)) | API server |
+| `spec` | CEL rule `self.size >= oldSelf.size`; refused with: size cannot shrink | API server |
 | `spec.color` | One of `blue`, `red` | API server |
 | `spec.parts` | At most 8 items | API server |
 | `spec.parts` | At most one item per `name` | API server |

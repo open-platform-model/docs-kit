@@ -15,7 +15,7 @@ Every definition below belongs to `example.com/defs@v1`.
 
 | Definition | Page | Summary |
 | --- | --- | --- |
-| [`#Module`](/docs/reference/definitions/modules/#module) | Modules | The unit an author publishes (enhancement 0010). |
+| [`#Module`](/docs/reference/definitions/modules/#module) | Modules | The unit an author publishes. |
 | [`#Component`](/docs/reference/definitions/modules/#component) | Modules | `#Component` is one deployable part of a [`#Module`](/docs/reference/definitions/modules/#module). |
 | [`#Widget`](/docs/reference/definitions/modules/#widget) | Modules | Shared fields every component embeds. |
 | [`#NameType`](/docs/reference/definitions/types/#nametype) | Types | An RFC 1123 DNS label. |

@@ -141,7 +141,7 @@ func TestEntry(t *testing.T) {
 	if mod.File != "src/module.cue" || mod.Anchor != "module" || mod.Page != "modules" {
 		t.Errorf("#Module where %q %q %q", mod.File, mod.Anchor, mod.Page)
 	}
-	if mod.Summary != "The unit an author publishes (enhancement 0010)." {
+	if mod.Summary != "The unit an author publishes." {
 		t.Errorf("summary %q", mod.Summary)
 	}
 	for _, bad := range []string{"_count", "0010:", "WHY", "SPEC.md", "separated from the field"} {
@@ -174,7 +174,7 @@ func TestLinkPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 	mod := find(t, m, "#Module")
-	if mod.Summary != "The unit an author publishes ([enhancement 0010](/enhancements/0010/))." {
+	if mod.Summary != "The unit an author publishes." {
 		t.Errorf("summary %q", mod.Summary)
 	}
 	// A spec block's comment drops citations under both policies.

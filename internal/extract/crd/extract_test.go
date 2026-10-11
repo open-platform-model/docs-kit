@@ -103,7 +103,7 @@ func TestWidget(t *testing.T) {
 	if w.ReconciledBy == nil || *w.ReconciledBy != "widget" {
 		t.Errorf("reconciledBy %v", w.ReconciledBy)
 	}
-	if w.Summary != "Widget asks the controller to build one widget (enhancement 0021)." {
+	if w.Summary != "Widget asks the controller to build one widget." {
 		t.Errorf("summary %q", w.Summary)
 	}
 }
@@ -139,8 +139,7 @@ func TestStrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := kindOf(t, m, "Widget")
-	// Strip keeps "enhancement NNNN" as written (docs/contracts.md C6).
-	if w.Summary != "Widget asks the controller to build one widget (enhancement 0021)." {
+	if w.Summary != "Widget asks the controller to build one widget." {
 		t.Errorf("summary %q", w.Summary)
 	}
 }

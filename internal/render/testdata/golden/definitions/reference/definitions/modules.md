@@ -9,7 +9,7 @@ Definitions on this page: [`#Module`](/docs/reference/definitions/modules/#modul
 
 ## #Module
 
-The unit an author publishes (enhancement 0010).
+The unit an author publishes.
 
 **At a glance**
 
@@ -45,7 +45,7 @@ The unit an author publishes (enhancement 0010).
 
 **Notes**
 
-It holds components and the values they read.
+It holds components and the values they read. It follows enhancement 0010.
 
 A module names its components in `#components`; each is a [`#Component`](/docs/reference/definitions/modules/#component).
 

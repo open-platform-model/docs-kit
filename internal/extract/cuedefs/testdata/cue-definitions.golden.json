@@ -36,9 +36,9 @@
       "anchor": "module",
       "page": "modules",
       "file": "src/module.cue",
-      "summary": "The unit an author publishes (enhancement 0010).",
+      "summary": "The unit an author publishes.",
       "notes": [
-        "It holds components and the values they read.",
+        "It holds components and the values they read. It follows enhancement 0010.",
         "",
         "A module names its components in #components; each is a #Component.",
         "",

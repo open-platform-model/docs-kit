@@ -191,7 +191,7 @@ type extraction struct {
 
 // target is a page a relative link can resolve to.
 type target struct {
-	url   string // "/enhancements/0025/decisions/"
+	url   string // "/enhancements/0010/decisions/"
 	title string // what a link whose text is the file name reads as
 }
 
