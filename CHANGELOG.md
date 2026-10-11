@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/open-platform-model/docs-kit/compare/v0.7.1...v0.8.0) (2026-10-11)
+
+
+### Features
+
+* **extract:** read OpenSpec-layout enhancement entries ([#56](https://github.com/open-platform-model/docs-kit/issues/56)) ([5b28caf](https://github.com/open-platform-model/docs-kit/commit/5b28caf0fb5e73b9fdda0ea831f6d2d2514fe002))
+
 ## [0.7.1](https://github.com/open-platform-model/docs-kit/compare/v0.7.0...v0.7.1) (2026-10-10)
 
 
