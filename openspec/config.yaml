@@ -115,8 +115,8 @@ context: |
     nothing.
   - In any text (proposal, design, specs, comments), name an enhancement only by its id beside a
     reason in words, never alone, and never with a decision number (no `NNNN:Dn`, no `NNNN Dn`,
-    no `NNNN:OQn`). In a comment, put the id once at the symbol: `(enhancement 0010)`, or
-    `(enhancements 0010 and 0011)` for two: the store has no stable decision numbers. A `// WHY` block that
+    no `NNNN:OQn`): the store has no decision numbers. In a comment, put the id once at the
+    symbol: `(enhancement 0010)`, or `(enhancements 0010 and 0011)` for two. A `// WHY` block that
     holds only an id is a lone id: write the reason. The code that strips or reads the old forms
     keeps them in its tests and testdata, because a docs revision builds old release tags.
   - Never cite a section, slice, phase, task or design-doc-local id (`§8.1`, `task 4.2`).
