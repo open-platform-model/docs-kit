@@ -104,8 +104,8 @@ context: |
   ### Comments and References
   - Default to no reference: say what the code does and why, in the comment's own words.
   - docs-kit has no enhancement entry. Cite a design decision as `DESIGN decision 9`, never a
-    bare `D9`, which names nothing. An enhancement, when one applies, is cited as `0021:D4`
-    (id, colon, decision; `0021:D4/D9`; `0021:D7:R1`).
+    bare `D9`, which names nothing. An enhancement, when one applies, is cited as enhancement 0021 ("The classes the policy covers")
+    (id, colon, decision; enhancement 0021 ("The classes the policy covers", "The CLI's ceiling on operator versions compares `MAJOR.MINOR` only" and "A `-beta.N` release line is pre-stable on the path to GA, and breaks only as a declared, migrated change")).
   - Never cite a section, slice, phase, task or design-doc-local id (`§8.1`, `task 4.2`).
   - Never put a reference in a page the tool renders, a template, a fixture a reader copies or
     a CLI output string. Those reach people with no access to the design record.
