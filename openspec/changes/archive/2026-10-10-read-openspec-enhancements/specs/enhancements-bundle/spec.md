@@ -136,5 +136,5 @@ Under the `link` citation policy, prose outside a code span SHALL turn `enhancem
 - **THEN** `0010` and `0026` each link to their entry page
 
 #### Scenario: A citation form
-- **WHEN** a comment reads `enhancement 0010:D28` or `enhancement 0010 experiment 3` under `link`
+- **WHEN** a comment reads `enhancement NNNN:Dn` or `enhancement NNNN experiment n` under `link`
 - **THEN** the decision citation links to the decisions page as before, and the experiment pointer is removed, with no link to `/enhancements/0010/`

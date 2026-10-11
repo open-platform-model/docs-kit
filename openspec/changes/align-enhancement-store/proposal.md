@@ -26,4 +26,7 @@ None. Spec text changes as wording only (no requirement changes its observable b
 
 - Consumers of a contract: `opm-operator` (`docs-kit.cue` uses `citations: "link"`; its own change drops that line, per the enhancements design). `core`, `catalog_opm`, `cli`, `library`, `opm`, `opmodel.dev` use the default `strip` policy and see no change in the pages they build.
 - Release class: the change is `docs`, `test` and `chore` only, so release-please makes no release. The `link` policy change reaches a consumer with the next `feat` or `fix` release of docs-kit.
-- Enhancement: None. (The store entry that delivers this lives in `enhancements`; this repo holds no line of its `tasks.md`.)
+
+## Enhancement
+
+None. The store entry for this alignment lives in `enhancements`; this repo holds no line of its `tasks.md`.
