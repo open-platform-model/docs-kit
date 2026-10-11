@@ -31,8 +31,8 @@ An `enhancements` source SHALL read every old-layout entry directory `<legacy>/N
 The source SHALL remove HTML comments outside code and the first `# ` heading of each file; SHALL tag an untagged opening code fence `text`; SHALL refuse a Hugo shortcode delimiter; SHALL escape a `<` outside code that would open raw HTML; SHALL refuse a link scheme other than `http`, `https` and `mailto`; and SHALL resolve every relative link against the file's repository path: an entry or its README to `/enhancements/<NNNN>/`, a numbered document to `/enhancements/<NNNN>/<slug>/`, `INDEX.md` to `/enhancements/`, `GRAPH.md` to `/enhancements/graph/`, any other path that exists at the commit built to `https://github.com/<repo>/blob/<commit>/<path>` (`tree` for a directory), keeping a fragment. A link whose text is the target's file name SHALL read as the target page's title (`INDEX.md` as "the index", `GRAPH.md` as "the relationship graph"). A link naming no path at that commit, or climbing out of the repository, SHALL fail the build with exit 2 naming the file and the link.
 
 #### Scenario: A sibling document link
-- **WHEN** `0025/02-design.md` links `03-decisions.md#d11`
-- **THEN** the page links `/enhancements/0025/requirements/`
+- **WHEN** `0010/02-design.md` links `03-decisions.md#d11`
+- **THEN** the page links `/enhancements/0010/decisions/#d11`
 
 #### Scenario: A schema file link
 - **WHEN** `0013/02-design.md` links `schemas/target.cue`, which exists at the commit built
@@ -177,7 +177,7 @@ The dialect SHALL accept `/enhancements/<NNNN>/proposal/`, `requirements/`, `tas
 - **THEN** bundle-mode lint reports that no page `capabilities/missing/` exists
 
 ### Requirement: The link policy links enhancement references
-Under the `link` citation policy, prose outside a code span SHALL turn `enhancement NNNN` into a link to `/enhancements/NNNN/` and each id of `enhancements NNNN and NNNN` into one. A `NNNN:Dn` citation SHALL still link to the decisions page, and `strip` SHALL leave `enhancement NNNN` as written. The `crd` and `go-api` sources SHALL show the same links.
+Under the `link` citation policy, prose outside a code span SHALL turn `enhancement NNNN` into a link to `/enhancements/NNNN/` and each id of `enhancements NNNN and NNNN` into one. `link` SHALL remove a decision citation (`NNNN:Dn` and its variants) without a link, as `strip` does, because an entry of the OpenSpec layout has no decisions page; `strip` SHALL leave `enhancement NNNN` as written. The `crd` and `go-api` sources SHALL show the same links.
 
 #### Scenario: One enhancement
 - **WHEN** a comment reads `(enhancement 0013)` under `link`
@@ -188,5 +188,5 @@ Under the `link` citation policy, prose outside a code span SHALL turn `enhancem
 - **THEN** `0010` and `0026` each link to their entry page
 
 #### Scenario: A citation form
-- **WHEN** a comment reads `enhancement 0010:D28` or `enhancement 0010 experiment 3` under `link`
-- **THEN** the decision citation links to the decisions page as before, and the experiment pointer is removed, with no link to `/enhancements/0010/`
+- **WHEN** a comment reads an enhancement id followed by a decision number, or `enhancement 0010 experiment 3`, under `link`
+- **THEN** the decision citation and the experiment pointer are removed, with no link to `/enhancements/0010/`
