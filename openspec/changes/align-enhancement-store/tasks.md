@@ -6,6 +6,10 @@
 
 ## 2. The rewrite
 
-- [x] 2.1 Run `enh cite-rewrite --write` (with `testdata/` excluded) and commit its result
+- [x] 2.1 Run `enh cite-rewrite --write` and commit its result
 - [x] 2.2 Clear the worklist by hand: Go comments and strings, contracts, live specs, archived text
-- [x] 2.3 `enh cite-lint` and `enh cite-rewrite --dry-run` report nothing (with the old-form tests and `testdata/` excluded); then commit `docs: cite enhancements by id and reason`
+- [x] 2.3 `enh cite-lint` and `enh cite-rewrite --dry-run` report nothing with the excludes of proposal.md, then commit the hand pass as `docs: state the link citation policy in the contracts and live specs` and `docs(openspec): fix the rewrite of archived citation examples`
+
+## 3. Review fixes
+
+- [x] 3.1 Deltas for the four requirements the link policy changes (`skip_specs` removed); the strip fixtures keep one old-form citation; the exclude names exact paths; proposal and design corrected
