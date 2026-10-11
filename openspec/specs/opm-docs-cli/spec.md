@@ -40,8 +40,8 @@ The `opm-docs` command set, its configuration file `docs-kit.cue`, and its exit 
 - **THEN** every page of `docs/site` except those under `reference/cli/` is copied
 
 #### Scenario: Citations linked
-- **WHEN** a source with `citations: "link"` documents a comment citing `0010:D28`
-- **THEN** the page holds `[0010:D28](/enhancements/0010/decisions/)`
+- **WHEN** a source with `citations: "link"` documents a comment citing enhancement 0010 ("An unresolved primitive demand is an error; a trait's optionality is stated by its catalog and overridden by the attachment")
+- **THEN** the page holds `enhancement 0010 ("An unresolved primitive demand is an error; a trait's optionality is stated by its catalog and overridden by the attachment")`
 
 ### Requirement: build writes one bundle tree per project
 `opm-docs build` SHALL write `out/<project>/` (or under `--out`) for every project in the config, or only those named with `--project`. With `--release <tag>` it SHALL derive the version by removing the project's tag prefix and SHALL refuse a tag without that prefix or whose remainder is not SemVer. With `--release <tag>` and a `cue-catalog` source, it SHALL refuse with exit 2 when the derived version differs from the catalog's `metadata.version`, naming both values; this holds for a docs revision too, which `revise` builds with `--release`. Without `--release` it SHALL build an edge bundle. With `--source <dir>` it SHALL take `docs-kit.cue` from that directory when present, else from the current directory, and SHALL resolve every source (each `cue-catalog` `module` and `markdown` `dir`) and all git history against that directory, wherever the config came from. A `markdown` dir that does not exist SHALL yield no pages when the config came from outside the `--source` tree, and SHALL fail the build otherwise. A build from a work tree with uncommitted changes SHALL record `source.dirty: true`, and `push` SHALL refuse such a bundle.

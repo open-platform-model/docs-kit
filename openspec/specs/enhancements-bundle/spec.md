@@ -32,7 +32,7 @@ The source SHALL remove HTML comments outside code and the first `# ` heading of
 
 #### Scenario: A sibling document link
 - **WHEN** `0025/02-design.md` links `03-decisions.md#d11`
-- **THEN** the page links `/enhancements/0025/decisions/#d11`
+- **THEN** the page links `/enhancements/0025/requirements/`
 
 #### Scenario: A schema file link
 - **WHEN** `0013/02-design.md` links `schemas/target.cue`, which exists at the commit built
