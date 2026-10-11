@@ -155,6 +155,28 @@ func (r Repo) LastMod(ctx context.Context, commit, path string) string {
 	return t.UTC().Format(time.RFC3339)
 }
 
+// Shallow reports whether the repository is a shallow clone, whose history
+// stops at a boundary commit: a date taken from it is not the date of the
+// last change. A failed probe is an error, never "not shallow".
+func (r Repo) Shallow(ctx context.Context) (bool, error) {
+	out, err := r.git(ctx, "rev-parse", "--is-shallow-repository")
+	return out == "true", err
+}
+
+// LastCommitDate is LastMod with git's error returned: "" with no error
+// means that no commit at or before commit touched path.
+func (r Repo) LastCommitDate(ctx context.Context, commit, path string) (string, error) {
+	out, err := r.git(ctx, "log", "-1", "--format=%cI", commit, "--", path)
+	if err != nil || out == "" {
+		return "", err
+	}
+	t, err := time.Parse(time.RFC3339, out)
+	if err != nil {
+		return "", fmt.Errorf("commit date %q of %s: %w", out, path, err)
+	}
+	return t.UTC().Format(time.RFC3339), nil
+}
+
 // HasFile reports whether path, relative to the repository root, is a regular file
 // (executable or not) in rev's tree; a directory, a symlink, a submodule
 // or a path rev does not have is not.

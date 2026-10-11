@@ -1,0 +1,15 @@
+id: "0042"
+slug: fixture-no-specs
+title: Fixture No Specs
+summary: >-
+  Fixture No Specs, a fixture
+  entry.
+status: draft
+category: runtime
+affects:
+  - cli
+  - catalog_opm
+  - .github
+authors:
+  - someone@example.com
+created: "2026-09-20"

@@ -183,9 +183,9 @@ var crdEscaper = strings.NewReplacer(
 var reCitation = regexp.MustCompile(`\b(\d{4}):D\d+(?::R\d+(?:/R\d+)*)?(?:/D\d+(?::R\d+(?:/R\d+)*)?)*`)
 
 // crdProse escapes prose outside code spans and, under the link policy,
-// links each decision citation to its enhancement's decisions page. The
-// model's text is plain, so the only links on the page are the ones built
-// here from a citation.
+// links each decision citation to its enhancement's decisions page and
+// each enhancement reference ("enhancement 0013") to its page. The model's
+// text is plain, so the only links on the page are the ones built here.
 func crdProse(s string, link bool) string {
 	s = crdEscaper.Replace(s)
 	// "{{{" escapes to "{\{{", which still opens one: repeat until none is
@@ -195,6 +195,7 @@ func crdProse(s string, link bool) string {
 	}
 	if link {
 		s = reCitation.ReplaceAllString(s, "[$0](/enhancements/$1/decisions/)")
+		s = doctext.LinkEnhancements(s)
 	}
 	return s
 }

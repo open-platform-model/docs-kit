@@ -4,12 +4,12 @@
 
 | ID | Status | Title |
 | -- | ------ | ----- |
-| [0025](./0025/) | draft | Self-Describing Modules |
 
 ## Archived
 
 | ID | Status | Title |
 | -- | ------ | ----- |
 | [0003](./archive/0003/) | superseded | Module Publishing Workflow |
+| [0025](./archive/0025/) | draft | Self-Describing Modules |
 
 How they relate: [GRAPH.md](GRAPH.md).

@@ -13,7 +13,7 @@ var (
 	reDocs        = regexp.MustCompile(`^/docs/`)
 	reDocsOK      = regexp.MustCompile(`^/docs/([a-z0-9-]+/)*(#[^ ]*)?$`)
 	reEnh         = regexp.MustCompile(`^/enhancements([/#]|$)`)
-	reEnhOK       = regexp.MustCompile(`^/enhancements/(graph/|[0-9][0-9][0-9][0-9]/((problem|design|decisions|graduation|risks|operational|questions)/)?)?(#[^ ]*)?$`)
+	reEnhOK       = regexp.MustCompile(`^/enhancements/(graph/|capabilities/([a-z0-9]+(-[a-z0-9]+)*/)?|[0-9][0-9][0-9][0-9]/((problem|design|decisions|graduation|risks|operational|questions|proposal|requirements|tasks)/)?)?(#[^ ]*)?$`)
 	reCatalogs    = regexp.MustCompile(`^/catalogs([/#]|$)`)
 	reMinor       = regexp.MustCompile(`^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$`)
 	reCatalogLink = regexp.MustCompile(`^/catalogs/([a-z0-9]+(?:-[a-z0-9]+)*)/(?:((?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*))?|edge)/((?:[a-z0-9-]+/)*))?(#[^ ]*)?$`)
@@ -33,7 +33,7 @@ func (p *pageLint) dest(t string) {
 		}
 	case reEnh.MatchString(t):
 		if !reEnhOK.MatchString(t) {
-			p.err(p.nr, `enhancement link "`+t+`": write /enhancements/, /enhancements/<NNNN>/ or /enhancements/<NNNN>/<document>/ with a trailing slash`)
+			p.err(p.nr, `enhancement link "`+t+`": write /enhancements/, /enhancements/<NNNN>/, /enhancements/<NNNN>/<document>/ or /enhancements/capabilities/<capability>/ with a trailing slash`)
 			return
 		}
 		if p.opts.sectionBundle() {

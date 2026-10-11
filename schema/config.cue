@@ -147,9 +147,13 @@ package schema
 // The enhancements repository's entries, INDEX.md and GRAPH.md, as the
 // /enhancements/ section (docs-kit C21); a section bundle only. Its text is
 // authored, so it takes no citations policy: citations stay as written.
+// changes, specs and legacy are relative to dir.
 #Enhancements: {
 	kind:        "enhancements"
 	dir:         *"." | =~"^[^/.][^.]*$" // the entry root, repo-relative
+	changes:     *"openspec/changes" | =~"^[^/.][^.]*$" // OpenSpec changes: <id>-<slug>/ and archive/<date>-<id>-<slug>/
+	specs:       *"openspec/specs" | =~"^[^/.][^.]*$"   // the capability specs: <capability>/spec.md
+	legacy:      *"archive" | =~"^[^/.][^.]*$"          // old-layout entries: NNNN/
 	title:       *"Enhancements" | string & !="" // the section page's title
 	description: string & !=""                   // the section page's description
 }

@@ -173,8 +173,9 @@ func dropControls(s string) string {
 	}, s)
 }
 
-// reDecisionLink matches the link the "link" citation policy writes.
-var reDecisionLink = regexp.MustCompile(`^\[\d{4}:D[0-9DR:/]*\]\(/enhancements/\d{4}/decisions/\)`)
+// reDecisionLink matches the links the "link" citation policy writes: a
+// decision citation, an enhancement reference and one id of a list of them.
+var reDecisionLink = regexp.MustCompile(`^\[\d{4}:D[0-9DR:/]*\]\(/enhancements/\d{4}/decisions/\)|^\[(?:[Ee]nhancement\s+)?\d{4}\]\(/enhancements/\d{4}/\)`)
 
 // inline escapes cleaned prose outside its code spans (a run of n
 // backticks up to the next run of exactly n, rewritten as a span longer

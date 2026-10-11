@@ -58,7 +58,7 @@ internal/extract/crd/         the crd extractor: data/crd.json
 internal/extract/cuedefs/     the cue-definitions extractor: data/cue-definitions.json
 internal/extract/markdown/    the markdown source
 internal/extract/cobra/       the cobra source: a cobradump document to data/cobra.json
-internal/extract/enhancements/ the enhancements source: data/enhancements.json and the /enhancements/ section's pages
+internal/extract/enhancements/ the enhancements source (old layout and OpenSpec changes): data/enhancements.json and the /enhancements/ section's pages, entries and capabilities
 internal/extract/goapi/       the go-api extractor: a Go module's exported packages (go/parser, go/doc) to data/go-api.json
 internal/render/              the renderer registry by data schema; embedded templates: landing, kind index, member page, definitions index and page, command reference, Go API index and page
 internal/render/helptext/     cobra help text (Long, Example, usage) to Markdown

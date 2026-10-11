@@ -2,6 +2,7 @@ package enhancements
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"io/fs"
 	"os"
@@ -43,11 +44,20 @@ func treePaths(t *testing.T, root string) map[string]string {
 	return paths
 }
 
+// lastCommits are the dates the tests' history gives each entry folder;
+// a folder not listed has no commit.
+var lastCommits = map[string]string{
+	"openspec/changes/0026-module-dictated-catalog-versions":     "2026-10-20T23:30:00-02:00", // 2026-10-21 in UTC
+	"openspec/changes/archive/2026-10-21-0040-fixture-delivered": "2026-10-21T08:00:00Z",
+	"openspec/changes/0042-fixture-no-specs":                     "2026-10-02T00:00:00Z",
+}
+
 func options(t *testing.T, root string) Options {
 	t.Helper()
 	return Options{
 		Root: root, Dir: ".", Repo: "open-platform-model/enhancements", Commit: testCommit, Paths: treePaths(t, root),
 		Title: "Enhancements", Description: "OPM's design record.",
+		LastCommit: func(p string) (string, error) { return lastCommits[p], nil },
 	}
 }
 
@@ -116,14 +126,18 @@ func TestPages(t *testing.T) {
 	}
 	want := "0003/_index.md 0003/decisions.md 0003/design.md 0003/graduation.md 0003/operational.md 0003/problem.md 0003/questions.md 0003/risks.md " +
 		"0025/_index.md 0025/decisions.md 0025/design.md 0025/graduation.md 0025/operational.md 0025/problem.md 0025/questions.md 0025/risks.md " +
-		"_index.md graph.md"
+		"0026/_index.md 0026/design.md 0026/proposal.md 0026/requirements.md 0026/tasks.md " +
+		"0040/_index.md 0040/design.md 0040/proposal.md 0040/requirements.md 0040/tasks.md " +
+		"0041/_index.md 0041/design.md 0041/proposal.md 0041/requirements.md " +
+		"0042/_index.md 0042/design.md 0042/proposal.md " +
+		"_index.md capabilities/_index.md capabilities/registration-acceptance.md capabilities/single-build-render.md graph.md"
 	if got := strings.Join(paths, " "); got != want {
 		t.Fatalf("pages\n%s\nwant\n%s", got, want)
 	}
 	if p := byPath["0003/_index.md"]; p.Source != "archive/0003/README.md" || p.Weight != 4 || p.Title != "0003: Module Publishing Workflow" {
 		t.Errorf("archived entry page %+v", p)
 	}
-	if p := byPath["0025/decisions.md"]; p.Source != "0025/03-decisions.md" || p.Type != "explanation" || p.Weight != 3 || p.Description != "Each decision, numbered, with its rationale." {
+	if p := byPath["0025/decisions.md"]; p.Source != "archive/0025/03-decisions.md" || p.Type != "explanation" || p.Weight != 3 || p.Description != "Each decision, numbered, with its rationale." {
 		t.Errorf("document page %+v", p)
 	}
 	if p := byPath["0025/_index.md"]; p.Description != "Let a module state facts about itself as a whole, as named bundles of traits." {
@@ -140,51 +154,51 @@ func TestRefusals(t *testing.T) {
 		msg    string
 	}{
 		{"two decision files", func(t *testing.T, root string) {
-			write(t, root, "0025/03-decisions-old.md", "# Old\n")
-		}, "entry 0025 holds 0025/03-decisions-old.md and 0025/03-decisions.md"},
+			write(t, root, "archive/0025/03-decisions-old.md", "# Old\n")
+		}, "entry 0025 holds archive/0025/03-decisions-old.md and archive/0025/03-decisions.md"},
 		{"a missing document", func(t *testing.T, root string) {
-			remove(t, root, "0025/05-risks.md")
+			remove(t, root, "archive/0025/05-risks.md")
 		}, "entry 0025 has no 05-*.md"},
 		{"an eighth document", func(t *testing.T, root string) {
-			write(t, root, "0025/08-extra.md", "# Extra\n")
-		}, "entry 0025 holds 0025/08-extra.md"},
+			write(t, root, "archive/0025/08-extra.md", "# Extra\n")
+		}, "entry 0025 holds archive/0025/08-extra.md"},
 		{"an id that is not the directory", func(t *testing.T, root string) {
-			replace(t, root, "0025/config.yaml", `id: "0025"`, `id: "0026"`)
-		}, `0025/config.yaml says id "0026"`},
-		{"an entry live and archived", func(t *testing.T, root string) {
-			if err := os.MkdirAll(filepath.Join(root, "archive", "0025"), 0o755); err != nil {
+			replace(t, root, "archive/0025/config.yaml", `id: "0025"`, `id: "0026"`)
+		}, `archive/0025/config.yaml says id "0026"`},
+		{"a live old-layout folder", func(t *testing.T, root string) {
+			if err := os.MkdirAll(filepath.Join(root, "0030"), 0o755); err != nil {
 				t.Fatal(err)
 			}
-		}, "entry 0025 is both 0025/ and archive/0025/"},
+		}, "entry 0030 is a live old-layout folder (0030/); convert it to a change under the changes directory or move it under archive/"},
 		{"no README", func(t *testing.T, root string) {
-			remove(t, root, "0025/README.md")
-		}, "0025/README.md is missing"},
+			remove(t, root, "archive/0025/README.md")
+		}, "archive/0025/README.md is missing"},
 		{"no INDEX", func(t *testing.T, root string) {
 			remove(t, root, "INDEX.md")
 		}, "INDEX.md is missing"},
 		{"a dangling link", func(t *testing.T, root string) {
-			write(t, root, "0025/06-operational.md", "# Operational\n\nSee [missing.md](missing.md).\n")
-		}, `0025/06-operational.md:3: link "missing.md" names nothing in the repository at cccccccccccc (0025/missing.md)`},
+			write(t, root, "archive/0025/06-operational.md", "# Operational\n\nSee [missing.md](missing.md).\n")
+		}, `archive/0025/06-operational.md:3: link "missing.md" names nothing in the repository at cccccccccccc (archive/0025/missing.md)`},
 		{"a link out of the repository", func(t *testing.T, root string) {
-			write(t, root, "0025/06-operational.md", "# Operational\n\nSee [up](../../x.md).\n")
-		}, `link "../../x.md" climbs out of the repository`},
-		{"a link to an archived entry's old place", func(t *testing.T, root string) {
-			write(t, root, "0025/06-operational.md", "# Operational\n\nSee [0003](../0003/).\n")
-		}, `link "../0003/" names nothing in the repository`},
+			write(t, root, "archive/0025/06-operational.md", "# Operational\n\nSee [up](../../../x.md).\n")
+		}, `link "../../../x.md" climbs out of the repository`},
+		{"a link to an entry that is not there", func(t *testing.T, root string) {
+			write(t, root, "archive/0025/06-operational.md", "# Operational\n\nSee [0004](../0004/).\n")
+		}, `link "../0004/" names nothing in the repository`},
 		{"an unsafe scheme", func(t *testing.T, root string) {
-			write(t, root, "0025/06-operational.md", "# Operational\n\n[x](javascript:alert(1))\n")
+			write(t, root, "archive/0025/06-operational.md", "# Operational\n\n[x](javascript:alert(1))\n")
 		}, "the scheme javascript: is not allowed"},
 		{"a shortcode", func(t *testing.T, root string) {
-			write(t, root, "0025/06-operational.md", "# Operational\n\n```text\n{{< figure >}}\n```\n")
-		}, "0025/06-operational.md:4: holds a Hugo shortcode delimiter"},
+			write(t, root, "archive/0025/06-operational.md", "# Operational\n\n```text\n{{< figure >}}\n```\n")
+		}, "archive/0025/06-operational.md:4: holds a Hugo shortcode delimiter"},
 		{"an unclosed comment", func(t *testing.T, root string) {
-			write(t, root, "0025/06-operational.md", "# Operational\n\n<!-- never closed\n\nText.\n")
-		}, "0025/06-operational.md:3: an HTML comment opens with <!-- and never closes"},
+			write(t, root, "archive/0025/06-operational.md", "# Operational\n\n<!-- never closed\n\nText.\n")
+		}, "archive/0025/06-operational.md:3: an HTML comment opens with <!-- and never closes"},
 		{"a malformed date", func(t *testing.T, root string) {
-			replace(t, root, "0025/config.yaml", `created: "2026-09-08"`, `created: "yesterday"`)
+			replace(t, root, "archive/0025/config.yaml", `created: "2026-09-08"`, `created: "yesterday"`)
 		}, "must be dates"},
 		{"a malformed relation", func(t *testing.T, root string) {
-			replace(t, root, "0025/config.yaml", `  - "0003"`, `  - "3"`)
+			replace(t, root, "archive/0025/config.yaml", `  - "0003"`, `  - "3"`)
 		}, `depends_on: "3" is not an entry id`},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -202,11 +216,11 @@ func TestRefusals(t *testing.T) {
 func TestSymlinks(t *testing.T) {
 	t.Run("file", func(t *testing.T) {
 		root := copyFixture(t)
-		remove(t, root, "0025/05-risks.md")
-		if err := os.Symlink(filepath.Join(root, "INDEX.md"), filepath.Join(root, "0025", "05-risks.md")); err != nil {
+		remove(t, root, "archive/0025/05-risks.md")
+		if err := os.Symlink(filepath.Join(root, "INDEX.md"), filepath.Join(root, "archive", "0025", "05-risks.md")); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := Extract(options(t, root)); err == nil || !strings.Contains(err.Error(), "0025/05-risks.md is not a regular file") {
+		if _, err := Extract(options(t, root)); err == nil || !strings.Contains(err.Error(), "archive/0025/05-risks.md is not a regular file") {
 			t.Fatalf("err = %v", err)
 		}
 	})
@@ -229,10 +243,10 @@ func TestSymlinks(t *testing.T) {
 	})
 	t.Run("entry", func(t *testing.T) {
 		root := copyFixture(t)
-		if err := os.Symlink(filepath.Join(root, "0025"), filepath.Join(root, "0026")); err != nil {
+		if err := os.Symlink(filepath.Join(root, "archive", "0025"), filepath.Join(root, "archive", "0026")); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := Extract(options(t, root)); err == nil || !strings.Contains(err.Error(), "entry 0026 is reached through the symlink 0026") {
+		if _, err := Extract(options(t, root)); err == nil || !strings.Contains(err.Error(), "entry archive/0026 is reached through the symlink archive/0026") {
 			t.Fatalf("err = %v", err)
 		}
 	})
@@ -241,9 +255,9 @@ func TestSymlinks(t *testing.T) {
 // TestClean checks the transforms on single texts.
 func TestClean(t *testing.T) {
 	x := &extraction{o: options(t, fixtureRepo), dir: ".", pages: map[string]target{
-		"INDEX.md":             {url: "/enhancements/", title: "the index"},
-		"0025/README.md":       {url: "/enhancements/0025/", title: "0025: Self-Describing Modules"},
-		"0025/03-decisions.md": {url: "/enhancements/0025/decisions/", title: "0025: Decisions"},
+		"INDEX.md":                     {url: "/enhancements/", title: "the index"},
+		"archive/0025/README.md":       {url: "/enhancements/0025/", title: "0025: Self-Describing Modules"},
+		"archive/0025/03-decisions.md": {url: "/enhancements/0025/decisions/", title: "0025: Decisions"},
 	}}
 	for _, c := range []struct{ name, in, want string }{
 		{"heading and blank lines", "\n# Title\n\n\nBody.\n", "Body.\n"},
@@ -262,9 +276,9 @@ func TestClean(t *testing.T) {
 		{"angle external", "[x](<https://a.example/b c>)\n", "[x](<https://a.example/b c>)\n"},
 		{"angle fragment with a blank", "[x](<03-decisions.md#a b>)\n", "[x](</enhancements/0025/decisions/#a b>)\n"},
 		{"entry directory", "[0025](./)\n", "[0025](/enhancements/0025/)\n"},
-		{"root", "[all](../)\n", "[all](/enhancements/)\n"},
-		{"github file", "[s](schemas/target.cue#L1)\n", "[s](https://github.com/open-platform-model/enhancements/blob/" + testCommit + "/0025/schemas/target.cue#L1)\n"},
-		{"github directory", "[s](schemas)\n", "[s](https://github.com/open-platform-model/enhancements/tree/" + testCommit + "/0025/schemas)\n"},
+		{"root", "[all](../../)\n", "[all](/enhancements/)\n"},
+		{"github file", "[s](schemas/target.cue#L1)\n", "[s](https://github.com/open-platform-model/enhancements/blob/" + testCommit + "/archive/0025/schemas/target.cue#L1)\n"},
+		{"github directory", "[s](schemas)\n", "[s](https://github.com/open-platform-model/enhancements/tree/" + testCommit + "/archive/0025/schemas)\n"},
 		{"fragment and absolute", "[a](#x) [b](/docs/concepts/) [c](mailto:a@b.example)\n", "[a](#x) [b](/docs/concepts/) [c](mailto:a@b.example)\n"},
 		{"reference definition", "[r]: 03-decisions.md \"t\"\n", "[r]: /enhancements/0025/decisions/ \"t\"\n"},
 		{"html escaped", "a <b>c</b> <!x <?y </z\n", "a \\<b>c\\</b> \\<!x \\<?y \\</z\n"},
@@ -275,7 +289,7 @@ func TestClean(t *testing.T) {
 		{"title escaped", "[README.md](README.md) <i>\n", "[0025: Self-Describing Modules](/enhancements/0025/) \\<i>\n"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			got, err := x.clean("0025/02-design.md", c.in)
+			got, err := x.clean("archive/0025/02-design.md", c.in)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -312,5 +326,429 @@ func replace(t *testing.T, root, file, old, repl string) {
 	}
 	if err := os.WriteFile(p, []byte(strings.Replace(string(b), old, repl, 1)), 0o600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// entryOf finds an entry of the fixture by id.
+func entryOf(t *testing.T, m *Model, id string) *Entry {
+	t.Helper()
+	for i := range m.Entries {
+		if m.Entries[i].ID == id {
+			return &m.Entries[i]
+		}
+	}
+	t.Fatalf("no entry %s", id)
+	return nil
+}
+
+// fixture extracts the mixed fixture and indexes its pages by path.
+func fixture(t *testing.T) (res *Result, byPath map[string]Page) {
+	t.Helper()
+	res, err := Extract(options(t, fixtureRepo))
+	if err != nil {
+		t.Fatal(err)
+	}
+	byPath = map[string]Page{}
+	for i := range res.Pages {
+		byPath[res.Pages[i].Path] = res.Pages[i]
+	}
+	return res, byPath
+}
+
+func TestOpenSpecHeader(t *testing.T) {
+	res, _ := fixture(t)
+	e := entryOf(t, res.Model, "0026")
+	if e.Layout != LayoutOpenSpec || e.Archived || e.Updated != "2026-10-21" || e.Breaking == nil || !*e.Breaking {
+		t.Errorf("0026 %+v", e)
+	}
+	if e.Accepted == nil || e.Accepted.Date != "2026-10-16" || e.Accepted.Commit != "4be19d0" || e.Progress != (Progress{Done: 0, Total: 5}) {
+		t.Errorf("0026 accepted %+v progress %+v", e.Accepted, e.Progress)
+	}
+	if got := strings.Join(e.Capabilities, " "); got != "authored-platform catalog-version-selection registration-acceptance single-build-render" {
+		t.Errorf("capabilities %q", got)
+	}
+}
+
+func TestOpenSpecEntryPages(t *testing.T) {
+	_, byPath := fixture(t)
+	if p := byPath["0026/proposal.md"]; p.Source != "openspec/changes/0026-module-dictated-catalog-versions/proposal.md" || p.Title != "0026: Proposal" || p.Type != "explanation" || p.Weight != 1 {
+		t.Errorf("proposal page %+v", p)
+	}
+	if p := byPath["0026/_index.md"]; p.Weight != 27 || strings.Contains(p.Body, "GENERATED") || strings.HasPrefix(p.Body, "#") {
+		t.Errorf("entry page %+v", p)
+	}
+}
+
+func TestOpenSpecRequirementsPage(t *testing.T) {
+	_, byPath := fixture(t)
+	req := byPath["0026/requirements.md"]
+	if req.Source != "" || len(req.Inputs) != 4 || req.Weight != 3 {
+		t.Errorf("requirements page %+v", req)
+	}
+	var heads []string
+	for _, l := range strings.Split(req.Body, "\n") {
+		if strings.HasPrefix(l, "## ") || strings.HasPrefix(l, "### ") && !strings.HasPrefix(l, "### Requirement") {
+			heads = append(heads, l)
+		}
+	}
+	if !strings.Contains(strings.Join(heads, "|"), "## authored-platform|### Purpose|### ADDED Requirements") || strings.Contains(req.Body, "\n## ADDED Requirements") {
+		t.Errorf("requirements headings %q", heads)
+	}
+	if !strings.Contains(req.Body, "\n#### Requirement:") || !strings.Contains(req.Body, "\n##### Scenario:") {
+		t.Errorf("requirements page does not demote requirement and scenario headings:\n%s", req.Body)
+	}
+}
+
+func TestOpenSpecReadmeLinks(t *testing.T) {
+	_, byPath := fixture(t)
+	readme := byPath["0026/_index.md"].Body
+	for _, want := range []string{
+		"[0026: Proposal](/enhancements/0026/proposal/)",
+		"[specs/](/enhancements/0026/requirements/)",
+		"(https://github.com/open-platform-model/enhancements/tree/" + testCommit + "/openspec/changes/0026-module-dictated-catalog-versions/evidence)",
+		"[0026: Tasks](/enhancements/0026/tasks/)",
+	} {
+		if !strings.Contains(readme, want) {
+			t.Errorf("README page lacks %q:\n%s", want, readme)
+		}
+	}
+}
+
+func TestOpenSpecEntryVariants(t *testing.T) {
+	res, _ := fixture(t)
+	d := entryOf(t, res.Model, "0040")
+	if !d.Archived || d.Updated != "2026-10-21" || d.Progress != (Progress{Done: 2, Total: 2}) || d.Breaking == nil || *d.Breaking {
+		t.Errorf("0040 %+v", d)
+	}
+	if r := entryOf(t, res.Model, "0041"); r.Updated != "2026-09-20" {
+		t.Errorf("0041 has no commit, so updated is created: %q", r.Updated)
+	}
+	n := entryOf(t, res.Model, "0042")
+	if n.Breaking != nil || len(n.Documents) != 2 || n.Capabilities == nil || n.Progress != (Progress{}) {
+		t.Errorf("0042 %+v", n)
+	}
+	if l := entryOf(t, res.Model, "0003"); l.Layout != LayoutLegacy || len(l.Aliases) != 0 {
+		t.Errorf("legacy entry %+v", l)
+	}
+}
+
+// aliasMap is an entry's aliases by old page.
+func aliasMap(t *testing.T, m *Model, id string) map[string]string {
+	t.Helper()
+	out := map[string]string{}
+	for _, a := range entryOf(t, m, id).Aliases {
+		out[a.From] = a.To
+	}
+	return out
+}
+
+// A migrated entry (it holds evidence/migration-map.md) redirects its old
+// page slugs; a new entry and an archived new entry get none.
+func TestOpenSpecAliases(t *testing.T) {
+	res, _ := fixture(t)
+	for _, id := range []string{"0042", "0040", "0041"} {
+		if a := aliasMap(t, res.Model, id); len(a) != 0 {
+			t.Errorf("%s is a new entry and has aliases %v", id, a)
+		}
+	}
+	full := aliasMap(t, res.Model, "0026")
+	want := map[string]string{
+		"0026/problem": "0026/proposal", "0026/questions": "0026/proposal",
+		"0026/risks": "0026/design", "0026/operational": "0026/design",
+		"0026/decisions": "0026/requirements", "0026/graduation": "0026/tasks",
+	}
+	if len(full) != len(want) {
+		t.Errorf("0026 aliases %v, want %v (design needs none)", full, want)
+	}
+	for from, to := range want {
+		if full[from] != to {
+			t.Errorf("0026 alias %s = %q, want %q", from, full[from], to)
+		}
+	}
+}
+
+// A migrated entry without a requirements or tasks page redirects those
+// slugs to its own page; a symbolic link is no migration marker.
+func TestOpenSpecAliasesMarker(t *testing.T) {
+	root := copyFixture(t)
+	const c42 = "openspec/changes/0042-fixture-no-specs/"
+	mkdir(t, root, c42+"evidence")
+	write(t, root, c42+"evidence/migration-map.md", "# Migration map\n")
+	res, err := Extract(options(t, root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := aliasMap(t, res.Model, "0042")
+	if got["0042/decisions"] != "0042" || got["0042/graduation"] != "0042" || got["0042/problem"] != "0042/proposal" {
+		t.Errorf("0042 aliases %v", got)
+	}
+
+	remove(t, root, c42+"evidence/migration-map.md")
+	if err := os.Symlink("../design.md", filepath.Join(root, c42, "evidence", "migration-map.md")); err != nil {
+		t.Fatal(err)
+	}
+	res, err = Extract(options(t, root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a := aliasMap(t, res.Model, "0042"); len(a) != 0 {
+		t.Errorf("a symbolic link marked the entry as migrated: %v", a)
+	}
+}
+
+func TestOpenSpecRefusals(t *testing.T) {
+	const c26 = "openspec/changes/0026-module-dictated-catalog-versions/"
+	for _, c := range []struct {
+		name   string
+		change func(t *testing.T, root string)
+		msg    string
+	}{
+		{"no design", func(t *testing.T, root string) { remove(t, root, c26+"design.md") }, "entry 0026: " + c26 + "design.md is missing"},
+		{"no README", func(t *testing.T, root string) { remove(t, root, c26+"README.md") }, "entry 0026: " + c26 + "README.md is missing"},
+		{"no config", func(t *testing.T, root string) { remove(t, root, c26+"config.yaml") }, "entry 0026: " + c26 + "config.yaml is missing"},
+		{"a folder of another name", func(t *testing.T, root string) {
+			mkdir(t, root, "openspec/changes/fix-things")
+		}, "change folder openspec/changes/fix-things is not <id>-<slug> or a seed-<capability> change"},
+		{"an archived folder of another name", func(t *testing.T, root string) {
+			mkdir(t, root, "openspec/changes/archive/0043-x")
+		}, "change folder openspec/changes/archive/0043-x is not <date>-<id>-<slug>"},
+		{"an id that is not the folder's", func(t *testing.T, root string) {
+			replace(t, root, c26+"config.yaml", `id: "0026"`, `id: "0027"`)
+		}, `says id "0027"`},
+		{"a slug that is not the folder's", func(t *testing.T, root string) {
+			replace(t, root, c26+"config.yaml", "slug: module-dictated-catalog-versions", "slug: other")
+		}, `says slug "other"`},
+		{"a malformed accepted", func(t *testing.T, root string) {
+			replace(t, root, c26+"config.yaml", `accepted: "2026-10-16 4be19d0"`, `accepted: "yesterday"`)
+		}, `accepted "yesterday" must read`},
+		{"a malformed after", func(t *testing.T, root string) {
+			replace(t, root, c26+"config.yaml", `  - "0010"`, `  - "10"`)
+		}, `"10" is not an entry id`},
+		{"an id in both layouts", func(t *testing.T, root string) {
+			mkdir(t, root, "archive/0026")
+		}, "entry 0026 is both archive/0026/ and openspec/changes/0026-module-dictated-catalog-versions/"},
+		{"an id twice in the openspec layout", func(t *testing.T, root string) {
+			mkdir(t, root, "openspec/changes/archive/2026-10-30-0042-again")
+		}, "entry 0042 is both"},
+		{"a capability name", func(t *testing.T, root string) {
+			mkdir(t, root, c26+"specs/Bad_Name")
+		}, "is not a capability name"},
+		{"a spec file missing", func(t *testing.T, root string) {
+			mkdir(t, root, c26+"specs/empty")
+		}, "specs/empty/spec.md is missing"},
+		{"a level-6 heading in a delta", func(t *testing.T, root string) {
+			write(t, root, c26+"specs/authored-platform/spec.md", "## ADDED Requirements\n\n###### Deep\n")
+		}, "a level-6 heading cannot move down"},
+		{"a dangling link in a delta", func(t *testing.T, root string) {
+			write(t, root, c26+"specs/authored-platform/spec.md", "## ADDED Requirements\n\nSee [x](missing.md).\n")
+		}, "specs/authored-platform/spec.md:3: link \"missing.md\" names nothing"},
+		{"a live legacy folder", func(t *testing.T, root string) {
+			mkdir(t, root, "0030")
+		}, "entry 0030 is a live old-layout folder"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			root := copyFixture(t)
+			c.change(t, root)
+			_, err := Extract(options(t, root))
+			if err == nil || !strings.Contains(err.Error(), c.msg) {
+				t.Fatalf("err = %v, want it to name %q", err, c.msg)
+			}
+		})
+	}
+}
+
+// TestOpenSpecAffects checks an openspec entry may affect every kind of
+// repository name the producer's closed list holds, and a value no
+// repository name can have is refused.
+func TestOpenSpecAffects(t *testing.T) {
+	res, err := Extract(options(t, fixtureRepo))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, e := range res.Model.Entries {
+		if e.ID == "0042" {
+			got = e.Affects
+		}
+	}
+	if want := "cli catalog_opm .github"; strings.Join(got, " ") != want {
+		t.Fatalf("0042 affects = %q, want %q", got, want)
+	}
+	const cfg = "openspec/changes/0042-fixture-no-specs/config.yaml"
+	for _, name := range []string{"core", "opm-operator", "opmodel.dev", "catalog_opm", ".github", "opm-suite-installer"} {
+		root := copyFixture(t)
+		replace(t, root, cfg, "  - .github\n", "  - "+name+"\n")
+		if _, err := Extract(options(t, root)); err != nil {
+			t.Errorf("affects %q: %v, want it accepted", name, err)
+		}
+	}
+	for _, name := range []string{`"two words"`, "Core", `"a/b"`, `"../x"`, `"a\\b"`, `""`, ".", "..", "_x", "-x", "x_", "a..b", "a__b", "a._b", `".git/"`} {
+		root := copyFixture(t)
+		replace(t, root, cfg, "  - .github\n", "  - "+name+"\n")
+		_, err := Extract(options(t, root))
+		if err == nil || !strings.Contains(err.Error(), "is not a repository name") {
+			t.Errorf("affects %s: err = %v, want it refused as not a repository name", name, err)
+		}
+	}
+}
+
+// TestSeedsAreNoEntries checks a seed change is no entry and no page, and
+// a symlinked change is refused.
+func TestSeedsAndSymlinks(t *testing.T) {
+	res, err := Extract(options(t, fixtureRepo))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range res.Model.Entries {
+		if strings.Contains(e.Slug, "seed") {
+			t.Errorf("seed %s is an entry", e.Slug)
+		}
+	}
+	root := copyFixture(t)
+	if err := os.Symlink(filepath.Join(root, "openspec", "changes", "0042-fixture-no-specs"), filepath.Join(root, "openspec", "changes", "0043-link")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Extract(options(t, root)); err == nil || !strings.Contains(err.Error(), "reached through the symlink openspec/changes/0043-link") {
+		t.Fatalf("err = %v", err)
+	}
+	root = copyFixture(t)
+	c := "openspec/changes/0042-fixture-no-specs/"
+	remove(t, root, c+"design.md")
+	if err := os.Symlink(filepath.Join(root, c, "proposal.md"), filepath.Join(root, c, "design.md")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Extract(options(t, root)); err == nil || !strings.Contains(err.Error(), "design.md is not a regular file") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestUpdatedFromHistory(t *testing.T) {
+	o := options(t, fixtureRepo)
+	o.LastCommit = func(string) (string, error) { return "", errors.New("shallow") }
+	if _, err := Extract(o); err == nil || !strings.Contains(err.Error(), "entry 0026: shallow") {
+		t.Fatalf("err = %v, want the history error named with the entry", err)
+	}
+	o.LastCommit = nil
+	res, err := Extract(o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := entryOf(t, res.Model, "0026").Updated; got != "2026-09-08" {
+		t.Errorf("without history updated is created, got %q", got)
+	}
+	o.LastCommit = func(string) (string, error) { return "later", nil }
+	if _, err := Extract(o); err == nil || !strings.Contains(err.Error(), `commit date "later"`) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestProgress(t *testing.T) {
+	got := progress("## 1. A\n\n- [x] 1.1 a\n- [ ] 1.2 b\n* [X] 1.3 c\n\n```\n- [ ] 9.9 not a task\n```\n\n- [ ] 2.1 d\ntext - [ ] not a line start\n")
+	if got != (Progress{Done: 2, Total: 4}) {
+		t.Errorf("progress %+v", got)
+	}
+}
+
+func TestDemoteHeadings(t *testing.T) {
+	got, err := demoteHeadings("f.md", "## A\n### B\n```\n## in a fence\n```\n#hashtag\n    # indented code\n####### seven\n#### D\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "### A\n#### B\n```\n## in a fence\n```\n#hashtag\n    # indented code\n####### seven\n##### D\n"
+	if got != want {
+		t.Errorf("got\n%q\nwant\n%q", got, want)
+	}
+}
+
+func TestDataRoundTrip(t *testing.T) {
+	res, err := Extract(options(t, fixtureRepo))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := res.Model.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := Decode(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := m.Encode()
+	if err != nil || !bytes.Equal(b, again) {
+		t.Fatalf("a decoded model does not encode to the same bytes: %v", err)
+	}
+	v1 := []byte(`{"schema": "docs.opmodel.dev/data/enhancements/v1", "repo": "r", "entries": [{"id": "0001", "slug": "a", "supersededBy": "0002"}]}`)
+	old, err := Decode(v1)
+	if err != nil || old.Entries[0].Layout != LayoutLegacy || old.Entries[0].SupersededBy == nil || *old.Entries[0].SupersededBy != "0002" {
+		t.Fatalf("v1 data: %+v %v", old, err)
+	}
+	if _, err := Decode([]byte(`{"schema": "docs.opmodel.dev/data/enhancements/v3"}`)); err == nil {
+		t.Fatal("an unknown schema was accepted")
+	}
+}
+
+func mkdir(t *testing.T, root, dir string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(root, filepath.FromSlash(dir)), 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCapabilityPages(t *testing.T) {
+	_, byPath := fixture(t)
+	p := byPath["capabilities/registration-acceptance.md"]
+	if p.Title != "Registration acceptance" || p.Source != "openspec/specs/registration-acceptance/spec.md" || p.Type != "explanation" ||
+		!strings.HasPrefix(p.Description, "Decide whether a provider's claim to supply contracts to a platform is accepted.") || strings.Contains(p.Description, "Acceptance re-derives") {
+		t.Errorf("capability page %+v", p)
+	}
+	if strings.HasPrefix(p.Body, "# ") || !strings.HasPrefix(p.Body, "## Purpose") {
+		t.Errorf("the spec's title heading is not removed: %q", p.Body[:40])
+	}
+	i := strings.Index(p.Body, "## Entries that changed it")
+	if i < 0 {
+		t.Fatalf("no history table:\n%s", p.Body)
+	}
+	want := "| Entry | Date |\n| --- | --- |\n| seed | 2026-10-14 |\n| [0040: Fixture Delivered](/enhancements/0040/) | 2026-10-21 |\n"
+	if got := p.Body[i+len("## Entries that changed it\n\n"):]; got != want {
+		t.Errorf("history rows\n%s\nwant\n%s", got, want)
+	}
+	if strings.Contains(p.Body, "0041") {
+		t.Error("a rejected entry has a row")
+	}
+	if s := byPath["capabilities/single-build-render.md"]; !strings.Contains(s.Body, "| seed | 2026-10-14 |") {
+		t.Errorf("single-build-render history:\n%s", s.Body)
+	}
+	idx := byPath["capabilities/_index.md"]
+	if idx.Source != "" || len(idx.Inputs) != 2 || !strings.Contains(idx.Body, "[Single build render](/enhancements/capabilities/single-build-render/) |") {
+		t.Errorf("capabilities index %+v", idx)
+	}
+}
+
+func TestCapabilityLinks(t *testing.T) {
+	_, byPath := fixture(t)
+	req := byPath["0026/requirements.md"].Body
+	if !strings.Contains(req, "## single-build-render\n\nCapability page: [`single-build-render`](/enhancements/capabilities/single-build-render/).") {
+		t.Errorf("no capability link for a capability in specs/:\n%s", req)
+	}
+	if strings.Contains(req, "capabilities/authored-platform") {
+		t.Error("a link to a capability page that does not exist")
+	}
+	x := &extraction{o: options(t, fixtureRepo), dir: ".", pages: map[string]target{"openspec/specs/single-build-render/spec.md": {url: "/enhancements/capabilities/single-build-render/", title: "Single build render"}}}
+	got, err := x.clean("openspec/changes/0026-x/design.md", "[spec](../../specs/single-build-render/spec.md)\n")
+	if err != nil || got != "[spec](/enhancements/capabilities/single-build-render/)\n" {
+		t.Errorf("link to a main spec: %q %v", got, err)
+	}
+}
+
+func TestPurposeSentence(t *testing.T) {
+	for _, c := range []struct{ in, want string }{
+		{"# x Specification\n\n## Purpose\nOne sentence. Two\nsentences.\n\n## Requirements\n", "One sentence."},
+		{"## Purpose\n\nNo full stop here\nat all\n\nSecond paragraph.\n", "No full stop here at all"},
+		{"## Requirements\n\nPurpose is missing.\n", "The capability x."},
+		{"## Purpose\n## Requirements\n", "The capability x."},
+	} {
+		if got := purposeSentence(c.in, "x"); got != c.want {
+			t.Errorf("purposeSentence(%q) = %q, want %q", c.in, got, c.want)
+		}
 	}
 }
