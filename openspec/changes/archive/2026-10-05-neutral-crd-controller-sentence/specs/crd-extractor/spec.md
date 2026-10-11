@@ -27,8 +27,8 @@ In the page layout (the source sets `page`, not `section`), the renderer SHALL w
 - **THEN** the bundle's page is that front matter and intro followed by the four generated entries
 
 #### Scenario: Citation linked
-- **WHEN** a field description cites `0021:D4` and the source has `citations: "link"`
-- **THEN** the description renders `[0021:D4](/enhancements/0021/decisions/)`
+- **WHEN** a field description cites enhancement 0021 ("The classes the policy covers") and the source has `citations: "link"`
+- **THEN** the description renders `enhancement 0021 ("The classes the policy covers")`
 
 #### Scenario: Parity with crdref
 - **WHEN** opm-operator's tree at its newest tag is built with the planned config
