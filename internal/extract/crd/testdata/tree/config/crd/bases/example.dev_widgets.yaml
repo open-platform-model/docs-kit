@@ -30,10 +30,10 @@ spec:
     schema:
       openAPIV3Schema:
         description: |-
-          Widget asks the controller to build one widget (0021:D4). It is
+          Widget asks the controller to build one widget (enhancement 0021). It is
           the smallest *unit*.
 
-          A widget's `spec.size` never shrinks; see #Widget and 0021:D4/D9.
+          A widget's `spec.size` never shrinks; see #Widget and enhancement 0021.
         properties:
           apiVersion:
             description: APIVersion defines the versioned schema.
@@ -89,7 +89,7 @@ spec:
             - size
             type: object
             x-kubernetes-validations:
-            - message: size cannot shrink (0021:D4)
+            - message: size cannot shrink (enhancement 0021)
               rule: self.size >= oldSelf.size
           status:
             properties:

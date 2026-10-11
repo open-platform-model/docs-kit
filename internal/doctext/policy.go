@@ -12,16 +12,10 @@ type Policy string
 const (
 	// Strip removes every citation (the default).
 	Strip Policy = "strip"
-	// Link turns each enhancement decision citation into a link to that
-	// enhancement's decisions page, each "enhancement NNNN" into a link to
-	// that enhancement's page, and removes every other citation form.
+	// Link turns each "enhancement NNNN" into a link to that enhancement's
+	// page and removes every citation form, as Strip does.
 	Link Policy = "link"
 )
-
-// A decision citation as Link links it: "0010:D28", "0010:D28:R2",
-// "0010:D28/D29". The match is refused when it runs on into a form Link
-// does not link ("0010:D28/OQ2"), which Strip then removes whole.
-var reDecision = regexp.MustCompile(`\b(\d{4}):D\d+(?::R\d+(?:/R\d+)*)?(?:/D\d+(?::R\d+(?:/R\d+)*)?)*`)
 
 // An enhancement reference as Link links it: "enhancement 0013", and in the
 // plural a list of ids, "enhancements 0013 and 0014" or "enhancements 0013,
@@ -30,9 +24,9 @@ var (
 	reEnhOne  = regexp.MustCompile(`\b[Ee]nhancement\s+(\d{4})\b`)
 	reEnhMany = regexp.MustCompile(`\b[Ee]nhancements\s+(\d{4}(?:(?:,\s*|,?\s+and\s+)\d{4})*)\b`)
 	reID      = regexp.MustCompile(`\d{4}`)
-	// What follows an id when the reference is really a citation or an
-	// experiment pointer, which Clean removes: "0010:D28", "0010 D28",
-	// "0010 experiment 3".
+	// What follows an id when the reference is really a decision citation
+	// (the old form NNNN:Dn or NNNN Dn, or NNNN:OQn) or an experiment
+	// pointer, which Clean removes.
 	reEnhRefTail = regexp.MustCompile(`^(?::|\s+)(?:D|OQ)\d|^\s+experiment\s+\d`)
 )
 
@@ -78,39 +72,24 @@ func rewrite(s string, re *regexp.Regexp, f func(m []int) string) string {
 	return b.String()
 }
 
-// placeholder marks a decision citation while the strip rules run; NUL
+// placeholder marks an enhancement link while the strip rules run; NUL
 // never occurs in source prose and no rule matches it.
 func placeholder(i int) string { return "\x00" + strconv.Itoa(i) + "\x00" }
 
 var rePlaceholder = regexp.MustCompile("\x00(\\d+)\x00")
 
-// Clean cleans one paragraph of prose under the policy. Under Link, a
-// decision citation outside a code span becomes
-// "[0010:D28](/enhancements/0010/decisions/)", its text as written; a
-// citation inside a code span is removed as under Strip. "enhancement 0013"
-// outside a code span becomes "[enhancement 0013](/enhancements/0013/)",
-// and in "enhancements 0013 and 0014" each id becomes a link.
+// Clean cleans one paragraph of prose under the policy. Under Link,
+// "enhancement 0013" outside a code span becomes
+// "[enhancement 0013](/enhancements/0013/)", and in "enhancements 0013 and
+// 0014" each id becomes a link. Every citation form is removed, as under
+// Strip.
 func (p Policy) Clean(s string) string {
 	if p != Link {
 		return Clean(s)
 	}
 	var links []string
 	s = outsideCode(s, func(text string) string {
-		idx := reDecision.FindAllStringSubmatchIndex(text, -1)
-		var b strings.Builder
-		last := 0
-		for _, m := range idx {
-			if m[1] < len(text) && strings.ContainsRune("/:", rune(text[m[1]])) {
-				continue
-			}
-			cite, enh := text[m[0]:m[1]], text[m[2]:m[3]]
-			b.WriteString(text[last:m[0]])
-			b.WriteString(placeholder(len(links)))
-			links = append(links, "["+cite+"](/enhancements/"+enh+"/decisions/)")
-			last = m[1]
-		}
-		b.WriteString(text[last:])
-		return linkEnhancements(b.String(), func(md string) string {
+		return linkEnhancements(text, func(md string) string {
 			links = append(links, md)
 			return placeholder(len(links) - 1)
 		})

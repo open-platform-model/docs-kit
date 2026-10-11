@@ -9,7 +9,7 @@ Definitions on this page: [`#Module`](/docs/reference/definitions/modules/#modul
 
 ## #Module
 
-The unit an author publishes.
+The unit an author publishes (enhancement 0010).
 
 **At a glance**
 

@@ -69,8 +69,8 @@
       "importPath": "example.com/widgets/lib/widget",
       "name": "widget",
       "page": "widget",
-      "synopsis": "Package widget makes widgets.",
-      "doc": "Package widget makes widgets. It is the fixture of the go-api extractor.\n\nA [Widget](/docs/reference/go-api/widget/#widget) comes from [New](/docs/reference/go-api/widget/#new) and spins with [Widget.Spin](/docs/reference/go-api/widget/#widgetspin-1); a [gadget.Gadget](/docs/reference/go-api/gadget/#gadget) holds one. Every call takes a [context.Context](https://pkg.go.dev/context#Context). Values are `cue` values, and \\<b\\>raw HTML\\</b\\> and \\{\\{\\< figure \\>\\}\\} stay text.\n\n### Spinning\n\nSpin a widget:\n\n```text\nw := widget.New()\nw.Spin() // `once`\n```\n\nThe rules:\n\n- a widget spins once;\n- 1\\. is not a list here.\n\nSee [the docs](https://example.com/docs?a=%28b%29) for more.",
+      "synopsis": "Package widget makes widgets (enhancement 0010).",
+      "doc": "Package widget makes widgets (enhancement 0010). It is the fixture of the go-api extractor.\n\nA [Widget](/docs/reference/go-api/widget/#widget) comes from [New](/docs/reference/go-api/widget/#new) and spins with [Widget.Spin](/docs/reference/go-api/widget/#widgetspin-1); a [gadget.Gadget](/docs/reference/go-api/gadget/#gadget) holds one. Every call takes a [context.Context](https://pkg.go.dev/context#Context). Values are `cue` values, and \\<b\\>raw HTML\\</b\\> and \\{\\{\\< figure \\>\\}\\} stay text.\n\n### Spinning\n\nSpin a widget:\n\n```text\nw := widget.New()\nw.Spin() // `once`\n```\n\nThe rules:\n\n- a widget spins once;\n- 1\\. is not a list here.\n\nSee [the docs](https://example.com/docs?a=%28b%29) for more.",
       "consts": [
         {
           "names": [
@@ -131,7 +131,7 @@
         {
           "name": "Widget",
           "anchor": "widget",
-          "decl": "type Widget struct {\n\t// Name names the widget.\n\tName string\n\n\tSize int // in mm\n\t// contains filtered or unexported fields\n}",
+          "decl": "type Widget struct {\n\t// Name names the widget.\n\tName string\n\n\tSize int // in mm (enhancement 0010)\n\t// contains filtered or unexported fields\n}",
           "doc": "Widget is a thing that spins.",
           "consts": [],
           "vars": [],

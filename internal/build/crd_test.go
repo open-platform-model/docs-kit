@@ -123,8 +123,8 @@ func TestCRDBundleAlone(t *testing.T) {
 	if !strings.HasPrefix(string(body), "---\ntitle: \"Widget resources\"\ndescription: \"One entry per widget kind.\"\ntype: reference\nweight: 7\n---\n\n## Widget\n") {
 		t.Fatalf("standalone page:\n%s", body)
 	}
-	if !strings.Contains(string(body), "[0021:D4](/enhancements/0021/decisions/)") {
-		t.Errorf("citations: \"link\" did not link the decision citation")
+	if !strings.Contains(string(body), "[enhancement 0021](/enhancements/0021/)") {
+		t.Errorf("citations: \"link\" did not link the enhancement reference")
 	}
 	p := pageEntry(m, "reference/widgets.md")
 	if !p.Generated || p.Source != "config/crd/bases/example.dev_widgets.yaml" || p.Lastmod == "" || p.Edit != "" {

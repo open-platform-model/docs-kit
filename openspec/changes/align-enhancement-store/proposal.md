@@ -2,11 +2,11 @@
 
 ## Why
 
-The enhancements store replaces the `enhancements/NNNN/` layout. A decision number (`0010:D28`, `0010 D28`) no longer names anything a reader can open, because the new entries have `requirements`, not numbered decisions. The workspace rule is now: cite an enhancement as its id beside a reason in words, never a decision number and never a lone id. docs-kit still cites the old form in its rules, comments, contracts and specs, and its `link` citation policy still links `NNNN:Dn` to a `decisions` page that new-layout entries do not have.
+The enhancements store replaces the `enhancements/NNNN/` layout. A decision number (`NNNN:Dn`, `NNNN Dn`) no longer names anything a reader can open, because the new entries have `requirements`, not numbered decisions. The workspace rule is now: cite an enhancement as its id beside a reason in words, never a decision number and never a lone id. docs-kit still cites the old form in its rules, comments, contracts and specs, and its `link` citation policy still links `NNNN:Dn` to a `decisions` page that new-layout entries do not have.
 
 ## What Changes
 
-- `openspec/config.yaml` and `AGENTS.md`: add `references:` to the store `opm-enhancements`, the `Delivers` proposal rule and the comment rule; drop the `0021:D4` form.
+- `openspec/config.yaml` and `AGENTS.md`: add `references:` to the store `opm-enhancements`, the `Delivers` proposal rule and the comment rule; drop the `NNNN:Dn` form.
 - Rewrite every enhancement citation in tracked docs, live specs, archived changes and Go comments and strings to "enhancement NNNN" beside its reason. The first pass is `enh cite-rewrite`; a hand pass clears its worklist.
 - The `link` citation policy (`internal/doctext/policy.go`) keeps only the link from "enhancement NNNN" to `/enhancements/NNNN/`. A decision citation is removed under `link`, as under `strip`.
 - `docs/contracts.md` (C6, C18, C20, C21, Doc-comment rules) and the live specs state the new `link` policy.

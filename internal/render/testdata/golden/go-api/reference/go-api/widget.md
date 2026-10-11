@@ -1,6 +1,6 @@
 ---
 title: "lib/widget"
-description: "Package widget makes widgets."
+description: "Package widget makes widgets (enhancement 0010)."
 type: reference
 ---
 
@@ -8,7 +8,7 @@ type: reference
 import "example.com/widgets/lib/widget"
 ```
 
-Package widget makes widgets. It is the fixture of the go-api extractor.
+Package widget makes widgets (enhancement 0010). It is the fixture of the go-api extractor.
 
 A [Widget](/docs/reference/go-api/widget/#widget) comes from [New](/docs/reference/go-api/widget/#new) and spins with [Widget.Spin](/docs/reference/go-api/widget/#widgetspin-1); a [gadget.Gadget](/docs/reference/go-api/gadget/#gadget) holds one. Every call takes a [context.Context](https://pkg.go.dev/context#Context). Values are `cue` values, and \<b\>raw HTML\</b\> and \{\{\< figure \>\}\} stay text.
 
@@ -93,7 +93,7 @@ type Widget struct {
 	// Name names the widget.
 	Name string
 
-	Size int // in mm
+	Size int // in mm (enhancement 0010)
 	// contains filtered or unexported fields
 }
 ```

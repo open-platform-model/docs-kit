@@ -35,10 +35,16 @@ func operatorOptions(root string) crd.Options {
 // product: "The operator's `x` controller watches every X."
 var crdrefServedBy = regexp.MustCompile("(?m)^The operator's (`[^`]+`) controller watches every ([A-Z][A-Za-z0-9]*)\\.$")
 
+// crdrefDecisionLink matches the decision link crdref wrote after a clause,
+// " (NNNN:Dn in a link to a decisions page)". The link policy no longer
+// links a decision citation; it removes it.
+var crdrefDecisionLink = regexp.MustCompile(`\s\(\[\d{4}:D[0-9DR:/]*\]\(/enhancements/\d{4}/decisions/\)\)`)
+
 // servedByWording rewrites crdref's "Served by" sentences into the
-// renderer's product-neutral wording, the one place the entries depart from
-// crdref's block on purpose.
+// renderer's product-neutral wording and drops its decision links, the two
+// places the entries depart from crdref's block on purpose.
 func servedByWording(block string) string {
+	block = crdrefDecisionLink.ReplaceAllString(block, "")
 	return crdrefServedBy.ReplaceAllString(block, "The $1 reconciler watches every $2.")
 }
 

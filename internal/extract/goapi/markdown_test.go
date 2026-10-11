@@ -123,14 +123,13 @@ func TestDocLinkURLEncoded(t *testing.T) {
 	}
 }
 
-// Under the link policy the printer keeps the links the policy writes, a
-// decision citation and an enhancement reference, and still escapes any
-// other bracket.
+// Under the link policy the printer keeps the links the policy writes, for
+// an enhancement reference, and still escapes any other bracket.
 func TestLinkPolicyLinksSurvive(t *testing.T) {
-	in := "Owned by enhancements 0013 and 0014, see enhancement 0021 (0010:D4) and [x]."
+	in := "Owned by enhancements 0013 and 0014, see enhancement 0021 and [x]."
 	pr := &mdPrinter{policy: doctext.Link, where: "probe"}
 	got := pr.inline(pr.policy.Clean(in), nil, false)
-	want := `Owned by enhancements [0013](/enhancements/0013/) and [0014](/enhancements/0014/), see [enhancement 0021](/enhancements/0021/) ([0010:D4](/enhancements/0010/decisions/)) and \[x\].`
+	want := `Owned by enhancements [0013](/enhancements/0013/) and [0014](/enhancements/0014/), see [enhancement 0021](/enhancements/0021/) and \[x\].`
 	if got != want {
 		t.Errorf("got\n%s\nwant\n%s", got, want)
 	}

@@ -103,7 +103,7 @@ func TestWidget(t *testing.T) {
 	if w.ReconciledBy == nil || *w.ReconciledBy != "widget" {
 		t.Errorf("reconciledBy %v", w.ReconciledBy)
 	}
-	if w.Summary != "Widget asks the controller to build one widget (0021:D4)." {
+	if w.Summary != "Widget asks the controller to build one widget (enhancement 0021)." {
 		t.Errorf("summary %q", w.Summary)
 	}
 }
@@ -139,7 +139,8 @@ func TestStrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := kindOf(t, m, "Widget")
-	if w.Summary != "Widget asks the controller to build one widget." {
+	// Strip keeps "enhancement NNNN" as written (docs/contracts.md C6).
+	if w.Summary != "Widget asks the controller to build one widget (enhancement 0021)." {
 		t.Errorf("summary %q", w.Summary)
 	}
 }
@@ -376,10 +377,10 @@ func TestIgnoredKeys(t *testing.T) {
 }
 
 // Under the link policy the model keeps an enhancement reference as plain
-// text, as it keeps a decision citation; the renderer links both.
+// text; the renderer links it.
 func TestEnhancementReferencesStayPlain(t *testing.T) {
-	got := cleanParagraphs(doctext.Link, []string{"Owned by enhancements 0013 and 0014, see enhancement 0021 (0010:D4)."})
-	want := "Owned by enhancements 0013 and 0014, see enhancement 0021 (0010:D4)."
+	got := cleanParagraphs(doctext.Link, []string{"Owned by enhancements 0013 and 0014, see enhancement 0021."})
+	want := "Owned by enhancements 0013 and 0014, see enhancement 0021."
 	if len(got) != 1 || got[0] != want {
 		t.Errorf("cleanParagraphs = %q, want %q", got, want)
 	}

@@ -133,11 +133,11 @@ func TestCobraTabTarget(t *testing.T) {
 }
 
 // Under the link policy a command's help text links an enhancement
-// reference as it links a decision citation.
+// reference.
 func TestCobraProseLinksEnhancementReference(t *testing.T) {
 	r := &cmdRenderer{clean: doctext.Link.Clean}
-	got := r.prose("Set by enhancement 0013 (0010:D4).")
-	want := "Set by [enhancement 0013](/enhancements/0013/) ([0010:D4](/enhancements/0010/decisions/))."
+	got := r.prose("Set by enhancement 0013.")
+	want := "Set by [enhancement 0013](/enhancements/0013/)."
 	if got != want {
 		t.Errorf("prose = %q, want %q", got, want)
 	}

@@ -12,8 +12,11 @@ import (
 	"cuelang.org/go/cue/ast"
 )
 
-// A citation: "0010:D28", "0010 D28", OQ numbers, ":R2" and "/R1/R2"
-// requirement suffixes and "/D9" continuations.
+// A decision citation as old release tags carry it, an id then a decision
+// or an open question, with a colon or a space between (the forms NNNN:Dn,
+// NNNN Dn and NNNN:OQn), the ":R2" and "/R1/R2" requirement suffixes and
+// the "/D9" continuations. The store has no decision numbers; a docs
+// revision of an old tag still meets them, so they stay recognized.
 const cite = `\d{4}[: ](?:D|OQ)\d+(?::R\d+(?:/R\d+)*)?(?:/(?:D|OQ)?\d+(?::R\d+(?:/R\d+)*)?)*`
 
 var (
