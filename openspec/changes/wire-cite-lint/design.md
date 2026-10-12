@@ -9,7 +9,7 @@ The tool is `github.com/open-platform-model/enhancements/tools/enh`, command `ci
 ### Excludes
 
 **Context**: The comment rule must hold in docs-kit, whose job is to read and strip citations. Its tests and extractors name old forms on purpose.
-**Explored**: `cite-lint --root .` with the pinned tool: 66 findings with no exclude, 0 with the list below.
+**Explored**: `cite-lint --root .` with the pinned tool: 121 findings with no exclude (66 of them in the fixture folders), 0 with the list below.
 **Options considered**:
 1. Exclude every `testdata/` folder - one line, but a new fixture with a decision number passes unseen.
 2. Exclude the exact files and folders that hold findings - 11 lines, each with a reason; a new file is linted.
