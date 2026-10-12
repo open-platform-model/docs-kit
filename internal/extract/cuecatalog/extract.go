@@ -217,7 +217,7 @@ func memberModel(mod *module, m *member, roots map[string]*member) (Member, erro
 		File:              m.def.filename,
 		Page:              m.page,
 		Description:       m.description,
-		Notes:             nonNil(doctext.CleanParagraphs(paras)),
+		Notes:             nonNil(doctext.Strip.CleanParagraphs(paras)),
 		Category:          optString(m.category),
 		Fulfilment:        optString(m.fulfilment),
 		Optional:          m.optionalDefault,

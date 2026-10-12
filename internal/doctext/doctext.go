@@ -151,18 +151,6 @@ func Paragraphs(s string) []string {
 	return out
 }
 
-// CleanParagraphs joins each paragraph's lines with single spaces, cleans
-// it, and drops a paragraph the cleaning empties.
-func CleanParagraphs(paras []string) []string {
-	var out []string
-	for _, p := range paras {
-		if c := Clean(strings.Join(strings.Fields(p), " ")); c != "" {
-			out = append(out, c)
-		}
-	}
-	return out
-}
-
 // SplitDoc checks that a member's doc comment opens with its description
 // and a period, and returns the remaining paragraphs.
 func SplitDoc(doc, desc string) ([]string, error) {

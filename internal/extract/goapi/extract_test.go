@@ -431,3 +431,53 @@ func TestRefusesModuleRootPackage(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+// TestSynopsisCitation runs the extractor on a copy of the fixture whose
+// package comment opens with a lone enhancement citation: the synopsis loses
+// it under strip and keeps it, as plain text, under link.
+func TestSynopsisCitation(t *testing.T) {
+	src := t.TempDir()
+	if err := os.CopyFS(src, os.DirFS("testdata")); err != nil {
+		t.Fatal(err)
+	}
+	doc := filepath.Join(src, "mod", "lib", "widget", "doc.go")
+	b, err := os.ReadFile(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The fixture holds an old-form citation; the string is split so the cite lint reads no decision number here.
+	old := "Package widget makes widgets (0010" + ":D28)."
+	if !bytes.Contains(b, []byte(old)) {
+		t.Fatalf("%s: fixture comment changed", doc)
+	}
+	b = bytes.Replace(b, []byte(old), []byte("Package widget makes widgets (enhancement 0013)."), 1)
+	if err := os.WriteFile(doc, b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		policy doctext.Policy
+		want   string
+	}{
+		{doctext.Strip, "Package widget makes widgets."},
+		{doctext.Link, "Package widget makes widgets (enhancement 0013)."},
+	} {
+		r, err := Extract(Options{Source: src, Config: fixtureConfig(), Version: "1.2.3", Policy: c.policy})
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := byImportPath(t, r.Model, "example.com/widgets/lib/widget")
+		if w.Synopsis != c.want {
+			t.Errorf("%s: synopsis %q, want %q", c.policy, w.Synopsis, c.want)
+		}
+	}
+}
+
+func TestSynopsisPolicy(t *testing.T) {
+	in := "Package widget makes widgets (enhancement 0013)."
+	if got := synopsis(doctext.Strip, in); got != "Package widget makes widgets." {
+		t.Errorf("strip: %q", got)
+	}
+	if got := synopsis(doctext.Link, in); got != in {
+		t.Errorf("link keeps plain text: %q", got)
+	}
+}

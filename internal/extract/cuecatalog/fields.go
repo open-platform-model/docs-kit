@@ -92,7 +92,7 @@ func (w *walker) field(fv cue.Value, p, presence string, depth int) {
 // fieldDoc is a field's doc comment, maintainer comments dropped and
 // citations stripped, paragraphs separated by a blank line.
 func fieldDoc(v cue.Value) string {
-	paras := doctext.CleanParagraphs(doctext.Paragraphs(doctext.GroupsText(v.Doc())))
+	paras := doctext.Strip.CleanParagraphs(doctext.Paragraphs(doctext.GroupsText(v.Doc())))
 	return strings.Join(paras, "\n\n")
 }
 
