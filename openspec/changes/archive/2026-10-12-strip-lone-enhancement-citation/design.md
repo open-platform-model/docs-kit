@@ -31,7 +31,8 @@ See proposal.md. `internal/doctext/policy.go` holds `Policy.Clean`. Under `link`
 ## Risks / Trade-offs
 
 - A consumer page changes text on its next pin. No consumer file needs an edit.
-- The `go-api` synopsis (package-level `Clean`) is not policy-aware, so a lone citation in a package synopsis stays. Left alone: a change would alter `link` output.
+- The `go-api` package synopsis stays plain text under both policies; under `strip` it is cleaned with `Strip.Clean`, under `link` with the package function `Clean`, so `link` output does not change.
+- `outsideCode` now finds code spans by equal-length backtick runs, so a double-backtick span that holds a backtick is not split. This also applies to `link`, and only changes output for such a span.
 
 ## Durable decisions
 

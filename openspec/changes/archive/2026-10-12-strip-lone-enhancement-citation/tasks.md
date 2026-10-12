@@ -3,7 +3,7 @@
 - [x] 1.1 `internal/doctext/policy.go`: `Strip.Clean` removes a lone `(enhancement NNNN)` outside code spans
 - [x] 1.2 `internal/extract/cuecatalog`: call `Strip.CleanParagraphs` in place of the package function
 - [x] 1.3 State the rule in `docs/contracts.md` "Citation policy"; regenerate the library golden page
-- [x] 1.4 `task check` green, then commit feat(doctext): strip a lone enhancement citation
+- [x] 1.4 `task check` green except the base failure `internal/serve TestRunSite`, then commit feat(doctext): strip a lone enhancement citation
 
 ## 2. Tests
 
