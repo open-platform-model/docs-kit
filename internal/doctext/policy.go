@@ -10,7 +10,8 @@ import (
 type Policy string
 
 const (
-	// Strip removes every citation (the default).
+	// Strip removes every citation (the default), and a parenthesis that holds
+	// only an enhancement reference.
 	Strip Policy = "strip"
 	// Link turns each "enhancement NNNN" into a link to that enhancement's
 	// page and removes every citation form, as Strip does.
@@ -28,7 +29,33 @@ var (
 	// (the old form NNNN:Dn or NNNN Dn, or NNNN:OQn) or an experiment
 	// pointer, which Clean removes.
 	reEnhRefTail = regexp.MustCompile(`^(?::|\s+)(?:D|OQ)\d|^\s+experiment\s+\d`)
+	// A parenthesis whose whole content is one enhancement reference or a
+	// list of ids, with the space before it.
+	reLoneEnh = regexp.MustCompile(`\s*\(\s*(?:[Ee]nhancement\s+\d{4}|[Ee]nhancements\s+\d{4}(?:(?:,\s*|,?\s+and\s+)\d{4})*)\s*\)`)
 )
+
+// stripLoneEnhancements removes each parenthesis in s whose whole content
+// is an enhancement reference, with the space before it:
+// "a rule (enhancement 0013)." becomes "a rule.". A parenthesis that
+// follows "]" is a Markdown link destination and stays. The caller passes
+// prose outside code spans.
+func stripLoneEnhancements(s string) string {
+	var b strings.Builder
+	last := 0
+	for _, m := range reLoneEnh.FindAllStringIndex(s, -1) {
+		open := m[0] + strings.IndexByte(s[m[0]:m[1]], '(')
+		if open > 0 && s[open-1] == ']' {
+			continue
+		}
+		b.WriteString(s[last:m[0]])
+		last = m[1]
+	}
+	if b.Len() == 0 && last == 0 {
+		return s
+	}
+	b.WriteString(s[last:])
+	return b.String()
+}
 
 // LinkEnhancements links each enhancement reference in s that stands alone,
 // "enhancement 0013" to [enhancement 0013](/enhancements/0013/) and, in
@@ -82,10 +109,15 @@ var rePlaceholder = regexp.MustCompile("\x00(\\d+)\x00")
 // "enhancement 0013" outside a code span becomes
 // "[enhancement 0013](/enhancements/0013/)", and in "enhancements 0013 and
 // 0014" each id becomes a link. Every citation form is removed, as under
-// Strip.
+// Strip. Under Strip a parenthesis that holds only "enhancement NNNN" is
+// removed with the space before it, outside code spans.
 func (p Policy) Clean(s string) string {
 	if p != Link {
-		return Clean(s)
+		c := Clean(s)
+		if d := outsideCode(c, stripLoneEnhancements); d != c {
+			return strings.TrimSpace(d)
+		}
+		return c
 	}
 	var links []string
 	s = outsideCode(s, func(text string) string {
