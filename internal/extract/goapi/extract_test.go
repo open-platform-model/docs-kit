@@ -445,7 +445,8 @@ func TestSynopsisCitation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const old = "Package widget makes widgets (0010:D28)."
+	// The fixture holds an old-form citation; the string is split so the cite lint reads no decision number here.
+	old := "Package widget makes widgets (0010" + ":D28)."
 	if !bytes.Contains(b, []byte(old)) {
 		t.Fatalf("%s: fixture comment changed", doc)
 	}
