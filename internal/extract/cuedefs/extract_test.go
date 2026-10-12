@@ -174,7 +174,7 @@ func TestLinkPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 	mod := find(t, m, "#Module")
-	if mod.Summary != "The unit an author publishes ([0010:D4](/enhancements/0010/decisions/))." {
+	if mod.Summary != "The unit an author publishes." {
 		t.Errorf("summary %q", mod.Summary)
 	}
 	// A spec block's comment drops citations under both policies.

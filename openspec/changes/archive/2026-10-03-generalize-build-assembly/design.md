@@ -128,7 +128,7 @@ A pattern that matches nothing fails a normal build ("`exclude` `reference/defin
 
 ### D5. The citation policy
 
-Every extractor source takes `citations: *"strip" | "link"`. `strip` is today's rule ("Doc-comment rules", Citations). `link` rewrites each enhancement decision citation (`0010:D28`, `0010:D28:R2`, `0010:D28/D29`, a list of them) into a Markdown link per entry, `[0010:D28](/enhancements/0010/decisions/)`, the link text being the citation as written; every other citation form (OQ numbers, `SPEC.md § N`, experiments) is still removed. A citation inside a code span or a spec block's comment is stripped in both modes (a link cannot live there). The `/enhancements/<NNNN>/decisions/` form is already allowed by dialect 1. `markdown` sources take no `citations`: authored text is copied as written.
+Every extractor source takes `citations: *"strip" | "link"`. `strip` is today's rule ("Doc-comment rules", Citations). `link` rewrites each enhancement decision citation (`NNNN:Dn`, `NNNN:Dn:Rn`, `NNNN:Dn/Dn`, a list of them) into a Markdown link per entry, `[NNNN:Dn](/enhancements/NNNN/decisions/)`, the link text being the citation as written; every other citation form (OQ numbers, `SPEC.md § N`, experiments) is still removed. A citation inside a code span or a spec block's comment is stripped in both modes (a link cannot live there). The `/enhancements/<NNNN>/decisions/` form is already allowed by dialect 1. `markdown` sources take no `citations`: authored text is copied as written.
 
 ### D6. Repository commands (C14)
 

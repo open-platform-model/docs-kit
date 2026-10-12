@@ -173,14 +173,14 @@ func dropControls(s string) string {
 	}, s)
 }
 
-// reDecisionLink matches the links the "link" citation policy writes: a
-// decision citation, an enhancement reference and one id of a list of them.
-var reDecisionLink = regexp.MustCompile(`^\[\d{4}:D[0-9DR:/]*\]\(/enhancements/\d{4}/decisions/\)|^\[(?:[Ee]nhancement\s+)?\d{4}\]\(/enhancements/\d{4}/\)`)
+// reEnhancementLink matches the links the "link" citation policy writes: an
+// enhancement reference and one id of a list of them.
+var reEnhancementLink = regexp.MustCompile(`^\[(?:[Ee]nhancement\s+)?\d{4}\]\(/enhancements/\d{4}/\)`)
 
 // inline escapes cleaned prose outside its code spans (a run of n
 // backticks up to the next run of exactly n, rewritten as a span longer
 // than any backtick run it holds), its placeholders' links and, under the
-// "link" policy, its decision links; then escapes what would open a block
+// "link" policy, its enhancement links; then escapes what would open a block
 // at the start of the line.
 func (pr *mdPrinter) inline(s string, subs []sub, heading bool) string {
 	var b strings.Builder
@@ -199,7 +199,7 @@ func (pr *mdPrinter) inline(s string, subs []sub, heading bool) string {
 			}
 		}
 		if pr.policy == doctext.Link && s[i] == '[' {
-			if m := reDecisionLink.FindString(s[i:]); m != "" {
+			if m := reEnhancementLink.FindString(s[i:]); m != "" {
 				flush()
 				b.WriteString(m)
 				i += len(m)

@@ -2,14 +2,15 @@ package doctext
 
 import "testing"
 
+// The old citation forms (NNNN:Dn, NNNN Dn, NNNN:OQn) stay in these inputs
+// on purpose: a docs revision builds an old release tag whose comments still
+// hold them, and both policies remove them.
 func TestPolicy(t *testing.T) {
 	for _, c := range []struct{ in, strip, link string }{
-		{"Refused at admission (0010:D28).", "Refused at admission.",
-			"Refused at admission ([0010:D28](/enhancements/0010/decisions/))."},
-		{"Refused per 0010:D28:R2.", "Refused.", "Refused per [0010:D28:R2](/enhancements/0010/decisions/)."},
-		{"See 0010:D28/D29 for both.", "See for both.", "See [0010:D28/D29](/enhancements/0010/decisions/) for both."},
-		{"Both (0010:D28, 0011:D4).", "Both.",
-			"Both ([0010:D28](/enhancements/0010/decisions/), [0011:D4](/enhancements/0011/decisions/))."},
+		{"Refused at admission (0010:D28).", "Refused at admission.", "Refused at admission."},
+		{"Refused per 0010:D28:R2.", "Refused.", "Refused."},
+		{"See 0010:D28/D29 for both.", "See for both.", "See for both."},
+		{"Both (0010:D28, 0011:D4).", "Both.", "Both."},
 		{"Open (0010:OQ3).", "Open.", "Open."},
 		{"Mixed 0010:D28/OQ2 here.", "Mixed here.", "Mixed here."},
 		{"Spec (SPEC.md § 2.2) and 0010 experiment 3.", "Spec and.", "Spec and."},
@@ -54,13 +55,12 @@ func TestEnhancementReferences(t *testing.T) {
 		{"code span", "Run `enhancement 0013` to see it.", "Run `enhancement 0013` to see it.", "Run `enhancement 0013` to see it."},
 		{"five digits", "enhancement 00131 is not one.", "enhancement 00131 is not one.", "enhancement 00131 is not one."},
 		{"no number", "an enhancement is a plan.", "an enhancement is a plan.", "an enhancement is a plan."},
-		{"citation form", "Per enhancement 0010:D28, refused.", "Per, refused.",
-			"Per enhancement [0010:D28](/enhancements/0010/decisions/), refused."},
+		{"citation form", "Per enhancement 0010:D28, refused.", "Per, refused.", "Per, refused."},
 		{"citation with a space", "Per enhancement 0010 D28, refused.", "Per, refused.", "Per, refused."},
 		{"open question", "Open (enhancement 0010:OQ3).", "Open.", "Open."},
 		{"experiment pointer", "Measured in enhancement 0010 experiment 3.", "Measured in.", "Measured in."},
 		{"mixed", "Enhancement 0013 (0010:D4) and enhancement 0014 experiment 2.", "Enhancement 0013 and.",
-			"[Enhancement 0013](/enhancements/0013/) ([0010:D4](/enhancements/0010/decisions/)) and."},
+			"[Enhancement 0013](/enhancements/0013/) and."},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			if got := Strip.Clean(c.in); got != c.strip {

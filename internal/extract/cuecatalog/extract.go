@@ -18,7 +18,7 @@ import (
 )
 
 // Site links an enforcement row carries.
-const decisionsURL = "/enhancements/0010/decisions/"
+const enhancementURL = "/enhancements/0010/"
 
 // fulfilmentProvider is the fulfilment of a contract a platform's catalog
 // implements.
@@ -349,10 +349,10 @@ func enforcement(m *member) []Enforcement {
 		}
 	}
 	if m.fulfilment == fulfilmentProvider {
-		out = append(out, Enforcement{Rule: fmt.Sprintf("A platform carries exactly one catalog whose transformers require this contract; with two, every render on that platform is refused ([0010:D32](%s)).", decisionsURL), By: "kernel"})
+		out = append(out, Enforcement{Rule: fmt.Sprintf("A platform carries exactly one catalog whose transformers require this contract; with two, every render on that platform is refused ([enhancement 0010](%s)).", enhancementURL), By: "kernel"})
 	}
 	if m.kind == kindTrait && !*m.optionalDefault {
-		out = append(out, Enforcement{Rule: fmt.Sprintf("When no transformer matched to the component handles this trait, the render is refused, unless the attachment sets %s ([0010:D28](%s)).", code("optional: true"), decisionsURL), By: "kernel"})
+		out = append(out, Enforcement{Rule: fmt.Sprintf("When no transformer matched to the component handles this trait, the render is refused, unless the attachment sets %s ([enhancement 0010](%s)).", code("optional: true"), enhancementURL), By: "kernel"})
 	}
 	return out
 }

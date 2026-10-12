@@ -26,8 +26,8 @@ An `enhancements` source SHALL read every entry directory `NNNN/` and `archive/N
 The source SHALL remove HTML comments outside code and the first `# ` heading of each file; SHALL tag an untagged opening code fence `text`; SHALL refuse a Hugo shortcode delimiter; SHALL escape a `<` outside code that would open raw HTML; SHALL refuse a link scheme other than `http`, `https` and `mailto`; and SHALL resolve every relative link against the file's repository path: an entry or its README to `/enhancements/<NNNN>/`, a numbered document to `/enhancements/<NNNN>/<slug>/`, `INDEX.md` to `/enhancements/`, `GRAPH.md` to `/enhancements/graph/`, any other path that exists at the commit built to `https://github.com/<repo>/blob/<commit>/<path>` (`tree` for a directory), keeping a fragment. A link whose text is the target's file name SHALL read as the target page's title (`INDEX.md` as "the index", `GRAPH.md` as "the relationship graph"). A link naming no path at that commit, or climbing out of the repository, SHALL fail the build with exit 2 naming the file and the link.
 
 #### Scenario: A sibling document link
-- **WHEN** `0025/02-design.md` links `03-decisions.md#d11`
-- **THEN** the page links `/enhancements/0025/decisions/#d11`
+- **WHEN** `0010/02-design.md` links `03-decisions.md#d11`
+- **THEN** the page links `/enhancements/0010/decisions/#d11`
 
 #### Scenario: A schema file link
 - **WHEN** `0013/02-design.md` links `schemas/target.cue`, which exists at the commit built

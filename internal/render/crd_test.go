@@ -106,12 +106,12 @@ func TestCRDPageFacts(t *testing.T) {
 		absent     bool
 	}{
 		{link.Body, "title: \"Widget resources\"\ndescription: \"One entry per widget kind.\"\ntype: reference\nweight: 7\n---\n\n## Widget\n", false},
-		{link.Body, "Widget asks the controller to build one widget ([0021:D4](/enhancements/0021/decisions/)).", false},
-		{link.Body, "see \\#Widget and [0021:D4/D9](/enhancements/0021/decisions/).", false},
+		{link.Body, "Widget asks the controller to build one widget.", false},
+		{link.Body, "see \\#Widget and. Owned by [enhancement 0021](/enhancements/0021/).", false},
 		{link.Body, "| `spec.color` | `string` | No | `\"blue\"` | Color picks the paint, a \\<name\\> or `a\\|b`. |", false},
 		{link.Body, "| Size\\|Count | integer | `.spec.size` | 1 |", false},
 		{link.Body, "| the object | CEL rule `size(self.metadata.name) < 20`; refused with: name must be short | API server |", false},
-		{link.Body, "| `spec` | CEL rule `self.size >= oldSelf.size`; refused with: size cannot shrink ([0021:D4](/enhancements/0021/decisions/)) | API server |", false},
+		{link.Body, "| `spec` | CEL rule `self.size >= oldSelf.size`; refused with: size cannot shrink | API server |", false},
 		{link.Body, "| `spec.parts` | At most one item per `name` | API server |", false},
 		{link.Body, "| `spec.size` | Greater than 0 | API server |", false},
 		{link.Body, "### Served by\n\nThe `widget` reconciler watches every Widget.\n", false},
@@ -120,6 +120,7 @@ func TestCRDPageFacts(t *testing.T) {
 		{link.Body, "watches every Gadget", true},
 		{link.Body, "watches every Sprocket", true},
 		{strip.Body, "build one widget.", false},
+		{strip.Body, "Owned by enhancement 0021.", false},
 		{strip.Body, "/enhancements/", true},
 	} {
 		if got := strings.Contains(c.body, c.want); got == c.absent {
@@ -200,17 +201,17 @@ func TestCRDSampleFenceBreakout(t *testing.T) {
 	}
 }
 
-// Only a citation becomes a link, built by the renderer: Markdown links
-// written in a description stay text.
+// Only an enhancement reference becomes a link, built by the renderer:
+// Markdown links written in a description stay text.
 func TestCRDForgedLink(t *testing.T) {
-	desc := "Widget is a widget. See [0021:D4](/enhancements/0099/decisions/), [x](javascript:alert(1)) and {{{< y >}}} under 0021:D4."
+	desc := "Widget is a widget. See [enhancement 0021](/enhancements/0099/), [x](javascript:alert(1)) and {{{< y >}}} under enhancement 0021."
 	body := renderProbe(t, probeTree(t, desc, "a: b\n"))
 	// A link needs an unescaped "](": every bracket from the description is
-	// escaped, so only the renderer's own citation links remain.
+	// escaped, so only the renderer's own enhancement links remain.
 	if regexp.MustCompile(`(^|[^\\])\]\((/enhancements/0099/|javascript:)`).MatchString(body) {
 		t.Errorf("a description forged a link:\n%s", body)
 	}
-	if !strings.Contains(body, `\[x\](javascript:alert(1))`) || !strings.Contains(body, "under [0021:D4](/enhancements/0021/decisions/).") {
+	if !strings.Contains(body, `\[x\](javascript:alert(1))`) || !strings.Contains(body, "under [enhancement 0021](/enhancements/0021/).") {
 		t.Errorf("notes:\n%s", body)
 	}
 	if strings.Contains(body, "{{") {
@@ -228,15 +229,14 @@ func TestCRDCompleteRefusesAnyKindHeading(t *testing.T) {
 
 // Under the link policy the extractor keeps "enhancement NNNN" plain and
 // the renderer links it; a link written in a description stays text, and a
-// reference that is a citation or an experiment pointer is not linked.
+// reference that is an experiment pointer is not linked.
 func TestCRDEnhancementReferenceLinks(t *testing.T) {
 	desc := "Widget is a widget. Owned by enhancements 0013 and 0014, after enhancement 0021 and [x](/enhancements/0099/). " +
-		"Measured in enhancement 0010 experiment 3, per enhancement 0015:D3."
+		"Measured in enhancement 0010 experiment 3."
 	body := renderProbe(t, probeTree(t, desc, "a: b\n"))
 	for _, want := range []string{
 		"enhancements [0013](/enhancements/0013/) and [0014](/enhancements/0014/)",
 		"[enhancement 0021](/enhancements/0021/)",
-		"[0015:D3](/enhancements/0015/decisions/)",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("the page lacks %q:\n%s", want, body)

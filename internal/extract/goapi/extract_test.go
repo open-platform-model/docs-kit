@@ -163,7 +163,7 @@ func TestPackageDoc(t *testing.T) {
 			t.Errorf("package doc lacks %q:\n%s", want, w.Doc)
 		}
 	}
-	for _, bad := range []string{"0010", "WHY", "maintainers"} {
+	for _, bad := range []string{"0010:", "D28", "WHY", "maintainers"} {
 		if strings.Contains(w.Doc, bad) || strings.Contains(w.Synopsis, bad) {
 			t.Errorf("package doc holds %q", bad)
 		}
@@ -179,7 +179,7 @@ func TestLinkPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := byImportPath(t, r.Model, "example.com/widgets/lib/widget")
-	if !strings.Contains(w.Doc, "Package widget makes widgets ([0010:D28](/enhancements/0010/decisions/)).") {
+	if !strings.Contains(w.Doc, "It follows [enhancement 0010](/enhancements/0010/).") {
 		t.Errorf("package doc:\n%s", w.Doc)
 	}
 	if w.Synopsis != "Package widget makes widgets." {

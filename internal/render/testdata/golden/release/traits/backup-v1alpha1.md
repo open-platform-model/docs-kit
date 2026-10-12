@@ -54,5 +54,5 @@ Each rule names what refuses a violation ([What enforces a rule](/docs/concepts/
 | Rule | Enforced by |
 | --- | --- |
 | A value under `spec.backup` satisfies the schema in Spec, or it does not evaluate. | `cue` |
-| A platform carries exactly one catalog whose transformers require this contract; with two, every render on that platform is refused ([0010:D32](/enhancements/0010/decisions/)). | `kernel` |
-| When no transformer matched to the component handles this trait, the render is refused, unless the attachment sets `optional: true` ([0010:D28](/enhancements/0010/decisions/)). | `kernel` |
+| A platform carries exactly one catalog whose transformers require this contract; with two, every render on that platform is refused ([enhancement 0010](/enhancements/0010/)). | `kernel` |
+| When no transformer matched to the component handles this trait, the render is refused, unless the attachment sets `optional: true` ([enhancement 0010](/enhancements/0010/)). | `kernel` |

@@ -10,6 +10,6 @@ This section lists the widget kinds.
 
 | Kind | Scope | Summary |
 | --- | --- | --- |
-| [Widget](/docs/reference/widgets/widget/) | Namespaced | Widget asks the controller to build one widget ([0021:D4](/enhancements/0021/decisions/)). |
+| [Widget](/docs/reference/widgets/widget/) | Namespaced | Widget asks the controller to build one widget. |
 | [Gadget](/docs/reference/widgets/gadget/) | Cluster | Gadget is a cluster-wide gadget. |
 | [Sprocket](/docs/reference/widgets/sprocket/) | Namespaced | Sprocket has no sample. |

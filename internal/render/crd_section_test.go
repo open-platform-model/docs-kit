@@ -123,7 +123,7 @@ func TestCRDSectionPageFacts(t *testing.T) {
 	}{
 		{"index front matter", index, "---\ntitle: \"Widget reference\"\ndescription: \"One page per widget kind.\"\nweight: 7\n---\n\n", false},
 		{"index has no type", index, "type:", true},
-		{"index row", index, "| [Widget](/docs/reference/widgets/widget/) | Namespaced | Widget asks the controller to build one widget ([0021:D4](/enhancements/0021/decisions/)). |\n", false},
+		{"index row", index, "| [Widget](/docs/reference/widgets/widget/) | Namespaced | Widget asks the controller to build one widget. |\n", false},
 		{"kind front matter", widget, "---\ntitle: \"Widget\"\ndescription: \"Widget asks the controller to build one widget.\"\ntype: reference\nweight: 1\n---\n\nWidget asks", false},
 		{"kind parts one level up", widget, "\n## At a glance\n", false},
 		{"kind spec at h2", widget, "\n## Spec\n", false},

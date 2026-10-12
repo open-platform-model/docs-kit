@@ -16,8 +16,9 @@ import (
 // and schema. A tab bundle must stay byte-identical across that refactor
 // and every change after it that leaves catalog output alone; a change
 // that alters catalog output on purpose updates it and says so. It
-// last changed when prose began escaping { and }.
-const catalogDigest = "sha256:9da8312a97ff51a4877cd179d5c4071cd36a5f33778047a3717f6f0a60022111"
+// last changed when two enforcement rows began to link the enhancement
+// instead of a decision.
+const catalogDigest = "sha256:5213bbad60a890652b1ee954e6f8e55416e4ef5656cb3ca10290d983819e0eb2"
 
 func TestCatalogBundleDigestUnchanged(t *testing.T) {
 	r := fixtureRepo(t)

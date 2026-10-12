@@ -100,6 +100,12 @@ Taskfile.yml                  build and gate tasks
 - The archive names, `checksums.txt` and the `linux_amd64` archive are a contract (`docs/contracts.md` C12): consumers pin them by name and SHA-256.
 - `goreleaser release --snapshot --clean` builds the four archives locally into `dist/` (gitignored); `goreleaser check` validates `.goreleaser.yml`.
 
+## Enhancements
+
+- Enhancements live in the OpenSpec store `opm-enhancements` (`references:` in `openspec/config.yaml`). Read an entry with `openspec show <id>-<slug> --store opm-enhancements`; its `tasks.md` says which repository still has work. If OpenSpec warns that the store `opm-enhancements` is not registered, report the warning and go on; the human runs `task enhancements:register`.
+- A change here that delivers a line of an entry's `tasks.md` says so in its proposal: `## Enhancement`, one line `Delivers NNNN, task X.Y.` per task, otherwise `None.`. Name the delivered line in the PR body; after the repo PR merges, a PR on `enhancements` ticks that line.
+- In any text (proposal, design, specs, comments), name an enhancement only by its id beside a reason in words, never alone, and never with a decision number (no `NNNN:Dn`, no `NNNN Dn`, no `NNNN:OQn`). In a comment, put the id once at the symbol: `(enhancement 0010)`, or `(enhancements 0010 and 0011)` for two. The code that strips or reads the old forms keeps them in its tests and testdata, because a docs revision builds old release tags.
+
 ## Environment Notes
 
 - Go version: `go.mod` (`1.26.0`, matching cli).

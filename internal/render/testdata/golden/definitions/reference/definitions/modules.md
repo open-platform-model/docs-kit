@@ -45,7 +45,7 @@ The unit an author publishes.
 
 **Notes**
 
-It holds components and the values they read.
+It holds components and the values they read. It follows enhancement 0010.
 
 A module names its components in `#components`; each is a [`#Component`](/docs/reference/definitions/modules/#component).
 

@@ -27,8 +27,8 @@ The renderer SHALL write one page at the source's `page` path, one of the bundle
 - **THEN** the bundle's page is that front matter and intro followed by the four generated entries
 
 #### Scenario: Citation linked
-- **WHEN** a field description cites `0021:D4` and the source has `citations: "link"`
-- **THEN** the description renders `[0021:D4](/enhancements/0021/decisions/)`
+- **WHEN** a field description cites `NNNN:Dn` and the source has `citations: "link"`
+- **THEN** the description renders `[NNNN:Dn](/enhancements/NNNN/decisions/)`
 
 #### Scenario: Parity with crdref
 - **WHEN** opm-operator's tree at its newest tag is built with the planned config
@@ -42,7 +42,7 @@ The site renders raw HTML, so the crd source SHALL treat every CRD and sample st
 - **THEN** the example's fence is longer than three backticks and the `<script>` line stays inside it
 
 #### Scenario: A description cannot forge a link
-- **WHEN** a field description holds `[0021:D4](/enhancements/0099/decisions/)` and `[x](javascript:alert(1))`
+- **WHEN** a field description holds `[NNNN:Dn](/enhancements/MMMM/decisions/)` and `[x](javascript:alert(1))`
 - **THEN** both stay text with their brackets escaped, and only a bare citation becomes a link to its own enhancement
 
 #### Scenario: An unread field is refused

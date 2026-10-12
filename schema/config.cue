@@ -29,7 +29,8 @@ package schema
 #Command: [string & !="", ...string]
 
 // What an extractor source's citations become: "strip" removes them;
-// "link" links each enhancement decision citation to its decisions page.
+// "link" links each "enhancement NNNN" to that enhancement's page and
+// removes every decision citation, as "strip" does.
 #Citations: *"strip" | "link"
 
 #Source: #CueCatalog | #Markdown | #Cobra | #CueDefinitions | #CRD | #GoAPI | #Enhancements

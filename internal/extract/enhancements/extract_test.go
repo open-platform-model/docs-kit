@@ -166,10 +166,10 @@ func TestRefusals(t *testing.T) {
 			replace(t, root, "archive/0025/config.yaml", `id: "0025"`, `id: "0026"`)
 		}, `archive/0025/config.yaml says id "0026"`},
 		{"a live old-layout folder", func(t *testing.T, root string) {
-			if err := os.MkdirAll(filepath.Join(root, "0030"), 0o755); err != nil {
+			if err := os.MkdirAll(filepath.Join(root, "0099"), 0o755); err != nil {
 				t.Fatal(err)
 			}
-		}, "entry 0030 is a live old-layout folder (0030/); convert it to a change under the changes directory or move it under archive/"},
+		}, "entry 0099 is a live old-layout folder (0099/); convert it to a change under the changes directory or move it under archive/"},
 		{"no README", func(t *testing.T, root string) {
 			remove(t, root, "archive/0025/README.md")
 		}, "archive/0025/README.md is missing"},
@@ -543,8 +543,8 @@ func TestOpenSpecRefusals(t *testing.T) {
 			write(t, root, c26+"specs/authored-platform/spec.md", "## ADDED Requirements\n\nSee [x](missing.md).\n")
 		}, "specs/authored-platform/spec.md:3: link \"missing.md\" names nothing"},
 		{"a live legacy folder", func(t *testing.T, root string) {
-			mkdir(t, root, "0030")
-		}, "entry 0030 is a live old-layout folder"},
+			mkdir(t, root, "0099")
+		}, "entry 0099 is a live old-layout folder"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			root := copyFixture(t)

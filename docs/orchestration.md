@@ -162,7 +162,7 @@ A docs fix to a released version is a `workflow_dispatch` of the repository's `D
 
 - The contracts, by number: `https://github.com/open-platform-model/docs-kit/blob/main/docs/contracts.md` (`docs-kit C15`). Until a change lands, its `design.md` on docs-kit `main` (`openspec/changes/<change>/design.md`) shows the contract.
 - `publish.yml` by release tag, never by SHA (C5, C9): the signer glob is `refs/tags/v[0-9]*`, and `publish.yml` reads the caller's repo-root `.opm-docs-version`. A caller's workflow comment says why the tag pin is a deliberate exception to SHA pinning.
-- DESIGN decisions by number (`docs-kit DESIGN decision 10`). docs-kit has no enhancement entry, so no `enhancement.yaml` and no delivery log.
+- DESIGN decisions by number (`docs-kit DESIGN decision 10`). An enhancement is cited by its id beside a reason in words, never with a decision number; a change that delivers a line of an enhancement's `tasks.md` says so in its proposal (`Delivers NNNN, task X.Y.`).
 - Gates by name (this file), never another repository's section number.
 - The reference adopter: catalog_opm's `.github/workflows/docs.yml`, `release.yml` job `publish-docs`, `Taskfile.yml` tasks `tools:opm-docs`, `docs:pins:check`, `docs:bundle`, `docs:bundle:check` and `.tasks/opm-docs.sh`.
 

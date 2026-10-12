@@ -36,14 +36,14 @@ const EnforcedBy = "api-server"
 //
 // Prose (summary, notes, field descriptions, rule messages) is plain
 // source text with its whitespace folded and the citation policy applied:
-// under "strip" no citation is left; under "link" decision citations
-// ("0015:D3") stay as written and every other form is removed. Code spans
-// stay in backticks. The renderer escapes the text and, under "link",
-// links each decision citation.
+// under "strip" no citation is left; under "link" a reference such as
+// "enhancement 0013" stays as written and every citation form is removed.
+// Code spans stay in backticks. The renderer escapes the text and, under
+// "link", links each enhancement reference.
 type Model struct {
 	Schema string `json:"schema"`
 	// Citations is the source's citation policy: under "link" the renderer
-	// links each decision citation left in the prose.
+	// links each enhancement reference left in the prose.
 	Citations string `json:"citations"`
 	// Layout is LayoutPage or LayoutSection; a data file without it is
 	// LayoutPage.

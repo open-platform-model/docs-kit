@@ -84,7 +84,7 @@ The renderer writes no link between kinds today: the only links it writes are de
 ### Description of a kind page
 **Context**: front matter is plain text; the summary may hold a decision citation under `"link"`.
 **Decision**: the summary cleaned by `doctext.Clean` (every citation removed), fallback "The <Kind> resource.".
-**Rationale**: front matter cannot carry a link, and a bare `0015:D3` in a meta description says nothing to a reader.
+**Rationale**: front matter cannot carry a link, and a bare `NNNN:Dn` in a meta description says nothing to a reader.
 
 ## Risks / Trade-offs
 
