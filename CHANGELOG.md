@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/open-platform-model/docs-kit/compare/v0.9.0...v0.10.0) (2026-10-12)
+
+
+### Features
+
+* **doctext:** strip a lone enhancement citation under the strip policy ([#64](https://github.com/open-platform-model/docs-kit/issues/64)) ([e070c3f](https://github.com/open-platform-model/docs-kit/commit/e070c3ff9c2bd9ce2deabf239e3f78fdd6d49366))
+
 ## [0.9.0](https://github.com/open-platform-model/docs-kit/compare/v0.8.0...v0.9.0) (2026-10-12)
 
 
