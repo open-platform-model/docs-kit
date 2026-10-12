@@ -44,4 +44,4 @@ The excludes:
 ## Durable decisions
 
 - The excludes of `cite-lint` and the reason of each: stay in the comments of `Taskfile.yml` and `cite-lint.yml`.
-- `task cite-lint` is part of `task check`: lands in `AGENTS.md`.
+- `task cite-lint` is not part of `task check`: `task check` leaves cite-lint out because the tool needs Go 1.26.9 and the repo's Go is older; CI runs it through `cite-lint.yml`. Lands in `AGENTS.md`.

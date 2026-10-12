@@ -7,7 +7,7 @@ The comment rule of the enhancement store says a comment names an enhancement by
 ## What Changes
 
 - A local task `cite-lint` runs the tool at one pinned enhancements commit, with the smallest set of excludes.
-- `task check` runs `cite-lint`.
+- `task check` leaves cite-lint out (see design.md, "Durable decisions"); CI runs it through the workflow below.
 - A new small workflow calls the reusable `cite-lint.yml` of the `.github` repo, pinned to a full commit, on `pull_request` and on `push` to `main`.
 - `AGENTS.md` lists the task and the CI check.
 - The OpenSpec CLI pin stays at 1.12.0: `openspec validate --all --strict` fails under 1.14.1 on existing specs (see design.md).

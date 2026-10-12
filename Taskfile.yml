@@ -107,12 +107,11 @@ tasks:
         --exclude internal/extract/goapi/testdata/mod/lib/
 
   check:
-    desc: Run every gate (fmt:check, vet, lint, cite-lint, openspec:check, test)
+    desc: Run every gate (fmt:check, vet, lint, openspec:check, test)
     cmds:
       - task: fmt:check
       - task: vet
       - task: lint
-      - task: cite-lint
       - task: openspec:check
       - task: test
 
