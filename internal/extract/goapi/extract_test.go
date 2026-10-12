@@ -431,3 +431,13 @@ func TestRefusesModuleRootPackage(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestSynopsisPolicy(t *testing.T) {
+	in := "Package widget makes widgets (enhancement 0013)."
+	if got := synopsis(doctext.Strip, in); got != "Package widget makes widgets." {
+		t.Errorf("strip: %q", got)
+	}
+	if got := synopsis(doctext.Link, in); got != in {
+		t.Errorf("link keeps plain text: %q", got)
+	}
+}
