@@ -144,11 +144,46 @@ func (p Policy) CleanParagraphs(paras []string) []string {
 	return out
 }
 
-// outsideCode applies f to the parts of s outside `code spans`.
+// outsideCode applies f to the parts of s outside code spans. A code span
+// opens with a run of backticks and closes at the next run of the same
+// length; a run with no closing run is plain text.
 func outsideCode(s string, f func(string) string) string {
-	parts := strings.Split(s, "`")
-	for i := 0; i < len(parts); i += 2 {
-		parts[i] = f(parts[i])
+	var b strings.Builder
+	start, i := 0, 0
+	for i < len(s) {
+		if s[i] != '`' {
+			i++
+			continue
+		}
+		j := i
+		for j < len(s) && s[j] == '`' {
+			j++
+		}
+		n := j - i
+		k, end := j, -1
+		for k < len(s) {
+			if s[k] != '`' {
+				k++
+				continue
+			}
+			m := k
+			for m < len(s) && s[m] == '`' {
+				m++
+			}
+			if m-k == n {
+				end = m
+				break
+			}
+			k = m
+		}
+		if end < 0 {
+			i = j
+			continue
+		}
+		b.WriteString(f(s[start:i]))
+		b.WriteString(s[i:end])
+		start, i = end, end
 	}
-	return strings.Join(parts, "`")
+	b.WriteString(f(s[start:]))
+	return b.String()
 }
