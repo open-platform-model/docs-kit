@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/open-platform-model/docs-kit/compare/v0.8.0...v0.9.0) (2026-10-12)
+
+
+### Features
+
+* **doctext:** link only enhancement references in the link citation policy ([#61](https://github.com/open-platform-model/docs-kit/issues/61)) ([4b20b0f](https://github.com/open-platform-model/docs-kit/commit/4b20b0f37b5dd4213a5057d72dfb0d4a3919e361))
+
 ## [0.8.0](https://github.com/open-platform-model/docs-kit/compare/v0.7.1...v0.8.0) (2026-10-11)
 
 
