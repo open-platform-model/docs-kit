@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: The strip policy removes a lone enhancement citation
-Under the `strip` citation policy, prose outside a code span SHALL lose each parenthesis whose whole content is `enhancement NNNN` (a capital first letter too) or `enhancements NNNN and NNNN` (ids joined by commas and `and`), together with the one space before it, so the sentence stays whole. A parenthesis that holds other words, a code span, a comment inside a spec block and a Markdown link destination MUST stay as written. The `link` policy MUST NOT change.
+Under the `strip` citation policy, prose outside a code span SHALL lose each parenthesis whose whole content is `enhancement NNNN` (a capital first letter too) or `enhancements NNNN and NNNN` (ids joined by commas and `and`), together with the one space before it, so the sentence stays whole. A parenthesis that holds other words, a code span, a comment inside a spec block and a Markdown link destination MUST stay as written. The `link` policy MUST keep its output, except that code spans are found by CommonMark backtick runs under both policies: a double-backtick span that holds a backtick is one span, and an unclosed backtick is plain text.
 
 #### Scenario: End of a sentence
 - **WHEN** prose reads `It refuses the render (enhancement 0013).` under `strip`

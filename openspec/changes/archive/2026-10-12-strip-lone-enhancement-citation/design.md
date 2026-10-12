@@ -14,7 +14,7 @@ See proposal.md. `internal/doctext/policy.go` holds `Policy.Clean`. Under `link`
 1. Put the rule in the package function `Clean` - one place, but the `link` path and the `crd` renderer call it on prose that must keep plain references, so it breaks `link`.
 2. Put the rule in `Policy.Clean` for the non-link branch - `link` stays as it is; the strip-only caller `cuecatalog` moves to `Strip.CleanParagraphs`.
 **Decision**: Option 2.
-**Rationale**: It keeps the `link` output byte for byte and gives every policy-aware extractor the rule through one method.
+**Rationale**: It keeps the `link` output, except for the code-span finding below, and gives every policy-aware extractor the rule through one method.
 
 ### What counts as a lone citation
 
@@ -32,7 +32,7 @@ See proposal.md. `internal/doctext/policy.go` holds `Policy.Clean`. Under `link`
 
 - A consumer page changes text on its next pin. No consumer file needs an edit.
 - The `go-api` package synopsis stays plain text under both policies; under `strip` it is cleaned with `Strip.Clean`, under `link` with the package function `Clean`, so `link` output does not change.
-- `outsideCode` now finds code spans by equal-length backtick runs, so a double-backtick span that holds a backtick is not split. This also applies to `link`, and only changes output for such a span.
+- `outsideCode` now finds code spans by equal-length backtick runs, so a double-backtick span that holds a backtick is not split. This also applies to `link` (owner ruling 2026-10-13): a double-backtick span that holds a backtick is one span, and an unclosed backtick is plain text, so `link` now links a reference after an unclosed backtick and no longer links one inside such a span. No golden under `link` changed.
 
 ## Durable decisions
 
