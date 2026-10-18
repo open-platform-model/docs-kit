@@ -4,7 +4,7 @@ docs-kit builds each OPM repository's documentation into a versioned OCI artifac
 
 The repository holds one Go program, `opm-docs`, and the shared workflow that runs it. This document is the design for building both, and for moving the site onto them.
 
-Status: proposed, 2026-10-02. Nothing is built yet.
+Status: proposed 2026-10-02, now partly built: phase 1 and phase 1b are built and released, and phase 2 is under way. The README holds the current status.
 
 ## Why
 
