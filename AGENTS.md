@@ -10,7 +10,7 @@ artifact rules).
 
 | Branch | What lands |
 | --- | --- |
-| `main` | All work, by PR. The OpenSpec archive commit rides the implementing PR. |
+| `main` | All work, by PR. |
 
 ## Repository rules
 
@@ -49,7 +49,7 @@ openspec/           OpenSpec workspace: config.yaml (constitution), specs/, chan
 | --- | --- |
 | `task build` | Builds `bin/opm-docs` with the version stamped in |
 | `task fmt`, `task fmt:check` | Formats; fails on an unformatted file |
-| `task vet`, `task lint`, `task test` | Vet, golangci-lint (offline), unit tests. They cover `cobradump/` too |
+| `task vet`, `task lint`, `task test` | Vet, golangci-lint, offline unit tests. They cover `cobradump/` too |
 | `task openspec:check` | Validates every spec and active change under `--strict`. `task openspec:install` installs the CLI |
 | `task cite-lint` | Checks Go and CUE files against the comment rule. Run it by hand: it needs a newer Go than `task check` assumes. CI runs the same check; the excludes are in both and change together |
 | `task check` | `fmt:check`, `vet`, `lint`, `openspec:check`, `test`: the gate before every commit |
@@ -61,12 +61,8 @@ CI also runs `actionlint` over the workflows, and a job runs the serve test agai
 
 Kept in this file because `openspec/config.yaml` points here for them.
 
-- Go version: `go.mod`, matching cli.
 - `github.com/yuin/goldmark` is pinned to the version that the Hugo pinned by opmodel.dev builds
   with (`internal/mdsafe`, `docs/contracts.md` C21). Bump it with the site's Hugo, never alone.
-- Extracting a CUE catalog needs the registry mapping
-  `CUE_REGISTRY='opmodel.dev=ghcr.io/open-platform-model,registry.cue.works'`. Unit tests use
-  self-contained fixtures and need no registry.
 
 ## Style
 

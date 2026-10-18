@@ -1,16 +1,14 @@
 # Releasing docs-kit
 
 Covers how docs-kit releases: the two release components, what a commit type does, the contract
-that callers and consumers pin, and how to test a release build locally. The workspace rules for
-tags and publishing are in the workspace `references/releases.md`.
+that callers and consumers pin, and how to test a release build locally.
 
 ## How a release happens
 
 release-please (as the release App) opens a release PR from `feat` and `fix` commits on `main`.
 Merging it creates the tag `vX.Y.Z` and a draft release. The release workflow then runs goreleaser
 (pinned), which attaches `opm-docs_X.Y.Z_<os>_<arch>.tar.gz` for linux and darwin on amd64 and
-arm64 plus `checksums.txt`, and publishes the release. Never publish a release by hand and never
-re-tag; a bad release is fixed by the next patch.
+arm64 plus `checksums.txt`, and publishes the release.
 
 ## Two components
 
@@ -50,8 +48,6 @@ The archive names, `checksums.txt` and the `linux_amd64` archive are a contract
 ## Pitfalls
 
 - A `fix:` or `chore:` commit for a CUE bump ships a patch that changes version-history output.
-- A moved or re-created tag breaks every caller that pins `publish.yml` by tag.
-- A commit with scope `cobradump` does not release `opm-docs`; a change to both needs two commits.
 
 ## Check before you finish
 
