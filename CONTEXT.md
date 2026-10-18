@@ -10,7 +10,7 @@ Router only. Facts and rules are in `AGENTS.md`.
 | Change the page dialect, the markup check or the goldmark pin | `internal/dialect/` | `internal/mdsafe/`, `docs/contracts.md` |
 | Change `publish.yml`, the CI workflow or the cite-lint workflow | `.github/workflows/` | `AGENTS.md` |
 | Choose a commit type, type a dependency bump, or change the release workflow, goreleaser or release-please config | `references/releasing.md` | `release-please-config.json` |
-| Fix or add package code under `internal/` other than extractors, renderers, dialect and mdsafe (bundle, build, pull, oci, verify, publish, history, revise, serve, doctext, gitsrc) | `internal/` | `docs/contracts.md` |
+| Fix or add any other package code under `internal/` | `internal/` | `docs/contracts.md` |
 | Understand a design decision or the phase plan | `DESIGN.md` | `docs/orchestration.md` |
 | Start a feature change | `openspec/config.yaml` | `DESIGN.md` |
 | Deliver or cite an enhancement | `references/enhancements.md` at the workspace root | `AGENTS.md` |
