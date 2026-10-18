@@ -148,7 +148,7 @@ context: |
     never fix or chore: it must release as a minor (docs/contracts.md C10, C13)
   - Commits may end with the plain `Co-Authored-By: Claude <noreply@anthropic.com>` trailer
     (optional); never a session ID/URL or generated-with footer
-  - Never a bare `@name` in a commit message, PR title or PR body (AGENTS.md); PR bodies stay
+  - Never a bare `@name` in a commit message, PR title or PR body (workspace references/git-text.md); PR bodies stay
     under 250 words
 
 rules:
