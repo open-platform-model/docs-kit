@@ -174,7 +174,7 @@ func TestLinkPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 	mod := find(t, m, "#Module")
-	if mod.Summary != "The unit an author publishes ([0010:D4](/enhancements/0010/decisions/))." {
+	if mod.Summary != "The unit an author publishes." {
 		t.Errorf("summary %q", mod.Summary)
 	}
 	// A spec block's comment drops citations under both policies.
@@ -370,5 +370,15 @@ func TestShapeCodeSpan(t *testing.T) {
 	}
 	if want := "struct, closed, ``kind: \"a`b\"``"; d.Shape != want {
 		t.Errorf("shape %q, want %q", d.Shape, want)
+	}
+}
+
+func TestLinkPolicyEnhancementReference(t *testing.T) {
+	raw := []string{"The unit an author publishes, see enhancement 0013."}
+	if got := parseDoc("#Module", raw, doctext.Link).summary; got != "The unit an author publishes, see [enhancement 0013](/enhancements/0013/)." {
+		t.Errorf("link summary %q", got)
+	}
+	if got := parseDoc("#Module", raw, doctext.Strip).summary; got != "The unit an author publishes, see enhancement 0013." {
+		t.Errorf("strip summary %q", got)
 	}
 }

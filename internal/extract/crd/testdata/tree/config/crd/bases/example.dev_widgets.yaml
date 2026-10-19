@@ -33,7 +33,7 @@ spec:
           Widget asks the controller to build one widget (0021:D4). It is
           the smallest *unit*.
 
-          A widget's `spec.size` never shrinks; see #Widget and 0021:D4/D9.
+          A widget's `spec.size` never shrinks; see #Widget and 0021:D4/D9. Owned by enhancement 0021.
         properties:
           apiVersion:
             description: APIVersion defines the versioned schema.

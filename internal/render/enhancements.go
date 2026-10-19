@@ -18,7 +18,8 @@ func Enhancements(pages []enhancements.Page, t Target) ([]Page, error) {
 		return nil, fmt.Errorf("the enhancements source writes the /enhancements/ section; give the bundle placement kind \"section\"")
 	}
 	out := make([]Page, 0, len(pages))
-	for _, p := range pages {
+	for i := range pages {
+		p := &pages[i]
 		var b strings.Builder
 		b.WriteString("---\n")
 		b.WriteString("title: " + mdtext.YAMLString(p.Title) + "\n")

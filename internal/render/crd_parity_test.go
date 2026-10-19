@@ -49,13 +49,23 @@ var servedByRewrite = releaseRewrite{
 	repl: "The $1 reconciler watches every $2.",
 }
 
+// decisionLinkRewrite drops the decision link a bundle built before the link
+// policy changed wrote after a clause, " ([NNNN:Dn](/enhancements/NNNN/decisions/))".
+// The policy now removes a decision citation and links no decision page.
+var decisionLinkRewrite = releaseRewrite{
+	name: "decisionLinkRewrite",
+	re:   regexp.MustCompile(`\s\(\[\d{4}:D[0-9DR:/]*\]\(/enhancements/\d{4}/decisions/\)\)`),
+	repl: "",
+}
+
 // TestControllerCRDParity renders the controller's release snapshot with
 // its own config, completes the section index with the authored one, and
 // compares every page with the released bundle's. The snapshot's bundle
 // predates the reconciler wording of the served-by sentence, so its
-// sentences are rewritten before comparing (servedByRewrite); once a
-// refresh brings a bundle built with that wording the rewrite matches
-// nothing and the test asks for its removal.
+// sentences and decision links are rewritten before comparing
+// (servedByRewrite, decisionLinkRewrite); once a refresh brings a bundle
+// built with the new wording a rewrite matches nothing and the test asks
+// for its removal.
 func TestControllerCRDParity(t *testing.T) {
 	o := controllerOptions(t)
 	if o.Section == "" {
@@ -81,5 +91,5 @@ func TestControllerCRDParity(t *testing.T) {
 		}
 		pages[0] = Page{Path: pages[0].Path, Body: body}
 	}
-	compareWithRelease(t, o.Root, o.Section, pages, []releaseRewrite{servedByRewrite})
+	compareWithRelease(t, o.Root, o.Section, pages, []releaseRewrite{servedByRewrite, decisionLinkRewrite})
 }

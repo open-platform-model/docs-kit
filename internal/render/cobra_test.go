@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/open-platform-model/docs-kit/internal/dialect"
+	"github.com/open-platform-model/docs-kit/internal/doctext"
 	"github.com/open-platform-model/docs-kit/internal/extract/cobra"
 )
 
@@ -128,5 +129,16 @@ func TestCobraTabTarget(t *testing.T) {
 		if p.Path == "reference/cli/demo-widget.md" && !strings.Contains(p.Body, "(/catalogs/demo/1.2/reference/cli/demo-widget/#demo-widget-list)") {
 			t.Fatalf("tab links:\n%s", p.Body)
 		}
+	}
+}
+
+// Under the link policy a command's help text links an enhancement
+// reference.
+func TestCobraProseLinksEnhancementReference(t *testing.T) {
+	r := &cmdRenderer{clean: doctext.Link.Clean}
+	got := r.prose("Set by enhancement 0013.")
+	want := "Set by [enhancement 0013](/enhancements/0013/)."
+	if got != want {
+		t.Errorf("prose = %q, want %q", got, want)
 	}
 }

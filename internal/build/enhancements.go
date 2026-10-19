@@ -18,6 +18,9 @@ func (enhancementsExtractor) Kind() string { return "enhancements" }
 func (enhancementsExtractor) Extract(ctx context.Context, in Input) (Data, error) {
 	var cfg struct {
 		Dir         string `json:"dir"`
+		Changes     string `json:"changes"`
+		Specs       string `json:"specs"`
+		Legacy      string `json:"legacy"`
 		Title       string `json:"title"`
 		Description string `json:"description"`
 	}
@@ -29,9 +32,27 @@ func (enhancementsExtractor) Extract(ctx context.Context, in Input) (Data, error
 	if err != nil {
 		return Data{}, err
 	}
+	repo := gitsrc.Repo{Dir: in.Source}
+	shallow := -1 // asked at the first openspec entry: 1 shallow, 0 not
+	lastCommit := func(path string) (string, error) {
+		if shallow < 0 {
+			sh, err := repo.Shallow(ctx)
+			if err != nil {
+				return "", err
+			}
+			shallow = 0
+			if sh {
+				shallow = 1
+			}
+		}
+		if shallow == 1 {
+			return "", fmt.Errorf("%s is a shallow clone, so the date of the last commit that touched this entry is unknown; check out the full history (actions/checkout with fetch-depth: 0)", in.Source)
+		}
+		return repo.LastCommitDate(ctx, in.Commit, path)
+	}
 	res, err := enhancements.Extract(enhancements.Options{
 		Root: in.Source, Dir: cfg.Dir, Repo: in.Repo, Commit: in.Commit, Paths: paths,
-		Title: cfg.Title, Description: cfg.Description,
+		Title: cfg.Title, Description: cfg.Description, Changes: cfg.Changes, Specs: cfg.Specs, Legacy: cfg.Legacy, LastCommit: lastCommit,
 	})
 	if err != nil {
 		return Data{}, fmt.Errorf("enhancements %s: %w", cfg.Dir, err)
@@ -45,8 +66,15 @@ func (enhancementsExtractor) Extract(ctx context.Context, in Input) (Data, error
 		return Data{}, err
 	}
 	sources := make(map[string]string, len(res.Pages))
-	for _, p := range res.Pages {
-		sources[p.Path] = p.Source
+	inputs := map[string][]string{}
+	for i := range res.Pages {
+		p := &res.Pages[i]
+		if p.Source != "" {
+			sources[p.Path] = p.Source
+		}
+		if len(p.Inputs) > 0 {
+			inputs[p.Path] = p.Inputs
+		}
 	}
-	return Data{File: enhancements.DataFile, Schema: enhancements.SchemaID, Bytes: data, Sources: sources, Pages: pages}, nil
+	return Data{File: enhancements.DataFile, Schema: enhancements.SchemaID, Bytes: data, Sources: sources, Inputs: inputs, Pages: pages}, nil
 }

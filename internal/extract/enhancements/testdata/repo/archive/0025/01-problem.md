@@ -3,7 +3,7 @@
 <!-- A note for authors,
      across two lines. -->
 
-A module cannot say what it is. See [0003](../archive/0003/) for the history.
+A module cannot say what it is. See [0003](../0003/) for the history.
 
 | Gap | Note |
 | --- | ---- |

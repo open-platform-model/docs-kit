@@ -1,6 +1,7 @@
 package dialect
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -51,5 +52,23 @@ func TestSectionBundleGraph(t *testing.T) {
 		if strings.Contains(v.Msg, "graph") {
 			t.Errorf("graph link refused: %s", v)
 		}
+	}
+}
+
+// TestSectionBundleCapabilities checks a link to a capability page names a
+// page of the bundle.
+func TestSectionBundleCapabilities(t *testing.T) {
+	dir := t.TempDir()
+	page := "---\ntitle: \"T\"\ndescription: \"D.\"\ntype: explanation\n---\n\n[all](/enhancements/capabilities/) [one](/enhancements/capabilities/single-build-render/) [gone](/enhancements/capabilities/gone/)\n"
+	if err := os.WriteFile(filepath.Join(dir, "x.md"), []byte(page), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pages := []string{"capabilities/_index.md", "capabilities/single-build-render.md", "x.md"}
+	vs, err := Lint(dir, Options{Mode: Bundle, Bundle: BundleInfo{Kind: "section", Root: "/enhancements/", Segment: "edge", Pages: pages}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(vs) != 1 || !strings.Contains(vs[0].Msg, `"/enhancements/capabilities/gone/": no page capabilities/gone/ in this bundle`) {
+		t.Fatalf("violations %v, want the one for the missing capability page", vs)
 	}
 }

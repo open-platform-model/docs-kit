@@ -508,7 +508,7 @@ func (x *extraction) pkg(st *pkgState, url linker) (*Package, error) {
 	}
 	out := &Package{
 		ImportPath: st.importPath, Name: p.Name, Page: st.page,
-		Synopsis: doctext.Clean(p.Synopsis(docText)), Doc: pkgDoc, Files: st.files,
+		Synopsis: synopsis(x.o.Policy, p.Synopsis(docText)), Doc: pkgDoc, Files: st.files,
 	}
 	for _, f := range p.Funcs {
 		fn, err := x.fn(st, f, "", levelSymbolDoc, url)
@@ -826,4 +826,13 @@ func PageSections(p *Package) []Section {
 	}
 	add("Types", es)
 	return out
+}
+
+// synopsis cleans a package synopsis, which stays plain text under both
+// policies. Under strip it also loses a lone "(enhancement NNNN)".
+func synopsis(p doctext.Policy, s string) string {
+	if p == doctext.Link {
+		return doctext.Clean(s)
+	}
+	return p.Clean(s)
 }

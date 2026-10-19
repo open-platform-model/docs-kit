@@ -1,0 +1,17 @@
+id: "0041"
+slug: fixture-rejected
+title: Fixture Rejected
+summary: >-
+  Fixture Rejected, a fixture
+  entry.
+status: rejected
+category: runtime
+breaking: false
+affects:
+  - cli
+authors:
+  - someone@example.com
+created: "2026-09-20"
+rejected:
+  date: "2026-10-22"
+  reason: A fixture reason.

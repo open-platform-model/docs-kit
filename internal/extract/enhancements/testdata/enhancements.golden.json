@@ -1,9 +1,10 @@
 {
-  "schema": "docs.opmodel.dev/data/enhancements/v1",
+  "schema": "docs.opmodel.dev/data/enhancements/v2",
   "repo": "open-platform-model/enhancements",
   "entries": [
     {
       "id": "0003",
+      "layout": "legacy",
       "slug": "module-publishing-workflow",
       "title": "Module Publishing Workflow",
       "summary": "Bind a module's identity fields to one registry path.",
@@ -70,6 +71,7 @@
     },
     {
       "id": "0025",
+      "layout": "legacy",
       "slug": "self-describing-modules",
       "title": "Self-Describing Modules",
       "summary": "Let a module state facts about itself as a whole, as named bundles of traits.",
@@ -81,7 +83,7 @@
       ],
       "created": "2026-09-08",
       "updated": "2026-09-29",
-      "archived": false,
+      "archived": true,
       "dependsOn": [
         "0003"
       ],
@@ -95,45 +97,282 @@
           "slug": "problem",
           "title": "Problem statement",
           "page": "0025/problem",
-          "file": "0025/01-problem.md"
+          "file": "archive/0025/01-problem.md"
         },
         {
           "slug": "design",
           "title": "Design",
           "page": "0025/design",
-          "file": "0025/02-design.md"
+          "file": "archive/0025/02-design.md"
         },
         {
           "slug": "decisions",
           "title": "Decisions",
           "page": "0025/decisions",
-          "file": "0025/03-decisions.md"
+          "file": "archive/0025/03-decisions.md"
         },
         {
           "slug": "graduation",
           "title": "Graduation criteria",
           "page": "0025/graduation",
-          "file": "0025/04-graduation.md"
+          "file": "archive/0025/04-graduation.md"
         },
         {
           "slug": "risks",
           "title": "Risks and alternatives",
           "page": "0025/risks",
-          "file": "0025/05-risks.md"
+          "file": "archive/0025/05-risks.md"
         },
         {
           "slug": "operational",
           "title": "Operational concerns",
           "page": "0025/operational",
-          "file": "0025/06-operational.md"
+          "file": "archive/0025/06-operational.md"
         },
         {
           "slug": "questions",
           "title": "Open questions",
           "page": "0025/questions",
-          "file": "0025/07-questions.md"
+          "file": "archive/0025/07-questions.md"
         }
       ]
+    },
+    {
+      "id": "0026",
+      "layout": "openspec",
+      "slug": "module-dictated-catalog-versions",
+      "title": "Module-Dictated Catalog Versions and the Generated Platform",
+      "summary": "Let a platform admit a catalog path with a version range, and let each module's own pin pick the version inside it.",
+      "status": "accepted",
+      "category": "schema",
+      "breaking": true,
+      "affects": [
+        "core",
+        "library",
+        "cli",
+        "opm-operator",
+        "catalog"
+      ],
+      "created": "2026-09-08",
+      "updated": "2026-10-21",
+      "archived": false,
+      "after": [
+        "0010",
+        "0015",
+        "0019"
+      ],
+      "supersededBy": [],
+      "accepted": {
+        "date": "2026-10-16",
+        "commit": "4be19d0"
+      },
+      "progress": {
+        "done": 0,
+        "total": 5
+      },
+      "capabilities": [
+        "authored-platform",
+        "catalog-version-selection",
+        "registration-acceptance",
+        "single-build-render"
+      ],
+      "page": "0026",
+      "documents": [
+        {
+          "slug": "proposal",
+          "title": "Proposal",
+          "page": "0026/proposal",
+          "file": "openspec/changes/0026-module-dictated-catalog-versions/proposal.md"
+        },
+        {
+          "slug": "design",
+          "title": "Design",
+          "page": "0026/design",
+          "file": "openspec/changes/0026-module-dictated-catalog-versions/design.md"
+        },
+        {
+          "slug": "requirements",
+          "title": "Requirements",
+          "page": "0026/requirements",
+          "file": "openspec/changes/0026-module-dictated-catalog-versions/specs"
+        },
+        {
+          "slug": "tasks",
+          "title": "Tasks",
+          "page": "0026/tasks",
+          "file": "openspec/changes/0026-module-dictated-catalog-versions/tasks.md"
+        }
+      ],
+      "aliases": [
+        {
+          "from": "0026/problem",
+          "to": "0026/proposal"
+        },
+        {
+          "from": "0026/decisions",
+          "to": "0026/requirements"
+        },
+        {
+          "from": "0026/graduation",
+          "to": "0026/tasks"
+        },
+        {
+          "from": "0026/risks",
+          "to": "0026/design"
+        },
+        {
+          "from": "0026/operational",
+          "to": "0026/design"
+        },
+        {
+          "from": "0026/questions",
+          "to": "0026/proposal"
+        }
+      ]
+    },
+    {
+      "id": "0040",
+      "layout": "openspec",
+      "slug": "fixture-delivered",
+      "title": "Fixture Delivered",
+      "summary": "Fixture Delivered, a fixture entry.",
+      "status": "delivered",
+      "category": "runtime",
+      "breaking": false,
+      "affects": [
+        "cli"
+      ],
+      "created": "2026-09-20",
+      "updated": "2026-10-21",
+      "archived": true,
+      "after": [],
+      "supersededBy": [],
+      "accepted": null,
+      "progress": {
+        "done": 2,
+        "total": 2
+      },
+      "capabilities": [
+        "registration-acceptance"
+      ],
+      "page": "0040",
+      "documents": [
+        {
+          "slug": "proposal",
+          "title": "Proposal",
+          "page": "0040/proposal",
+          "file": "openspec/changes/archive/2026-10-21-0040-fixture-delivered/proposal.md"
+        },
+        {
+          "slug": "design",
+          "title": "Design",
+          "page": "0040/design",
+          "file": "openspec/changes/archive/2026-10-21-0040-fixture-delivered/design.md"
+        },
+        {
+          "slug": "requirements",
+          "title": "Requirements",
+          "page": "0040/requirements",
+          "file": "openspec/changes/archive/2026-10-21-0040-fixture-delivered/specs"
+        },
+        {
+          "slug": "tasks",
+          "title": "Tasks",
+          "page": "0040/tasks",
+          "file": "openspec/changes/archive/2026-10-21-0040-fixture-delivered/tasks.md"
+        }
+      ],
+      "aliases": []
+    },
+    {
+      "id": "0041",
+      "layout": "openspec",
+      "slug": "fixture-rejected",
+      "title": "Fixture Rejected",
+      "summary": "Fixture Rejected, a fixture entry.",
+      "status": "rejected",
+      "category": "runtime",
+      "breaking": false,
+      "affects": [
+        "cli"
+      ],
+      "created": "2026-09-20",
+      "updated": "2026-09-20",
+      "archived": true,
+      "after": [],
+      "supersededBy": [],
+      "accepted": null,
+      "progress": {
+        "done": 0,
+        "total": 0
+      },
+      "capabilities": [
+        "registration-acceptance"
+      ],
+      "page": "0041",
+      "documents": [
+        {
+          "slug": "proposal",
+          "title": "Proposal",
+          "page": "0041/proposal",
+          "file": "openspec/changes/archive/2026-10-22-0041-fixture-rejected/proposal.md"
+        },
+        {
+          "slug": "design",
+          "title": "Design",
+          "page": "0041/design",
+          "file": "openspec/changes/archive/2026-10-22-0041-fixture-rejected/design.md"
+        },
+        {
+          "slug": "requirements",
+          "title": "Requirements",
+          "page": "0041/requirements",
+          "file": "openspec/changes/archive/2026-10-22-0041-fixture-rejected/specs"
+        }
+      ],
+      "aliases": []
+    },
+    {
+      "id": "0042",
+      "layout": "openspec",
+      "slug": "fixture-no-specs",
+      "title": "Fixture No Specs",
+      "summary": "Fixture No Specs, a fixture entry.",
+      "status": "draft",
+      "category": "runtime",
+      "breaking": null,
+      "affects": [
+        "cli",
+        "catalog_opm",
+        ".github"
+      ],
+      "created": "2026-09-20",
+      "updated": "2026-10-02",
+      "archived": false,
+      "after": [],
+      "supersededBy": [],
+      "accepted": null,
+      "progress": {
+        "done": 0,
+        "total": 0
+      },
+      "capabilities": [],
+      "page": "0042",
+      "documents": [
+        {
+          "slug": "proposal",
+          "title": "Proposal",
+          "page": "0042/proposal",
+          "file": "openspec/changes/0042-fixture-no-specs/proposal.md"
+        },
+        {
+          "slug": "design",
+          "title": "Design",
+          "page": "0042/design",
+          "file": "openspec/changes/0042-fixture-no-specs/design.md"
+        }
+      ],
+      "aliases": []
     }
   ]
 }

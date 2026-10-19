@@ -8,7 +8,7 @@ type: reference
 import "example.com/widgets/lib/widget"
 ```
 
-Package widget makes widgets. It is the fixture of the go-api extractor.
+Package widget makes widgets. It is the fixture of the go-api extractor. It follows enhancement 0010.
 
 A [Widget](/docs/reference/go-api/widget/#widget) comes from [New](/docs/reference/go-api/widget/#new) and spins with [Widget.Spin](/docs/reference/go-api/widget/#widgetspin-1); a [gadget.Gadget](/docs/reference/go-api/gadget/#gadget) holds one. Every call takes a [context.Context](https://pkg.go.dev/context#Context). Values are `cue` values, and \<b\>raw HTML\</b\> and \{\{\< figure \>\}\} stay text.
 

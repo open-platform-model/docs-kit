@@ -201,9 +201,38 @@ func checkSection(project string, b Bundle) error {
 			return fmt.Errorf("%s: an enhancements source writes the /enhancements/ section; give the bundle placement {kind: \"section\", root: \"/enhancements/\"}", at)
 		case section && src.Kind != KindEnhancements:
 			return fmt.Errorf("%s: a section bundle holds only an enhancements source, and this one is %s; give it a bundle of its own", at, src.Kind)
+		case src.Kind == KindEnhancements:
+			if err := checkEnhancementsDirs(at, src); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
+}
+
+// checkEnhancementsDirs refuses an enhancements source whose changes,
+// specs and legacy directories are the same path or nest: an entry would
+// be read twice, or a capability spec read as an old-layout entry.
+func checkEnhancementsDirs(at string, src Source) error {
+	var d struct{ Changes, Specs, Legacy string }
+	if err := src.Value.Decode(&d); err != nil {
+		return fmt.Errorf("%s: %w", at, err)
+	}
+	dirs := []struct{ name, dir string }{{"changes", d.Changes}, {"specs", d.Specs}, {"legacy", d.Legacy}}
+	for i, a := range dirs {
+		for _, b := range dirs[i+1:] {
+			if pathNests(a.dir, b.dir) || pathNests(b.dir, a.dir) {
+				return fmt.Errorf("%s: %s %q and %s %q are one path or nest; give each of changes, specs and legacy a directory of its own", at, a.name, a.dir, b.name, b.dir)
+			}
+		}
+	}
+	return nil
+}
+
+// pathNests reports whether inner is outer or lies under it.
+func pathNests(outer, inner string) bool {
+	outer, inner = slashpath.Clean(outer), slashpath.Clean(inner)
+	return inner == outer || strings.HasPrefix(inner, outer+"/")
 }
 
 // checkGlobs refuses a pattern that is not a glob: a markdown source's

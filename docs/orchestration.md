@@ -162,7 +162,7 @@ A docs fix to a released version is a `workflow_dispatch` of the repository's `D
 
 - The contracts, by number: `https://github.com/open-platform-model/docs-kit/blob/main/docs/contracts.md` (`docs-kit C15`). Until a change lands, its `design.md` on docs-kit `main` (`openspec/changes/<change>/design.md`) shows the contract.
 - `publish.yml` by release tag, never by SHA (C5, C9): the signer glob is `refs/tags/v[0-9]*`, and `publish.yml` reads the caller's repo-root `.opm-docs-version`. A caller's workflow comment says why the tag pin is a deliberate exception to SHA pinning.
-- DESIGN decisions by number (`docs-kit DESIGN decision 10`). docs-kit has no enhancement entry, so no `enhancement.yaml` and no delivery log.
+- DESIGN decisions by number (`docs-kit DESIGN decision 10`). An enhancement is cited by its id beside a reason in words, never with a decision number; a change that delivers a line of an enhancement's `tasks.md` says so in its proposal (`Delivers NNNN, task X.Y.`).
 - Gates by name (this file), never another repository's section number.
 - The reference adopter: catalog_opm's `.github/workflows/docs.yml`, `release.yml` job `publish-docs`, `Taskfile.yml` tasks `tools:opm-docs`, `docs:pins:check`, `docs:bundle`, `docs:bundle:check` and `.tasks/opm-docs.sh`.
 
@@ -289,7 +289,7 @@ Done: delivered by `retire-lint-conformance-binding` (archived), after opmodel.d
 - New GHCR packages, each checked public on first publish: `docs/core`, `docs/library`, `docs/opm-controller`, `docs/cli`, `docs/catalog-opm-docs`, `docs/opm`, `docs/enhancements`.
 - Phase 2 backfills: dispatch `mode: release` for core `v2.0.0-beta.1`, library `v1.0.0-beta.1`, opm-controller `v1.0.0-beta.4` after each adoption merges.
 - Hold cli#276 (`v1.0.0-beta.6`) until the cli's adoption has merged and the G2-pins check passes. library#155 and opm-controller#178 may merge at any time; one merged before its repository adopts needs a backfill too, and if the cascade bumps the cli's pins to it, G2-pins checks that version.
-- opm: install the release App, provide `vars.RELEASE_APP_CLIENT_ID` and `secrets.RELEASE_APP_PRIVATE_KEY`, cover opm with the `tags-immutable` and `tags-create-app-only` rulesets and enable immutable releases; first version `1.0.0-beta.1` (DESIGN decision 21), set by `initial-version` in `release-please-config.json`, never by a commit footer, with `docs` a visible changelog section so `docs:` commits open release PRs. Workspace edits for a newly released repository: add opm to the release-tag scope of root `AGENTS.md` ("Release Tags Are Immutable"), to the hooks and guards that list released repositories, and to `RELEASING.md`.
+- opm: install the release App, provide `vars.RELEASE_APP_CLIENT_ID` and `secrets.RELEASE_APP_PRIVATE_KEY`, cover opm with the `tags-immutable` and `tags-create-app-only` rulesets and enable immutable releases; first version `1.0.0-beta.1` (DESIGN decision 21), set by `initial-version` in `release-please-config.json`, never by a commit footer, with `docs` a visible changelog section so `docs:` commits open release PRs. Workspace edits for a newly released repository: add opm to the release-tag scope in the workspace `references/releases.md`, to the hooks and guards that list released repositories, and to `RELEASING.md`.
 - Docs revisions are dispatched by hand (docs-kit#16 tracks automating them).
 
 ## Decisions made in planning (for the owner to confirm)

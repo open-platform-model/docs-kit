@@ -178,14 +178,10 @@ var crdEscaper = strings.NewReplacer(
 	"~", `\~`, "|", `\|`, "#", `\#`,
 )
 
-// reCitation is an enhancement decision citation: "0015:D3",
-// "0015:D3/D16", "0011:D9:R2". Escaping leaves it intact.
-var reCitation = regexp.MustCompile(`\b(\d{4}):D\d+(?::R\d+(?:/R\d+)*)?(?:/D\d+(?::R\d+(?:/R\d+)*)?)*`)
-
 // crdProse escapes prose outside code spans and, under the link policy,
-// links each decision citation to its enhancement's decisions page. The
+// links each enhancement reference ("enhancement 0013") to its page. The
 // model's text is plain, so the only links on the page are the ones built
-// here from a citation.
+// here.
 func crdProse(s string, link bool) string {
 	s = crdEscaper.Replace(s)
 	// "{{{" escapes to "{\{{", which still opens one: repeat until none is
@@ -194,7 +190,7 @@ func crdProse(s string, link bool) string {
 		s = strings.ReplaceAll(s, "{{", `{\{`)
 	}
 	if link {
-		s = reCitation.ReplaceAllString(s, "[$0](/enhancements/$1/decisions/)")
+		s = doctext.LinkEnhancements(s)
 	}
 	return s
 }

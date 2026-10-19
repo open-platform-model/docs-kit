@@ -103,7 +103,7 @@ func TestWidget(t *testing.T) {
 	if w.ReconciledBy == nil || *w.ReconciledBy != "widget" {
 		t.Errorf("reconciledBy %v", w.ReconciledBy)
 	}
-	if w.Summary != "Widget asks the controller to build one widget (0021:D4)." {
+	if w.Summary != "Widget asks the controller to build one widget." {
 		t.Errorf("summary %q", w.Summary)
 	}
 }
@@ -372,5 +372,15 @@ func TestIgnoredKeys(t *testing.T) {
 	}
 	if len(k.Rules) != 1 || k.Rules[0].Message != "name is required" {
 		t.Errorf("rules %+v", k.Rules)
+	}
+}
+
+// Under the link policy the model keeps an enhancement reference as plain
+// text; the renderer links it.
+func TestEnhancementReferencesStayPlain(t *testing.T) {
+	got := cleanParagraphs(doctext.Link, []string{"Owned by enhancements 0013 and 0014, see enhancement 0021."})
+	want := "Owned by enhancements 0013 and 0014, see enhancement 0021."
+	if len(got) != 1 || got[0] != want {
+		t.Errorf("cleanParagraphs = %q, want %q", got, want)
 	}
 }

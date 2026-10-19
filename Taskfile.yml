@@ -79,6 +79,33 @@ tasks:
     cmds:
       - openspec validate --all --strict --no-interactive
 
+  cite-lint:
+    desc: Check Go and CUE files against the comment rule (no decision number, no lone enhancement id, no old entry path), as CI does
+    vars:
+      # The one pinned commit of enhancements that every repo's CI uses: the
+      # enh-ref default of the reusable cite-lint.yml in open-platform-model/.github.
+      # Move it only with the .github pin.
+      ENH_REF: e0335b2ec44e659c0191bc3523d79d17f26f8e7d
+    cmds:
+      # The excludes are repeated in .github/workflows/cite-lint.yml (a reusable
+      # workflow input cannot read this file); change both together.
+      # These files and folders read or test the old citation forms on purpose
+      # (docs revisions build old release tags); they are never rewritten.
+      - >-
+        go run github.com/open-platform-model/enhancements/tools/enh@{{.ENH_REF}}
+        cite-lint --root {{.ROOT_DIR}}
+        --exclude internal/doctext/doctext_test.go
+        --exclude internal/doctext/policy_test.go
+        --exclude internal/build/enhancements_test.go
+        --exclude internal/extract/enhancements/extract_test.go
+        --exclude internal/pull/sections_test.go
+        --exclude internal/extract/enhancements/extract.go
+        --exclude internal/extract/enhancements/model.go
+        --exclude internal/render/testdata/library/
+        --exclude internal/extract/cuecatalog/testdata/catalog/demo/
+        --exclude internal/extract/cuedefs/testdata/defs/src/
+        --exclude internal/extract/goapi/testdata/mod/lib/
+
   check:
     desc: Run every gate (fmt:check, vet, lint, openspec:check, test)
     cmds:

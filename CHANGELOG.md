@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.10.0](https://github.com/open-platform-model/docs-kit/compare/v0.9.0...v0.10.0) (2026-10-12)
+
+
+### Features
+
+* **doctext:** strip a lone enhancement citation under the strip policy ([#64](https://github.com/open-platform-model/docs-kit/issues/64)) ([e070c3f](https://github.com/open-platform-model/docs-kit/commit/e070c3ff9c2bd9ce2deabf239e3f78fdd6d49366))
+
+## [0.9.0](https://github.com/open-platform-model/docs-kit/compare/v0.8.0...v0.9.0) (2026-10-12)
+
+
+### Features
+
+* **doctext:** link only enhancement references in the link citation policy ([#61](https://github.com/open-platform-model/docs-kit/issues/61)) ([4b20b0f](https://github.com/open-platform-model/docs-kit/commit/4b20b0f37b5dd4213a5057d72dfb0d4a3919e361))
+
+## [0.8.0](https://github.com/open-platform-model/docs-kit/compare/v0.7.1...v0.8.0) (2026-10-11)
+
+
+### Features
+
+* **extract:** read OpenSpec-layout enhancement entries ([#56](https://github.com/open-platform-model/docs-kit/issues/56)) ([5b28caf](https://github.com/open-platform-model/docs-kit/commit/5b28caf0fb5e73b9fdda0ea831f6d2d2514fe002))
+
+## [0.7.1](https://github.com/open-platform-model/docs-kit/compare/v0.7.0...v0.7.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* **render:** name the reconciler, not the product, in the crd served-by sentence ([#54](https://github.com/open-platform-model/docs-kit/issues/54)) ([d968e97](https://github.com/open-platform-model/docs-kit/commit/d968e975ad26b9ba2fb15a2c0cdaff31cee2d4c0))
+
 ## [0.7.0](https://github.com/open-platform-model/docs-kit/compare/v0.6.0...v0.7.0) (2026-10-04)
 
 
