@@ -20,7 +20,7 @@ The extractor SHALL write `data/catalog.json` with schema id `docs.opmodel.dev/d
 - **THEN** the `backup` trait's entry has `apiVersion` `v1alpha1`, `fulfilment` `provider`, `optional` false, `mark` `provided-by-platform` and an empty `servedBy`
 
 ### Requirement: The spec is extracted as structured fields beside its text
-For each member the extractor SHALL record `spec.cue`, the formatted authored spec block plus the in-module definitions it references (another member's spec root linked, not repeated; out-of-module and vendored packages named only), and `spec.fields`, walked from the evaluated value: every field under the spec key with its dot path (`[]` for a list element, `[string]` for a pattern constraint), formatted type, `presence` (`regular`, `optional` or `required`), formatted default or null, cleaned doc, and `ref` naming a definition outside the member's package where the walk stops. The walk SHALL stop at the module boundary and at a definition already visited, and SHALL not exceed depth 12.
+For each member the extractor SHALL record `spec.fields`, walked from the evaluated value: every field under the spec key with its dot path (`[]` for a list element, `[string]` for a pattern constraint), formatted type, `presence` (`regular`, `optional` or `required`), formatted default or null, cleaned doc, and `ref` naming a definition outside the member's package where the walk stops.
 
 #### Scenario: Required and defaulted fields
 - **WHEN** a fixture member's spec declares `name!: string` and `replicas: int | *1`
@@ -54,3 +54,17 @@ The extractor SHALL compute `servedBy` from the transformers of the same catalog
 #### Scenario: Two runs agree
 - **WHEN** the extractor runs twice on the same catalog with the same binary
 - **THEN** both `data/catalog.json` files are byte-identical
+
+### Requirement: The spec.fields walk stops at the module boundary and at a visited definition
+The walk is the one of the requirement "The spec is extracted as structured fields beside its text". The walk SHALL stop at the module boundary and at a definition already visited, and SHALL not exceed depth 12.
+
+#### Scenario: A definition already visited
+- **WHEN** the walk reaches a definition it already visited
+- **THEN** the walk stops there
+
+### Requirement: The authored spec block is recorded as spec.cue
+For each member the extractor SHALL record `spec.cue`, the formatted authored spec block plus the in-module definitions it references (another member's spec root linked, not repeated; out-of-module and vendored packages named only).
+
+#### Scenario: A referenced spec root
+- **WHEN** a member's spec references another member's spec root
+- **THEN** `spec.cue` links that spec root and does not repeat it
