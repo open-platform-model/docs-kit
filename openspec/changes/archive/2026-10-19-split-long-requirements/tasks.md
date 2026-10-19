@@ -47,7 +47,9 @@ Specs: `bundle-format` 2, `cobra-extractor` 2, `dialect-lint` 2, `docs-placement
 - [x] 3.3 `grep -rn "strict is off" .` outside `openspec/changes/archive/` prints nothing
 - [x] 3.4 Final gate with `LAST=1`: `GATE PASS`, `openspec validate --specs --strict` exit 0,
       no "Archive would refuse" line, no new ERROR item
-- [ ] 3.5 `task check` green (it runs `openspec:check` with `--strict`), then commit
-      `ci(openspec): validate with --strict again`
-- [ ] 3.6 Archive the change on this branch (`openspec-archive-change`, "Sync now"), run
+- [x] 3.5 `task check` green (it runs `openspec:check` with `--strict`), then commit
+      `ci(openspec): validate with --strict again` (the commit came first; the check is green
+      only after the archive of 3.6, because `--strict` fails on the long requirements of the
+      main specs until the archive syncs the deltas)
+- [x] 3.6 Archive the change on this branch (`openspec-archive-change`, "Sync now"), run
       `task check`, then commit `docs(openspec): archive split-long-requirements`
