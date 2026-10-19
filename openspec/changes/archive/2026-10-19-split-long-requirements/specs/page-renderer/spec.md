@@ -28,7 +28,7 @@ The block is the generated `## Catalog members` section of "The landing always c
 - **THEN** the renderer writes a landing holding generated front matter and the block alone
 
 ### Requirement: A completable page without an authored page stands alone
-Without an authored page, the generated page SHALL stand alone with generated front matter.
+When a renderer marks a page completable, without an authored page, the generated page SHALL stand alone with generated front matter.
 
 #### Scenario: No authored page
 - **WHEN** a renderer marks a page completable and no `markdown` source of the same bundle supplies a page at the same path

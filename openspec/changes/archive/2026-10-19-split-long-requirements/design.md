@@ -515,7 +515,7 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 | workflow-level concurrency groups | Concurrency groups cover both jobs of a run | 145 |
 
 
-Ledger B2 (section 2). Old scenarios in a new requirement of the same delta are kept byte for byte (checklist item 3: 19 runs, 0 `DIFF:`, 0 `LOST:`); the new scenarios added by the rewrite are listed in the delta only, and each restates the rule of its body. Every SHALL, value, default, exit code and citation of an old body is in the clause rows. Every body is built from whole sentences of the old body; a sentence over 500 characters was cut at a list boundary, the parts verbatim.
+Ledger B2 (section 2). Old scenarios in a new requirement of the same delta are kept byte for byte (checklist item 3: 19 runs, 0 `DIFF:`, 0 `LOST:`); the new scenarios added by the rewrite are listed in the delta only, and each restates the rule of its body. Every SHALL, value, default, exit code and citation of an old body is in the clause rows. Every body is built from whole sentences of the old body; a sentence over 500 characters was cut at a list boundary, the parts verbatim. Two sentences of 500 characters or less were cut too, because the restated subject (cobradump, 496) or the `Source:` line (docs-placement, 499) did not fit; a ruling on that is asked in the PR review.
 
 **`bundle-format`: A bundle is one OCI 1.1 artifact with one layer** (form b; old body 634 characters)
 
@@ -818,7 +818,7 @@ Words added by the B2 rewrite (the only words that are not copied from the old b
 | cobra-extractor | The cobradump module depends on cobra and pflag only | subject | 'It SHALL' -> 'The `cobradump` module SHALL' |
 | cobra-extractor | The pages of a cobra source match the cli cmdref output | subject | 'The pages SHALL' -> 'The pages of the `cobra` source SHALL' |
 | dialect-lint | C11 is the only definition of the dialect 1 rules | subject | 'The rules were' -> 'The rules of dialect 1 were' |
-| dialect-lint | A dialect 1 violation prints as a line and exits 2 | subject | 'Each violation SHALL' -> 'Each violation of the dialect 1 rules that `opm-docs lint` finds SHALL' |
+| dialect-lint | A dialect 1 violation prints as a line and exits 2 | subject | 'Each violation SHALL' -> 'Each violation of a rule that `opm-docs lint` enforces for dialect 1 SHALL' |
 | dialect-lint | A generated page and a section page get the full markup check | term | 'the full check' -> 'the full markup check' |
 | dialect-lint | An authored page of a tab or docs bundle gets the full markup check except for well-formed comments | term | 'the full check except' -> 'the full markup check except' |
 | dialect-lint | Docs mode does not run the markup check | term | 'run the check' -> 'run the markup check' |
@@ -837,6 +837,13 @@ Words added by the B2 rewrite (the only words that are not copied from the old b
 | cue-catalog-extractor | The spec is extracted as structured fields beside its text | repeat | cut at ", and `spec.fields`"; subject "For each member the extractor SHALL record" repeated |
 | cue-catalog-extractor | The spec.fields walk stops at the module boundary and at a visited definition | glue | The walk is the one of the requirement "The spec is extracted as structured fields beside its text". |
 | version-history | The history schema constrains presence changes and removed pages | glue | The three values and the pattern are those of "A bundle's doc model is checked before it is compared". |
+| bundle-format | A bundle is one OCI 1.1 artifact with one layer | condition | ", except when the section-1 spike records outcome B" (words of the old outcome B sentence; one connective) |
+| page-renderer | A completable page without an authored page stands alone | condition | "When a renderer marks a page completable," (copied from the first sentence of the old requirement) |
+| docs-placement | An authored page missing from the main tree has no edit | condition | prefix "In a bundle with `placement.kind: "docs"`, for every page with `generated: false`," (copied from the old first sentence) |
+| docs-placement | revise names its checkout of main as the main tree | term | "as the main tree" added to "`revise` SHALL name its checkout of `main`" |
+| docs-revision | revise allows a changed CUE file only when its tokens are equal; revise allows a changed Go file only when its tokens and directives are equal | repeat | "Between the release tree and the patched tree, `revise` SHALL allow" repeated from the first sentence |
+| docs-revision | revise applies the published patches and the fix to a temporary worktree of the tag | subject | "of T's version" in place of "of that version" |
+| repository-commands | A repository command runs in the source tree without a shell; A repository command gets an allowlisted environment | repeat | "Where `docs-kit.cue` names a command (an argv list), `build`, `check`, `revise` and `serve` SHALL run it" repeated in both |
 
 
 ## The gate
@@ -867,7 +874,7 @@ Every sentence of this change that gained SHALL, MUST or MAY, found by comparing
 the old sentence it was cut from (an old sentence with no keyword before the cut clause). Sentences that
 repeat a SHALL, SHALL NOT or MUST of the same old sentence are not listed one by one: they carry the
 keyword that the old sentence held for a whole list, for example `pull` SHALL ... for each item of a list
-that one SHALL governed. The human judges these rows at the PR.
+that one SHALL governed. The B1 rows come from a script and one review pass; they are the best list available, not a proof. The human judges these rows at the PR.
 
 | Spec | New requirement | New sentence | Old form |
 | --- | --- | --- | --- |
@@ -878,6 +885,7 @@ that one SHALL governed. The human judges these rows at the PR.
 | bundle-pull | A local lock entry carries only local data | "A local entry of the lock SHALL carry `local: true` ..." | "a local entry carrying `local: true` ..." |
 | bundle-pull | The docs list of the lock is sorted | "The `docs` entries SHALL be sorted by site version ..." | ", sorted by site version, then role ..." (participle) |
 | bundle-pull | Docs bundle paths compare by the URL Hugo serves | "`pull` SHALL compare paths by the URL Hugo serves ..." | "Paths compare by the URL Hugo serves ..." |
+| enhancements-bundle | Every command applies the section check | "`build`, `lint --bundle` and `pull` SHALL all apply the bundle-mode lint of a section bundle." | "`build`, `lint --bundle` and `pull` all apply it." |
 | crd-extractor | The crd page applies the citation policy to descriptions | "A field description on the crd page SHALL follow the source's `citations` policy ..." | no body sentence: stated by two scenarios and by the model requirement |
 | cue-definitions-extractor | The cue-definitions source writes its model file | "The `cue-definitions` source SHALL write the definitions it takes to `data/cue-definitions.json` ..." | "writing them to `data/cue-definitions.json` ..." |
 | opm-docs-cli | serve rebuilds a bundle when its sources change | "`opm-docs serve` SHALL start a rebuild of a bundle within two seconds ..." | "and starting a rebuild of a bundle within two seconds ..." |

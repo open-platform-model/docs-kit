@@ -34,7 +34,7 @@ In a bundle with `placement.kind: "docs"`, for every page with `generated: false
 - **THEN** its `edit` is `docs/site/start/install.md`
 
 ### Requirement: revise names its checkout of main as the main tree
-The main tree is the one of the requirement "An authored page records its file in the main tree". In a bundle with `placement.kind: "docs"`, for every page with `generated: false`, `revise` SHALL name its checkout of `main`. Source: DESIGN decision 19.
+The main tree is the one of the requirement "An authored page records its file in the main tree". `revise` SHALL name its checkout of `main` as the main tree. Source: DESIGN decision 19.
 
 #### Scenario: A revision adds a page
 - **WHEN** a docs revision's fix adds `docs/site/start/upgrade.md`, which `main` still has

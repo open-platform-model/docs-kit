@@ -6,7 +6,7 @@ What a docs bundle is on the wire and on disk: the OCI artifact, its annotations
 ## Requirements
 
 ### Requirement: A bundle is one OCI 1.1 artifact with one layer
-`opm-docs push` SHALL push each bundle as an OCI 1.1 image manifest with `artifactType` `application/vnd.opmodel.docs.bundle.v1`, the empty config descriptor (`application/vnd.oci.empty.v1+json`) and exactly one layer of media type `application/vnd.opmodel.docs.bundle.layer.v1.tar+gzip`, to the repository `ghcr.io/open-platform-model/docs/<project>` unless `--registry` names another registry prefix. Source: DESIGN decisions 2 and 7.
+`opm-docs push` SHALL push each bundle as an OCI 1.1 image manifest with `artifactType` `application/vnd.opmodel.docs.bundle.v1`, the empty config descriptor (`application/vnd.oci.empty.v1+json`) and exactly one layer of media type `application/vnd.opmodel.docs.bundle.layer.v1.tar+gzip`, to the repository `ghcr.io/open-platform-model/docs/<project>` unless `--registry` names another registry prefix, except when the section-1 spike records outcome B. Source: DESIGN decisions 2 and 7.
 
 #### Scenario: Pushed manifest carries the bundle type
 - **WHEN** `opm-docs push --dir out/catalog-opm` succeeds against a registry

@@ -20,7 +20,7 @@ After the check passes, `revise` SHALL build the project at the release version 
 - **THEN** `revise` exits 2 saying the fix must land on `main` first
 
 ### Requirement: revise applies the published patches and the fix to a temporary worktree of the tag
-`opm-docs revise --project P --tag T --fix F` SHALL read the `source.patches` of the newest published revision of that version only after that revision's signature verifies, check out T in a temporary worktree, apply those patches and then F with `git cherry-pick --no-commit` in order, and refuse on a conflict naming the files. Source: DESIGN decision 6.
+`opm-docs revise --project P --tag T --fix F` SHALL read the `source.patches` of the newest published revision of T's version only after that revision's signature verifies, check out T in a temporary worktree, apply those patches and then F with `git cherry-pick --no-commit` in order, and refuse on a conflict naming the files. Source: DESIGN decision 6.
 
 #### Scenario: Second revision carries the first fix
 - **WHEN** 4.4.5.1 was built with patches `[A]` and `revise --fix B` runs

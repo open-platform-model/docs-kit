@@ -27,7 +27,7 @@ The rules of dialect 1 were first ported from opmodel.dev's `site/scripts/lint-s
 - **THEN** `docs/contracts.md` C11 is its only definition
 
 ### Requirement: A dialect 1 violation prints as a line and exits 2
-Each violation of the dialect 1 rules that `opm-docs lint` finds SHALL print as `<file>:<line>: <message>` and the command SHALL exit 2 when any is found.
+Each violation of a rule that `opm-docs lint` enforces for dialect 1 SHALL print as `<file>:<line>: <message>` and the command SHALL exit 2 when any is found.
 
 #### Scenario: A violation is printed
 - **WHEN** `opm-docs lint` finds a dialect 1 violation
