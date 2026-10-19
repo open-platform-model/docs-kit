@@ -56,7 +56,7 @@ Answered: the module-less readiness answer is exact at the floors and at the reg
 
 ### Providers follow the same rule
 
-A provider module pins its own catalog. That version is the pick for any render that does not pin the catalog itself. The registration gains a window, a floor and a ceiling that default to its version. The provider author states it beside the controller release the module deploys. A platform admission entry for the path is optional. When present it replaces the window whole, and the registration's status reports which window is in effect and where it came from. A platform range wider than the author's window is accepted with a warning that names both bounds. A range that excludes the registration's version is refused.
+A provider module pins its own catalog. That version is the pick for any render that does not pin the catalog itself. The registration gains a window, a floor and a ceiling that default to its version. The provider author states it beside the operator release the module deploys. A platform admission entry for the path is optional. When present it replaces the window whole, and the registration's status reports which window is in effect and where it came from. A platform range wider than the author's window is accepted with a warning that names both bounds. A range that excludes the registration's version is refused.
 
 ### The checks run twice
 
@@ -75,7 +75,7 @@ A platform admits `opm@v4` and `opm@v5` as two entries, so modules move to a new
 
 - A fleet can fragment across many catalog releases, and the platform cannot push a fix. A transformer fix reaches an instance only when its module re-releases. The floor stops laggards by name and never delivers the fix. We accept this: a loud stop beats a silent re-render.
 - Readiness weakens. A module above the floor may demand a contract the inventory at the floor never listed.
-- A platform that widens past the provider's claim may get its output rejected by the controller the provider deploys. The warning names both bounds, and the claim survives as the baseline.
+- A platform that widens past the provider's claim may get its output rejected by the operator the provider deploys. The warning names both bounds, and the claim survives as the baseline.
 - A newer catalog's output may not suit the cluster it lands on. The additive promise covers input only. The provider window covers providers. Static catalogs have only the ceiling.
 - A render with no platform can pass where a cluster platform would refuse it. The CLI names which source it rendered against.
 - Until this ships, a major upgrade moves every module at once. Enabling two majors today is refused by name.

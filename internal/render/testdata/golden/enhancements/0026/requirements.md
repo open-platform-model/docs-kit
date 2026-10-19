@@ -293,7 +293,7 @@ Capability page: [`registration-acceptance`](/enhancements/capabilities/registra
 
 #### Requirement: A provider may state a compatibility window
 
-A provider module MAY state a floor and a ceiling on its registration, the releases of its catalog whose output its controller accepts. Each SHALL default to the registration's version, so a provider that states none behaves as before. The catalog, the version and the provider set SHALL stay derived and verified.
+A provider module MAY state a floor and a ceiling on its registration, the releases of its catalog whose output its operator accepts. Each SHALL default to the registration's version, so a provider that states none behaves as before. The catalog, the version and the provider set SHALL stay derived and verified.
 
 ##### Scenario: No window stated
 
