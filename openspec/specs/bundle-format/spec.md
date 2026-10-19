@@ -6,7 +6,7 @@ What a docs bundle is on the wire and on disk: the OCI artifact, its annotations
 ## Requirements
 
 ### Requirement: A bundle is one OCI 1.1 artifact with one layer
-`opm-docs push` SHALL push each bundle as an OCI 1.1 image manifest with `artifactType` `application/vnd.opmodel.docs.bundle.v1`, the empty config descriptor (`application/vnd.oci.empty.v1+json`) and exactly one layer of media type `application/vnd.opmodel.docs.bundle.layer.v1.tar+gzip`, to the repository `ghcr.io/open-platform-model/docs/<project>` unless `--registry` names another registry prefix, except when the section-1 spike records outcome B. Source: DESIGN decisions 2 and 7.
+`opm-docs push` SHALL push each bundle as an OCI 1.1 image manifest with exactly one layer of media type `application/vnd.opmodel.docs.bundle.layer.v1.tar+gzip`, to the repository `ghcr.io/open-platform-model/docs/<project>` unless `--registry` names another registry prefix. Source: DESIGN decisions 2 and 7.
 
 #### Scenario: Pushed manifest carries the bundle type
 - **WHEN** `opm-docs push --dir out/catalog-opm` succeeds against a registry
@@ -55,8 +55,15 @@ Unpacking a bundle layer SHALL refuse, writing nothing, an entry with an absolut
 - **WHEN** a tab bundle's `manifest.json` gives a page `edit`
 - **THEN** validation fails with "pages.0.edit: a tab bundle's page has no edit"
 
+### Requirement: A bundle manifest carries the bundle artifact type and the empty config
+`opm-docs push` SHALL push each bundle as an OCI 1.1 image manifest with `artifactType` `application/vnd.opmodel.docs.bundle.v1`, the empty config descriptor (`application/vnd.oci.empty.v1+json`), except when the section-1 spike records outcome B. Source: DESIGN decisions 2 and 7.
+
+#### Scenario: Pushed manifest carries the artifact type and the empty config
+- **WHEN** `opm-docs push` pushes a bundle and the section-1 spike does not record outcome B
+- **THEN** the manifest has `artifactType` `application/vnd.opmodel.docs.bundle.v1` and the empty config descriptor (`application/vnd.oci.empty.v1+json`)
+
 ### Requirement: Outcome B changes the manifest of a bundle
-The manifest is the one that `opm-docs push` pushes under "A bundle is one OCI 1.1 artifact with one layer". If the section-1 spike records outcome B, the manifest SHALL instead carry no `artifactType` and a config of media type `application/vnd.opmodel.docs.bundle.config.v1+json` holding `manifest.json`. Source: DESIGN decisions 2 and 7.
+The manifest is the one that `opm-docs push` pushes under "A bundle is one OCI 1.1 artifact with one layer" and "A bundle manifest carries the bundle artifact type and the empty config". If the section-1 spike records outcome B, the manifest SHALL instead carry no `artifactType` and a config of media type `application/vnd.opmodel.docs.bundle.config.v1+json` holding `manifest.json`. Source: DESIGN decisions 2 and 7.
 
 #### Scenario: Outcome B manifest
 - **WHEN** `opm-docs push` pushes a bundle and the section-1 spike records outcome B

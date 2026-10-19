@@ -343,7 +343,7 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 
 | Old clause | New place (requirement) | Body length |
 | --- | --- | --- |
-| page layout; one page at `page`; entry parts and their order | The crd page holds one entry per kind | 419 |
+| page layout; one page at `page`; entry parts and their order; the one exception, the `### Served by` sentence | The crd page holds one entry per kind | 470 |
 | citation policy applied to field descriptions on the page (rule stated by the two scenarios and by the model requirement) | The crd page applies the citation policy to descriptions | 198 |
 | served-by sentence; entries match crdref apart from it | The served-by sentence names no product | 222 |
 | completable page; authored front matter and intro; configured title, description, weight | The crd page is completable | 211 |
@@ -525,10 +525,12 @@ Ledger B2 (section 2). Old scenarios in a new requirement of the same delta are 
 
 | Old clause | New place (requirement) | Body length |
 | --- | --- | --- |
-| push, config, layer, repository | A bundle is one OCI 1.1 artifact with one layer | 436 |
-| citation | A bundle is one OCI 1.1 artifact with one layer | 436 |
-| outcome B | Outcome B changes the manifest of a bundle | 340 |
-| citation | Outcome B changes the manifest of a bundle | 340 |
+| push; layer; repository | A bundle is one OCI 1.1 artifact with one layer | 309 |
+| citation | A bundle is one OCI 1.1 artifact with one layer | 309 |
+| push; `artifactType`; empty config | A bundle manifest carries the bundle artifact type and the empty config | 281 |
+| citation | A bundle manifest carries the bundle artifact type and the empty config | 281 |
+| outcome B | Outcome B changes the manifest of a bundle | 418 |
+| citation | Outcome B changes the manifest of a bundle | 418 |
 
 **`bundle-format`: Manifest annotations describe the build** (form b; old body 536 characters)
 
@@ -811,7 +813,7 @@ Words added by the B2 rewrite (the only words that are not copied from the old b
 
 | Spec | New requirement | Kind | Text |
 | --- | --- | --- | --- |
-| bundle-format | Outcome B changes the manifest of a bundle | glue | The manifest is the one that `opm-docs push` pushes under "A bundle is one OCI 1.1 artifact with one layer". |
+| bundle-format | Outcome B changes the manifest of a bundle | glue | The manifest is the one that `opm-docs push` pushes under "A bundle is one OCI 1.1 artifact with one layer" and "A bundle manifest carries the bundle artifact type and the empty config". |
 | bundle-format | Manifest annotations describe the build | repeat | tail repeated: each equal to the matching `manifest.json` field. |
 | cobra-extractor | cobradump adds, skips and refuses commands and flags | subject | "It" -> "The `cobradump` module" (subject copied from the first sentence) |
 | cobra-extractor | cobradump writes home directories as a tilde and sorts | subject | "It" -> "The `cobradump` module"; "SHALL" repeated for the list item |
@@ -837,7 +839,9 @@ Words added by the B2 rewrite (the only words that are not copied from the old b
 | cue-catalog-extractor | The spec is extracted as structured fields beside its text | repeat | cut at ", and `spec.fields`"; subject "For each member the extractor SHALL record" repeated |
 | cue-catalog-extractor | The spec.fields walk stops at the module boundary and at a visited definition | glue | The walk is the one of the requirement "The spec is extracted as structured fields beside its text". |
 | version-history | The history schema constrains presence changes and removed pages | glue | The three values and the pattern are those of "A bundle's doc model is checked before it is compared". |
-| bundle-format | A bundle is one OCI 1.1 artifact with one layer | condition | ", except when the section-1 spike records outcome B" (words of the old outcome B sentence; one connective) |
+| bundle-format | A bundle manifest carries the bundle artifact type and the empty config | condition | ", except when the section-1 spike records outcome B" (words of the old outcome B sentence; one connective). It attaches to the `artifactType` and empty config clauses only, the two that outcome B replaces. The layer and repository clauses stay in "A bundle is one OCI 1.1 artifact with one layer" with no exception. The old sentence is cut at the list boundary after the empty config descriptor; "and" before "exactly one layer" is dropped and "with" opens the second part. |
+| crd-extractor | The crd page holds one entry per kind | cut | "The one exception is the `### Served by` sentence." is the old sentence "The one exception is the `### Served by` sentence, which SHALL name the reconciler ...", cut at the comma; the rest is in "The served-by sentence names no product". |
+| docs-revision | revise does not compare layout | subject | prefix "Between the release tree and the patched tree," copied from the first sentence of the old requirement; "Layout is not compared." -> "layout SHALL NOT be compared" |
 | page-renderer | A completable page without an authored page stands alone | condition | "When a renderer marks a page completable," (copied from the first sentence of the old requirement) |
 | docs-placement | An authored page missing from the main tree has no edit | condition | prefix "In a bundle with `placement.kind: "docs"`, for every page with `generated: false`," (copied from the old first sentence) |
 | docs-placement | revise names its checkout of main as the main tree | term | "as the main tree" added to "`revise` SHALL name its checkout of `main`" |
