@@ -109,7 +109,7 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 
 | Old clause | New place (requirement) | Body length |
 | --- | --- | --- |
-| validate against `#Pull`; registry, signer; top-level keys `tabs`, `docs`, `sections` and `versions` | The pull config is validated against the embedded schema | 224 |
+| validate against `#Pull`; registry, signer; top-level keys `tabs`, `docs`, `sections` and `versions` | The pull config is validated against the embedded schema | 283 |
 | tabs fields; tab placement kind | A tab entry names its signing repository, root and oldest minor | 192 |
 | docs fields; versions fields; docs placement kind | A docs entry names its signing repository and its site versions | 297 |
 | sections fields; section placement kind | A section entry names its signing repository and root | 175 |
@@ -126,7 +126,7 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 | --- | --- | --- |
 | verify; only then fetch by digest, unpack, lint; any failure fails the pull | A bundle is fetched and unpacked only after its signature verifies | 248 |
 | sigstore-go, trusted root, timestamps, log entry, digest equal | The Sigstore bundle is verified against the public-good trusted root | 261 |
-| issuer, SAN, Source Repository URI, Source Repository Ref, as clauses of "verify each resolved digest's Sigstore bundle" | The signer identity must match the config | 255 |
+| issuer, SAN, Source Repository URI, Source Repository Ref, as clauses of "verify each resolved digest's Sigstore bundle" | The signer identity must match the config | 304 |
 
 **`bundle-pull`: The unpack layout and lock are fixed** (form b; old body 689 characters)
 
@@ -328,7 +328,7 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 | Old clause | New place (requirement) | Body length |
 | --- | --- | --- |
 | read CRDs; data/crd.json and schema; per-kind facts; reconciledBy; kind order | The crd source writes a model of each kind | 410 |
-| `data/crd.json` with schema; field tables; validation rules | The crd model holds the field tables and rules of each kind | 230 |
+| `data/crd.json` with schema; field tables; validation rules | The crd model holds the field tables and rules of each kind | 288 |
 | sample selection, hide, strip labels; sample text in the model | The crd source reads the sample of each kind | 374 |
 
 **`crd-extractor`: The crd page is one completable page** (form c2; old body 882 characters)
@@ -405,7 +405,7 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 | exactly one page or exclude with a reason | Each exported definition is placed once or excluded with a reason | 99 |
 | in-tree failures: unplaced, two pages, undeclared placed, undeclared excluded, both | A config in the source tree must place or exclude every definition | 440 |
 | in-tree failures: no summary, anchor collision | A config in the source tree must give each definition a summary and an anchor | 409 |
-| backfill warnings: each problem of the two in-tree requirements, and their handling | A config from outside the source tree gives warnings | 334 |
+| backfill warnings: each problem of the two in-tree requirements, and their handling | A config from outside the source tree gives warnings | 500 |
 
 **`cue-definitions-extractor`: Definitions render as a section index and one page per group** (form c2; old body 656 characters)
 
@@ -702,7 +702,7 @@ Ledger B2 (section 2). Old scenarios in a new requirement of the same delta are 
 | --- | --- | --- |
 | parse the matched packages without building; exclusions | A go-api source parses a module's exported packages | 255 |
 | write data/go-api.json: packages, symbols, declaration, doc as Markdown | A go-api source writes its model file | 403 |
-| symbol without a doc comment listed in `data/go-api.json` with an empty doc | An exported symbol without a doc comment is listed | 95 |
+| symbol without a doc comment listed in `data/go-api.json` with an empty doc | An exported symbol without a doc comment is listed | 117 |
 
 **`go-api-extractor`: Go API pages and anchors** (form c2; old body 621 characters)
 
@@ -842,6 +842,7 @@ Words added by the B2 rewrite (the only words that are not copied from the old b
 | bundle-format | A bundle manifest carries the bundle artifact type and the empty config | condition | ", except when the section-1 spike records outcome B" (words of the old outcome B sentence; one connective). It attaches to the `artifactType` and empty config clauses only, the two that outcome B replaces. The layer and repository clauses stay in "A bundle is one OCI 1.1 artifact with one layer" with no exception. The old sentence is cut at the list boundary after the empty config descriptor; "and" before "exactly one layer" is dropped and "with" opens the second part. |
 | crd-extractor | The crd page holds one entry per kind | cut | "The one exception is the `### Served by` sentence." is the old sentence "The one exception is the `### Served by` sentence, which SHALL name the reconciler ...", cut at the comma; the rest is in "The served-by sentence names no product". |
 | cue-definitions-extractor | A config from outside the source tree gives warnings | referent | "each of the problems of" and the two exact headers of the in-tree requirements replace "each", which meant each problem listed before it in the old requirement |
+| go-api-extractor | An exported symbol without a doc comment is listed | object | "in `data/go-api.json`" copied from the first sentence of the old requirement |
 | docs-revision | revise does not compare layout | subject | prefix "Between the release tree and the patched tree," copied from the first sentence of the old requirement; "Layout is not compared." -> "layout SHALL NOT be compared" |
 | page-renderer | A completable page without an authored page stands alone | condition | "When a renderer marks a page completable," (copied from the first sentence of the old requirement) |
 | docs-placement | An authored page missing from the main tree has no edit | condition | prefix "In a bundle with `placement.kind: "docs"`, for every page with `generated: false`," (copied from the old first sentence) |
@@ -855,7 +856,7 @@ Words added by the B2 rewrite (the only words that are not copied from the old b
 
 Run in a scratch copy of `openspec/`, never in the worktree. Set before the run:
 
-- `WT` = `/var/home/emil/dev/open-platform-model/agent-swarm/openspec-requirement-split/worktrees/docs-kit-split-long-requirements`
+- `WT` = `<worktree>`
 - `CH` = `split-long-requirements`
 - `S` = a new folder under the session scratchpad (for example `.../scratchpad/T4.3-gate`)
 - `N` = 28 after section 1, 47 after section 2; `LAST=1` only in section 3
