@@ -135,7 +135,7 @@ A link whose text is the target's file name SHALL read as the target page's titl
 - **THEN** the link text reads "the relationship graph"
 
 ### Requirement: A dangling link fails the build
-A link naming no path at that commit, or climbing out of the repository, SHALL fail the build with exit 2 naming the file and the link.
+A link naming no path at the commit built, or climbing out of the repository, SHALL fail the build with exit 2 naming the file and the link.
 
 #### Scenario: A dangling link
 - **WHEN** a document links `missing.md`
@@ -174,7 +174,7 @@ Bundle-mode lint of a section bundle SHALL report, as `<file>:<line>: <message>`
 - **THEN** `build` exits 2 naming the page and the line of each
 
 ### Requirement: Every command applies the section check
-`build`, `lint --bundle` and `pull` SHALL all apply this check. This check, not the text transforms, is what keeps a section's authored text from putting markup or script URLs on the site.
+`build`, `lint --bundle` and `pull` SHALL all apply the bundle-mode lint of a section bundle. That lint, not the text transforms, is what keeps a section's authored text from putting markup or script URLs on the site.
 
 #### Scenario: The check runs in every command
 - **WHEN** a section page holds raw HTML
@@ -206,8 +206,12 @@ Under the `link` citation policy, prose outside a code span SHALL turn `enhancem
 - **THEN** the page keeps the text as written
 
 ### Requirement: Code spans are found by CommonMark backtick runs under both policies
-The `link` policy MUST keep its output, except that code spans are found by CommonMark backtick runs under both policies: a double-backtick span that holds a backtick is one span, and an unclosed backtick is plain text.
+The `link` policy MUST keep its output unchanged by the `strip` rules, except that code spans are found by CommonMark backtick runs under both policies: a double-backtick span that holds a backtick is one span, and an unclosed backtick is plain text.
 
 #### Scenario: A double-backtick span
 - **WHEN** prose holds a double-backtick span that holds a backtick and `(enhancement 0013)`
-- **THEN** the span is one code span under both policies, and an unclosed backtick is plain text
+- **THEN** the span is one code span under both policies
+
+#### Scenario: An unclosed backtick
+- **WHEN** prose holds an unclosed backtick
+- **THEN** it is plain text under both policies

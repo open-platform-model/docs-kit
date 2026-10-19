@@ -5,8 +5,8 @@
 **Migration**: See "The crd source writes a model of each kind", "The crd model holds the field tables and rules of each kind", "The crd source reads the sample of each kind".
 
 ### Requirement: The crd page is one completable page
-**Reason**: Split into three requirements that each state one behavior.
-**Migration**: See "The crd page holds one entry per kind", "The served-by sentence names no product", "The crd page is completable".
+**Reason**: Split into four requirements that each state one behavior.
+**Migration**: See "The crd page holds one entry per kind", "The crd page applies the citation policy to descriptions", "The served-by sentence names no product", "The crd page is completable".
 
 ### Requirement: CRD text never reaches the page as markup
 **Reason**: Split into three requirements that each state one behavior.
@@ -49,6 +49,13 @@ When `samples` is set, the `crd` source SHALL read the sample of each kind there
 
 ### Requirement: The crd page holds one entry per kind
 In the page layout (the source sets `page`, not `section`), the renderer SHALL write one page at the source's `page` path, one of the bundle's owned paths: per kind a `## <Kind>` entry with `### At a glance`, the printer-column table, `### Spec`, `### Status`, `### Example` when a sample exists, `### Notes`, `### Served by` when `reconciledBy` names a reconciler, and `### Enforcement`, in crdref's order and wording.
+
+#### Scenario: An entry of the page
+- **WHEN** a `crd` source sets `page` and a kind has a sample
+- **THEN** the page holds a `## <Kind>` entry with `### At a glance`, the printer-column table, `### Spec`, `### Status`, `### Example`, `### Notes` and `### Enforcement`, in crdref's order
+
+### Requirement: The crd page applies the citation policy to descriptions
+A field description on the crd page SHALL follow the source's `citations` policy: under `link` an enhancement reference becomes a link to its entry and a decision citation is removed without a link.
 
 #### Scenario: Citation linked
 - **WHEN** a field description names `enhancement 0021` and the source has `citations: "link"`

@@ -1,16 +1,5 @@
 ## MODIFIED Requirements
 
-### Requirement: Nothing is unpacked before its signature verifies
-`pull` SHALL verify each resolved digest's Sigstore bundle before anything else. Only then SHALL it fetch the layer by digest, unpack it with the bundle-format guards and lint it in bundle mode. Any failure SHALL fail the whole pull, naming the project, tag and digest.
-
-#### Scenario: A bundle signed by another repository
-- **WHEN** a digest under `docs/catalog-opm` carries a valid signature whose Source Repository URI is `https://github.com/open-platform-model/cli`
-- **THEN** `pull` exits 2 naming `catalog-opm`, the tag, the digest and the repository mismatch, and unpacks nothing for it
-
-#### Scenario: Unsigned edge
-- **WHEN** `edge` resolves to a digest with no signature
-- **THEN** `pull` exits 2 naming `edge` and the digest
-
 ### Requirement: The unpack layout and lock are fixed
 `pull` SHALL unpack each bundle into `<out>/<project>/<segment>/` (segment `<MAJOR>.<MINOR>` or `edge`), remove every project or segment directory under `<out>` it did not write in this run, and write the lock (`docs.opmodel.dev/lock/v1`) with the fields and key order `docs/contracts.md` C7 fixes (validated against `schema/lock.cue`), every entry including the tab's placement `root`. The same resolution SHALL write byte-identical lock files.
 
@@ -45,6 +34,10 @@ The lock SHALL carry an optional `docs` list after `bundles` (and after `history
 ### Requirement: The pull config names tabs, owners and the trusted signer
 **Reason**: Split into five requirements that each state one behavior.
 **Migration**: See "The pull config is validated against the embedded schema", "A tab entry names its signing repository, root and oldest minor", "A docs entry names its signing repository and its site versions", "A section entry names its signing repository and root", "Pull refuses an inconsistent config before any network call".
+
+### Requirement: Nothing is unpacked before its signature verifies
+**Reason**: Split into three requirements that each state one behavior.
+**Migration**: See "A bundle is fetched and unpacked only after its signature verifies", "The Sigstore bundle is verified against the public-good trusted root", "The signer identity must match the config".
 
 ### Requirement: Frozen, offline and local pulls
 **Reason**: Split into four requirements that each state one behavior.
@@ -107,6 +100,13 @@ Before any network call `pull` SHALL refuse, with exit 1 naming the version and 
 - **WHEN** `versions."v1.0"` names `core` twice
 - **THEN** `pull` exits 1 naming `v1.0` and `core`, before any network call
 
+### Requirement: A bundle is fetched and unpacked only after its signature verifies
+`pull` SHALL verify each resolved digest's Sigstore bundle. Only then SHALL it fetch the layer by digest, unpack it with the bundle-format guards and lint it in bundle mode. Any failure SHALL fail the whole pull, naming the project, tag and digest.
+
+#### Scenario: Unsigned edge
+- **WHEN** `edge` resolves to a digest with no signature
+- **THEN** `pull` exits 2 naming `edge` and the digest
+
 ### Requirement: The Sigstore bundle is verified against the public-good trusted root
 `pull` SHALL verify each resolved digest's Sigstore bundle with sigstore-go against the public-good trusted root, requiring a signed certificate timestamp, a transparency-log entry and an observer timestamp, and the artifact digest equal to the manifest digest.
 
@@ -116,6 +116,10 @@ Before any network call `pull` SHALL refuse, with exit 1 naming the version and 
 
 ### Requirement: The signer identity must match the config
 `pull` SHALL require issuer `https://token.actions.githubusercontent.com`, a SAN equal to the signer workflow URL at a ref matching an allowed glob, Source Repository URI `https://github.com/<repo>` of the tab, and Source Repository Ref `refs/heads/main`.
+
+#### Scenario: A bundle signed by another repository
+- **WHEN** a digest under `docs/catalog-opm` carries a valid signature whose Source Repository URI is `https://github.com/open-platform-model/cli`
+- **THEN** `pull` exits 2 naming `catalog-opm`, the tag, the digest and the repository mismatch, and unpacks nothing for it
 
 #### Scenario: A signer workflow at a ref no glob allows
 - **WHEN** the certificate SAN is the signer workflow URL at a ref that matches no allowed glob
@@ -222,7 +226,7 @@ For each site version, `pull` SHALL resolve, verify (C9, with the docs project's
 - **THEN** `pull` refuses that build
 
 ### Requirement: Pinned projects resolve at the anchor's pins
-`pull` SHALL then resolve each pinned project at the release tag equal to the anchor manifest's pin for it, requiring the resolved build's version to equal the pin, and SHALL resolve each `tags` project at its tag. Source: DESIGN decisions 9 and 10.
+After the anchor, `pull` SHALL resolve each pinned project at the release tag equal to the anchor manifest's pin for it, requiring the resolved build's version to equal the pin, and SHALL resolve each `tags` project at its tag. Source: DESIGN decisions 9 and 10.
 
 #### Scenario: Pins choose the docs
 - **WHEN** `v1.0` anchors on `cli` tag `1.0`, which resolves to 1.0.0-beta.6 pinning core `2.0.0-beta.1`

@@ -115,16 +115,16 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 | sections fields; section placement kind | A section entry names its signing repository and root | 175 |
 | the three refusals, exit 1, before any network call | Pull refuses an inconsistent config before any network call | 259 |
 
-**`bundle-pull`: Nothing is unpacked before its signature verifies** (form b; old body 681 characters)
+**`bundle-pull`: Nothing is unpacked before its signature verifies** (form c2; old body 681 characters)
 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
-| A bundle signed by another repository | Nothing is unpacked before its signature verifies, A bundle signed by another repository | no |
-| Unsigned edge | Nothing is unpacked before its signature verifies, Unsigned edge | no |
+| A bundle signed by another repository | The signer identity must match the config, A bundle signed by another repository | no |
+| Unsigned edge | A bundle is fetched and unpacked only after its signature verifies, Unsigned edge | no |
 
 | Old clause | New place (requirement) | Body length |
 | --- | --- | --- |
-| verify first; fetch by digest, unpack, lint; any failure fails the pull | Nothing is unpacked before its signature verifies | 269 |
+| verify; only then fetch by digest, unpack, lint; any failure fails the pull | A bundle is fetched and unpacked only after its signature verifies | 248 |
 | sigstore-go, trusted root, timestamps, log entry, digest equal | The Sigstore bundle is verified against the public-good trusted root | 261 |
 | issuer, SAN, Source Repository URI, Source Repository Ref | The signer identity must match the config | 255 |
 
@@ -182,7 +182,7 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 | Old clause | New place (requirement) | Body length |
 | --- | --- | --- |
 | anchor first: resolve, verify, unpack, lint, in the tag's line; citation | The anchor of a site version is resolved first | 219 |
-| pinned projects at the pin; tags projects at their tag; citation | Pinned projects resolve at the anchor's pins | 249 |
+| pinned projects at the pin; tags projects at their tag; citation | Pinned projects resolve at the anchor's pins | 262 |
 | missing pin or release exit 2; citation | A missing pin or pinned release fails the pull | 253 |
 
 **`bundle-pull`: One version's docs bundles never overlap** (form b; old body 518 characters)
@@ -266,7 +266,7 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 | cleaning rules: comments, first heading, fence tag, shortcode, `<`, link scheme | Enhancement text is cleaned at build | 311 |
 | resolution targets and fragment | Relative links resolve against the repository path | 401 |
 | link text from file name | A link to a file name reads as the page title | 150 |
-| dangling or climbing link, exit 2 | A dangling link fails the build | 135 |
+| dangling or climbing link, exit 2 | A dangling link fails the build | 140 |
 
 **`enhancements-bundle`: A section page is checked as the site parses it** (form c2; old body 886 characters)
 
@@ -283,7 +283,7 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 | goldmark parse; decoding until stable | A section page is parsed with goldmark as Hugo configures it | 240 |
 | report raw HTML and heading attribute block | Section lint reports raw HTML and heading attributes | 147 |
 | report forbidden schemes and protocol-relative destinations | Section lint reports a destination with a forbidden scheme | 258 |
-| build, lint --bundle and pull apply it; the check keeps markup and script URLs off the site | Every command applies the section check | 188 |
+| build, lint --bundle and pull apply it; the check keeps markup and script URLs off the site | Every command applies the section check | 217 |
 
 **`enhancements-bundle`: The link policy links enhancement references** (form c2; old body 503 characters)
 
@@ -314,7 +314,7 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 | Old clause | New place (requirement) | Body length |
 | --- | --- | --- |
 | strip removal and what must stay | The strip policy removes a lone enhancement citation | 428 |
-| link policy keeps output; code spans by CommonMark backtick runs | Code spans are found by CommonMark backtick runs under both policies | 219 |
+| link policy keeps output; code spans by CommonMark backtick runs | Code spans are found by CommonMark backtick runs under both policies | 250 |
 
 **`crd-extractor`: The crd source reads controller-gen CRDs and samples** (form c2; old body 920 characters)
 
@@ -336,14 +336,15 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 | Old scenario name | New place (requirement, scenario name) | Changed text? |
 | --- | --- | --- |
 | Authored intro kept | The crd page is completable, Authored intro kept | no |
-| Citation linked | The crd page holds one entry per kind, Citation linked | no |
-| Decision citation removed | The crd page holds one entry per kind, Decision citation removed | no |
+| Citation linked | The crd page applies the citation policy to descriptions, Citation linked | no |
+| Decision citation removed | The crd page applies the citation policy to descriptions, Decision citation removed | no |
 | Parity with crdref | The served-by sentence names no product, Parity with crdref | no |
 | The served-by sentence names no product | The served-by sentence names no product, The served-by sentence names no product | no |
 
 | Old clause | New place (requirement) | Body length |
 | --- | --- | --- |
 | page layout; one page at `page`; entry parts and their order | The crd page holds one entry per kind | 419 |
+| citation policy applied to field descriptions on the page (rule stated by the two scenarios and by the model requirement) | The crd page applies the citation policy to descriptions | 198 |
 | served-by sentence; entries match crdref apart from it | The served-by sentence names no product | 222 |
 | completable page; authored front matter and intro; configured title, description, weight | The crd page is completable | 211 |
 
@@ -402,8 +403,8 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 | Old clause | New place (requirement) | Body length |
 | --- | --- | --- |
 | exactly one page or exclude with a reason | Each exported definition is placed once or excluded with a reason | 99 |
-| in-tree failures: unplaced, two pages, undeclared placed, undeclared excluded, both | A config in the source tree must place or exclude every definition | 330 |
-| in-tree failures: no summary, anchor collision | A config in the source tree must give each definition a summary and an anchor | 328 |
+| in-tree failures: unplaced, two pages, undeclared placed, undeclared excluded, both | A config in the source tree must place or exclude every definition | 440 |
+| in-tree failures: no summary, anchor collision | A config in the source tree must give each definition a summary and an anchor | 409 |
 | backfill warnings and their handling | A config from outside the source tree gives warnings | 334 |
 
 **`cue-definitions-extractor`: Definitions render as a section index and one page per group** (form c2; old body 656 characters)
@@ -433,7 +434,7 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 | Old clause | New place (requirement) | Body length |
 | --- | --- | --- |
 | read and validate; package clause | docs-kit.cue is validated before any extraction | 200 |
-| bundles and their fields; at most one source per extractor kind | docs-kit.cue holds bundles with sources | 316 |
+| bundles and their fields; at most one source per extractor kind | docs-kit.cue holds bundles with sources | 322 |
 | citations option | Extractor sources accept a citation policy | 86 |
 | include and exclude | A markdown source selects files by include and exclude | 254 |
 
@@ -470,7 +471,7 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 | --- | --- | --- |
 | edge bundles in a temp dir; build's extractors and lint | serve builds edge bundles into a temporary directory | 270 |
 | embedded site; hugo; 127.0.0.1; mounts | serve serves the bundles on its embedded Hugo site | 343 |
-| watch and rebuild; failure keeps last good bundle | serve rebuilds a bundle when its sources change | 217 |
+| watch and rebuild; failure keeps last good bundle | serve rebuilds a bundle when its sources change | 248 |
 | --site | serve --site previews in the real site | 260 |
 
 **`publish-workflow`: One reusable workflow with three modes** (form c2; old body 512 characters)

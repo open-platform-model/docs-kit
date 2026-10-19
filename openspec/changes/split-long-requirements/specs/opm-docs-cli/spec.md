@@ -26,7 +26,7 @@
 - **THEN** `opm-docs build` exits 1 naming the field `placment` and the file, before loading any CUE module
 
 ### Requirement: docs-kit.cue holds bundles with sources
-The file SHALL hold `bundles`, keyed by project, each with a `placement`, a `version` (`from: "tag"` and a tag `prefix`), at least one source of a kind the tool registers (`docs/contracts.md` C6 lists them, each with its options), and optionally `pins`. A bundle SHALL hold at most one source of each extractor kind.
+`docs-kit.cue` SHALL hold `bundles`, keyed by project, each with a `placement`, a `version` (`from: "tag"` and a tag `prefix`), at least one source of a kind the tool registers (`docs/contracts.md` C6 lists them, each with its options), and optionally `pins`. A bundle SHALL hold at most one source of each extractor kind.
 
 #### Scenario: An unknown source kind
 - **WHEN** a source has `kind: "javadoc"`
@@ -119,7 +119,7 @@ By default `opm-docs serve` SHALL serve the bundles on its embedded minimal Hugo
 - **THEN** it exits 1 naming `hugo` and the version it needs
 
 ### Requirement: serve rebuilds a bundle when its sources change
-While serving, `opm-docs serve` SHALL start a rebuild of a bundle within two seconds of a change to a file under its sources. A build failure while watching SHALL be printed and SHALL keep the last good bundle served.
+By default (without `--site`), while serving, `opm-docs serve` SHALL start a rebuild of a bundle within two seconds of a change to a file under its sources. A build failure while watching SHALL be printed and SHALL keep the last good bundle served.
 
 #### Scenario: Preview an authored page
 - **WHEN** an author in the cli repository runs `opm-docs serve` and edits `docs/site/start/install.md`

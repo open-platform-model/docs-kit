@@ -38,14 +38,14 @@ Each exported definition SHALL appear in exactly one configured page or in `excl
 - **THEN** both are accepted
 
 ### Requirement: A config in the source tree must place or exclude every definition
-In a build whose config is in the source tree, each of these SHALL fail the build with exit 2, all of them named in one message: an unplaced definition (with its file), a definition placed on two pages, a placed name the package does not declare, an excluded name the package does not declare, and a name both placed and excluded.
+In a build whose config is in the source tree, each of these SHALL fail the build with exit 2, all of them named in one message together with the problems of "A config in the source tree must give each definition a summary and an anchor": an unplaced definition (with its file), a definition placed on two pages, a placed name the package does not declare, an excluded name the package does not declare, and a name both placed and excluded.
 
 #### Scenario: A new definition
 - **WHEN** core adds `#Policy` and `docs-kit.cue` neither places nor excludes it
 - **THEN** `opm-docs check` exits 2 naming `#Policy` and the file
 
 ### Requirement: A config in the source tree must give each definition a summary and an anchor
-In a build whose config is in the source tree, each of these SHALL also fail the build with exit 2, all of them named in one message: a placed definition whose doc comment yields no summary (missing, or holding only rationale or citations), and two definitions on one page whose anchors collide (names that differ only in case).
+In a build whose config is in the source tree, each of these SHALL also fail the build with exit 2, named in the same message as the problems of "A config in the source tree must place or exclude every definition": a placed definition whose doc comment yields no summary (missing, or holding only rationale or citations), and two definitions on one page whose anchors collide (names that differ only in case).
 
 #### Scenario: Colliding anchors
 - **WHEN** two definitions on one page have names that differ only in case, and the config is in the source tree
