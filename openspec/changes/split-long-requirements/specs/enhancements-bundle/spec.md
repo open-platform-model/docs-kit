@@ -63,7 +63,7 @@ A bundle with `placement: {kind: "section", root: "/enhancements/"}` SHALL be bu
 - **THEN** it exits 1 saying a section bundle builds from `main` only
 
 ### Requirement: A section bundle publishes at its root
-The pages of a section bundle SHALL publish at `<root><page URL>` with no segment and SHALL carry no `edit`.
+The pages of a section bundle SHALL publish at `<root><page URL>` with no segment and SHALL carry no `edit`. Source: DESIGN decision 18.
 
 #### Scenario: A section page URL
 - **WHEN** the enhancements bundle holds the page `graph.md`
