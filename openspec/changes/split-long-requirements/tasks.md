@@ -3,18 +3,18 @@
 Specs: `bundle-pull` 9, `enhancements-bundle` 6, `crd-extractor` 4, `cue-definitions-extractor` 3,
 `opm-docs-cli` 3, `publish-workflow` 3. Gate with `N=28`.
 
-- [ ] 1.1 Per spec: read `openspec/specs/<spec>/spec.md` on `main`, the change's `design.md`
+- [x] 1.1 Per spec: read `openspec/specs/<spec>/spec.md` on `main`, the change's `design.md`
       and the repo rules; grep the repo (not `archive/`) for each old requirement header
-- [ ] 1.2 `bundle-pull`: write the delta for its 9 requirements (read "Frozen, offline and local
+- [x] 1.2 `bundle-pull`: write the delta for its 9 requirements (read "Frozen, offline and local
       pulls" and "Local and frozen pulls of docs bundles" together; keep both rules)
-- [ ] 1.3 `enhancements-bundle`: write the delta for its 6 requirements
-- [ ] 1.4 `crd-extractor`: write the delta for its 4 requirements
-- [ ] 1.5 `cue-definitions-extractor`: write the delta for its 3 requirements
-- [ ] 1.6 `opm-docs-cli`: write the delta for its 3 requirements
-- [ ] 1.7 `publish-workflow`: write the delta for its 3 requirements
-- [ ] 1.8 Fill the scenario ledger and clause table in `design.md` for all 28 requirements
-- [ ] 1.9 Checklist item 3 per rewritten requirement: no `DIFF:` and no `LOST:` line, exit 0
-- [ ] 1.10 Gate (design.md "The gate") with `N=28`: `GATE PASS`, and
+- [x] 1.3 `enhancements-bundle`: write the delta for its 6 requirements
+- [x] 1.4 `crd-extractor`: write the delta for its 4 requirements
+- [x] 1.5 `cue-definitions-extractor`: write the delta for its 3 requirements
+- [x] 1.6 `opm-docs-cli`: write the delta for its 3 requirements
+- [x] 1.7 `publish-workflow`: write the delta for its 3 requirements
+- [x] 1.8 Fill the scenario ledger and clause table in `design.md` for all 28 requirements
+- [x] 1.9 Checklist item 3 per rewritten requirement: no `DIFF:` and no `LOST:` line, exit 0
+- [x] 1.10 Gate (design.md "The gate") with `N=28`: `GATE PASS`, and
       `openspec validate <spec> --type spec --strict --json` shows no WARNING for a rewritten
       requirement of the six specs
 - [ ] 1.11 `task check` green, then commit `docs(openspec): split the long requirements of batch B1`
