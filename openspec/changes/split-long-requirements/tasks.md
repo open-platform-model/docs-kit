@@ -40,12 +40,12 @@ Specs: `bundle-format` 2, `cobra-extractor` 2, `dialect-lint` 2, `docs-placement
 
 ## 3. Put `--strict` back and run the final gate (repo extra, LAST=1)
 
-- [ ] 3.1 `Taskfile.yml`: `openspec:check` runs `openspec validate --all --strict --no-interactive`;
+- [x] 3.1 `Taskfile.yml`: `openspec:check` runs `openspec validate --all --strict --no-interactive`;
       its `desc` drops "(--strict is off until the long-requirement rewrite lands)"
-- [ ] 3.2 `AGENTS.md` (commands table) and `openspec/config.yaml` (Validation Gates, item 4):
+- [x] 3.2 `AGENTS.md` (commands table) and `openspec/config.yaml` (Validation Gates, item 4):
       state that `task openspec:check` runs with `--strict`; remove the "off until" text
-- [ ] 3.3 `grep -rn "strict is off" .` outside `openspec/changes/archive/` prints nothing
-- [ ] 3.4 Final gate with `LAST=1`: `GATE PASS`, `openspec validate --specs --strict` exit 0,
+- [x] 3.3 `grep -rn "strict is off" .` outside `openspec/changes/archive/` prints nothing
+- [x] 3.4 Final gate with `LAST=1`: `GATE PASS`, `openspec validate --specs --strict` exit 0,
       no "Archive would refuse" line, no new ERROR item
 - [ ] 3.5 `task check` green (it runs `openspec:check` with `--strict`), then commit
       `ci(openspec): validate with --strict again`

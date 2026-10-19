@@ -52,7 +52,7 @@ openspec/           OpenSpec workspace: config.yaml (constitution), specs/, chan
 | `task build` | Builds `bin/opm-docs` with the version stamped in |
 | `task fmt`, `task fmt:check` | Formats; fails on an unformatted file |
 | `task vet`, `task lint`, `task test` | Vet, golangci-lint, offline unit tests. They cover `cobradump/` too |
-| `task openspec:check` | Validates every spec and active change; `--strict` is off until the long-requirement rewrite lands. `task openspec:install` installs the CLI |
+| `task openspec:check` | Validates every spec and active change with `--strict`. `task openspec:install` installs the CLI |
 | `task cite-lint` | Checks Go and CUE files against the comment rule. Run it by hand: it needs a newer Go than `task check` assumes. CI runs the same check; the excludes are in both and change together |
 | `task check` | `fmt:check`, `vet`, `lint`, `openspec:check`, `test`: the gate before every commit |
 
