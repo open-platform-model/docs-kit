@@ -28,3 +28,7 @@ Scope: two sections, then the archive step.
 
 - Code: none outside `_test.go` files and comments (`internal/config/config.go`, `internal/dialect/dialect.go`, `internal/extract/crd/{extract,model}.go`, `internal/pull/versions.go`, `schema/config.cue`).
 - Risk: none at runtime.
+
+## Enhancement
+
+None.

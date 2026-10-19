@@ -34,3 +34,7 @@ Not in this change:
 - Code: tests under `internal/render/`, their test data, a new `hack/refresh-snapshots.sh` and a Taskfile task.
 - Docs: `docs/contracts.md` C18, C19; `README.md`; `AGENTS.md`.
 - Risk: a deliberate render change now fails the parity tests until the snapshot is refreshed from a release built with it, or a named rewrite records the difference. That is the point of the check.
+
+## Enhancement
+
+None.
