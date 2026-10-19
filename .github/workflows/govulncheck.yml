@@ -1,0 +1,32 @@
+# Fails on a reachable Go vulnerability in the code that ships (./cmd/...).
+# The weekly run exists because advisories appear with no code change.
+# internal/verify/sigtest is a test helper that cmd does not reach, so it is
+# out of scope. No allow list: fix the dependency or the Go version.
+name: govulncheck
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./cmd/...
