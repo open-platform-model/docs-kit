@@ -39,8 +39,8 @@ In the page layout (the source sets `page`, not `section`), the renderer SHALL w
 - **THEN** the bundle's page is that front matter and intro followed by the four generated entries
 
 #### Scenario: Citation linked
-- **WHEN** a field description cites `0021:D4` and the source has `citations: "link"`
-- **THEN** the description renders `[0021:D4](/enhancements/0021/decisions/)`
+- **WHEN** a field description names `enhancement 0021` and the source has `citations: "link"`
+- **THEN** the description renders `[enhancement 0021](/enhancements/0021/)`
 
 #### Scenario: The served-by sentence names no product
 - **WHEN** `reconciledBy` maps `Widget` to `widget`

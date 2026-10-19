@@ -24,5 +24,5 @@
 - **THEN** every page of `docs/site` except those under `reference/cli/` is copied
 
 #### Scenario: Citations linked
-- **WHEN** a source with `citations: "link"` documents a comment citing `0010:D28`
-- **THEN** the page holds `[0010:D28](/enhancements/0010/decisions/)`
+- **WHEN** a source with `citations: "link"` documents a comment naming `enhancement 0010`
+- **THEN** the page holds `[enhancement 0010](/enhancements/0010/)`
