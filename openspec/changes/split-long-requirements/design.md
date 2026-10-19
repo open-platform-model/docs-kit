@@ -515,7 +515,329 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 | workflow-level concurrency groups | Concurrency groups cover both jobs of a run | 145 |
 
 
-Ledger B2: filled in during section 2.
+Ledger B2 (section 2). Old scenarios in a new requirement of the same delta are kept byte for byte (checklist item 3: 19 runs, 0 `DIFF:`, 0 `LOST:`); the new scenarios added by the rewrite are listed in the delta only, and each restates the rule of its body. Every SHALL, value, default, exit code and citation of an old body is in the clause rows. Every body is built from whole sentences of the old body; a sentence over 500 characters was cut at a list boundary, the parts verbatim.
+
+**`bundle-format`: A bundle is one OCI 1.1 artifact with one layer** (form b; old body 634 characters)
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Pushed manifest carries the bundle type | A bundle is one OCI 1.1 artifact with one layer, Pushed manifest carries the bundle type | no |
+
+| Old clause | New place (requirement) | Body length |
+| --- | --- | --- |
+| push, config, layer, repository | A bundle is one OCI 1.1 artifact with one layer | 436 |
+| citation | A bundle is one OCI 1.1 artifact with one layer | 436 |
+| outcome B | Outcome B changes the manifest of a bundle | 340 |
+| citation | Outcome B changes the manifest of a bundle | 340 |
+
+**`bundle-format`: Manifest annotations describe the build** (form b; old body 536 characters)
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Annotations match manifest.json | Manifest annotations describe the build, Annotations match manifest.json | no |
+
+| Old clause | New place (requirement) | Body length |
+| --- | --- | --- |
+| the four org.opencontainers.image annotations, equal to manifest.json | Manifest annotations describe the build | 423 |
+| the four dev.opmodel.docs annotations, equal to manifest.json | The pushed manifest carries the dev.opmodel.docs annotations | 210 |
+
+**`cobra-extractor`: cobradump prints the command tree a CLI shows** (form c2; old body 1112 characters)
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Completion is listed and help is not | cobradump adds, skips and refuses commands and flags, Completion is listed and help is not | no |
+| Home in a default | cobradump writes home directories as a tilde and sorts, Home in a default | no |
+| A home that only prefixes a path | cobradump writes home directories as a tilde and sorts, A home that only prefixes a path | no |
+| The root as home | cobradump writes home directories as a tilde and sorts, The root as home | no |
+| Two runs agree | cobradump writes home directories as a tilde and sorts, Two runs agree | no |
+
+| Old clause | New place (requirement) | Body length |
+| --- | --- | --- |
+| Write(root, w, opts); document fields | cobradump writes one document for the command tree | 474 |
+| completion command; inherited flags; skip hidden, deprecated, help; shorthand rules | cobradump adds, skips and refuses commands and flags | 292 |
+| home directory as `~`; sort by name | cobradump writes home directories as a tilde and sorts | 252 |
+| v1 closed; new schema v2 | The cobradump v1 format is closed | 105 |
+| depend on cobra and pflag only | The cobradump module depends on cobra and pflag only | 60 |
+
+**`cobra-extractor`: The cobra source renders the command reference** (form c2; old body 612 characters)
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A subcommand link | A cobra source writes its data file and the command pages, A subcommand link | no |
+| An unknown dump schema | A cobra source writes its data file and the command pages, An unknown dump schema | no |
+| Parity with cmdref | The pages of a cobra source match the cli cmdref output, Parity with cmdref | no |
+
+| Old clause | New place (requirement) | Body length |
+| --- | --- | --- |
+| run command; validate dump; data/cobra.json; index and per-command pages; anchors | A cobra source writes its data file and the command pages | 472 |
+| section is an owned path | A cobra source writes its data file and the command pages | 472 |
+| command names kebab-case | A cobra source writes its data file and the command pages | 472 |
+| pages match cmdref; no marker comment | The pages of a cobra source match the cli cmdref output | 161 |
+
+**`dialect-lint`: Dialect 1 is the rule set C11 lists** (form b; old body 698 characters)
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| The conformance fixtures pass | Dialect 1 is the rule set C11 lists, The conformance fixtures pass | no |
+| A catalog link passes | Dialect 1 is the rule set C11 lists, A catalog link passes | no |
+
+| Old clause | New place (requirement) | Body length |
+| --- | --- | --- |
+| enforce the C11 rules and link forms | Dialect 1 is the rule set C11 lists | 452 |
+| rules first ported; C11 only definition | C11 is the only definition of the dialect 1 rules | 159 |
+| violation line format; exit 2 | A dialect 1 violation prints as a line and exits 2 | 154 |
+
+**`dialect-lint`: Bundle mode checks every page's markup as the site parses it** (form c2; old body 824 characters)
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Raw HTML in a generated page | A generated page and a section page get the full markup check, Raw HTML in a generated page | no |
+| A comment in a generated page | A generated page and a section page get the full markup check, A comment in a generated page | no |
+| A writer's note in an authored page | An authored page of a tab or docs bundle gets the full markup check except for well-formed comments, A writer's note in an authored page | no |
+| A comment a browser closes early | An authored page of a tab or docs bundle gets the full markup check except for well-formed comments, A comment a browser closes early | no |
+| Markup after a comment | An authored page of a tab or docs bundle gets the full markup check except for well-formed comments, Markup after a comment | no |
+| A heading attribute block in an authored page | An authored page of a tab or docs bundle gets the full markup check except for well-formed comments, A heading attribute block in an authored page | no |
+| A published bundle with writer's notes still pulls | Bundle-mode lint runs the markup check on every listed page, A published bundle with writer's notes still pulls | no |
+| A docs-mode tree is not checked | Docs mode does not run the markup check, A docs-mode tree is not checked | no |
+
+| Old clause | New place (requirement) | Body length |
+| --- | --- | --- |
+| run the markup check on every listed page in every bundle kind; build, lint --bundle, pull | Bundle-mode lint runs the markup check on every listed page | 329 |
+| violation line format; exit 2 | Bundle-mode lint runs the markup check on every listed page | 329 |
+| generated: true and section pages get the full check | A generated page and a section page get the full markup check | 99 |
+| generated: false page; comment-only HTML node passes | An authored page of a tab or docs bundle gets the full markup check except for well-formed comments | 328 |
+| docs mode not checked; fixture set unchanged | Docs mode does not run the markup check | 86 |
+
+**`docs-placement`: Authored docs pages ship in docs bundles** (form b; old body 506 characters)
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| core adds its authored pages | Authored docs pages ship in docs bundles, core adds its authored pages | no |
+| A committed generated page left behind | Authored docs pages ship in docs bundles, A committed generated page left behind | no |
+
+| Old clause | New place (requirement) | Body length |
+| --- | --- | --- |
+| copy dir as written; generated: false, source, lastmod | Authored docs pages ship in docs bundles | 358 |
+| may supply root and section _index.md; uniqueness is pull's check | Authored docs pages ship in docs bundles | 358 |
+| path written twice fails unless completable | A page path written by an extractor and by a markdown source fails the build | 147 |
+
+**`docs-placement`: An authored page records its file on main** (form c2; old body 958 characters)
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A tab bundle's authored landing | A generated page and a tab or section page have no edit, A tab bundle's authored landing | no |
+| A page moved on main after the release | An authored page missing from the main tree has no edit, A page moved on main after the release | no |
+| Edge | An authored page records its file in the main tree, Edge | no |
+| A release built away from main | A release build with no main tree writes no edit, A release built away from main | no |
+| A revision rebuilt after main moved | A docs revision rebuilt by revise keeps its edit values, A revision rebuilt after main moved | no |
+| A revision adds a page | revise names its checkout of main as the main tree, A revision adds a page | no |
+
+| Old clause | New place (requirement) | Body length |
+| --- | --- | --- |
+| build writes pages[].edit when the file is in the main tree (work tree or source tree) | An authored page records its file in the main tree | 488 |
+| citation | An authored page records its file in the main tree | 488 |
+| revise names its checkout of main | revise names its checkout of main as the main tree | 252 |
+| citation | revise names its checkout of main as the main tree | 252 |
+| release build without a main tree: no edit, note on stderr, never the tag tree | A release build with no main tree writes no edit | 264 |
+| citation | A release build with no main tree writes no edit | 264 |
+| file not in the main tree: edit absent | An authored page missing from the main tree has no edit | 279 |
+| citation | An authored page missing from the main tree has no edit | 279 |
+| revise keeps recorded edit values | A docs revision rebuilt by revise keeps its edit values | 165 |
+| citation | A docs revision rebuilt by revise keeps its edit values | 165 |
+| generated, tab and section pages have no edit | A generated page and a tab or section page have no edit | 110 |
+| citation | A generated page and a tab or section page have no edit | 110 |
+
+**`docs-revision`: A docs revision applies fixes from main to a release tree** (form c2; old body 806 characters)
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Fix not on main | revise refuses a fix that is not on main or a release that is not published, Fix not on main | no |
+| A fix already published | A newest revision that ends with F is built again or refused, A fix already published | no |
+| Re-run of a revision that was pushed but not promoted | A newest revision that ends with F is built again or refused, Re-run of a revision that was pushed but not promoted | no |
+| Re-run after a partial promote | A newest revision that ends with F is built again or refused, Re-run after a partial promote | no |
+| A fix to a file main renamed after the release | A patched file lastmod is the date of its newest fix, A fix to a file main renamed after the release | no |
+| Second revision carries the first fix | revise applies the published patches and the fix to a temporary worktree of the tag, Second revision carries the first fix | no |
+
+| Old clause | New place (requirement) | Body length |
+| --- | --- | --- |
+| refuse unless F is a single-parent ancestor of origin/main and revision 0 is published | revise refuses a fix that is not on main or a release that is not published | 209 |
+| citation | revise refuses a fix that is not on main or a release that is not published | 209 |
+| read patches after signature verifies; temp worktree; cherry-pick in order; refuse on conflict | revise applies the published patches and the fix to a temporary worktree of the tag | 356 |
+| citation | revise applies the published patches and the fix to a temporary worktree of the tag | 356 |
+| newest revision that ends with F: built again if not promoted, refused if promoted | A newest revision that ends with F is built again or refused | 252 |
+| citation | A newest revision that ends with F is built again or refused | 252 |
+| lastmod is the date of the newest fix | A patched file lastmod is the date of its newest fix | 212 |
+| citation | A patched file lastmod is the date of its newest fix | 212 |
+
+**`docs-revision`: Only documentation may change** (form c2; old body 723 characters)
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A comment fix in CUE | revise allows a changed CUE file only when its tokens are equal, A comment fix in CUE | no |
+| A doc comment added between two fields | revise does not compare layout, A doc comment added between two fields | no |
+| A Go directive comment change | revise allows a changed Go file only when its tokens and directives are equal, A Go directive comment change | no |
+| A Go directive moved | revise allows a changed Go file only when its tokens and directives are equal, A Go directive moved | no |
+| Markdown in a release that embeds files | revise allows a changed Markdown file, Markdown in a release that embeds files | no |
+| A description string change | revise refuses every other change, A description string change | no |
+
+| Old clause | New place (requirement) | Body length |
+| --- | --- | --- |
+| allow .md files that are regular files | revise allows a changed Markdown file | 239 |
+| .md change refused when a .cue file declares @extern(embed) | revise allows a changed Markdown file | 239 |
+| allow .cue with equal tokens | revise allows a changed CUE file only when its tokens are equal | 175 |
+| allow .go with equal tokens and directives; no import "C" | revise allows a changed Go file only when its tokens and directives are equal | 357 |
+| layout is not compared | revise does not compare layout | 76 |
+| refuse every other change, naming each file and why | revise refuses every other change | 352 |
+
+**`go-api-extractor`: The go-api source documents a module's exported API** (form c2; old body 741 characters)
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A constructor groups under its type | A go-api source writes its model file, A constructor groups under its type | no |
+| Internal packages are skipped | A go-api source parses a module's exported packages, Internal packages are skipped | no |
+
+| Old clause | New place (requirement) | Body length |
+| --- | --- | --- |
+| parse the matched packages without building; exclusions | A go-api source parses a module's exported packages | 255 |
+| write data/go-api.json: packages, symbols, declaration, doc as Markdown | A go-api source writes its model file | 403 |
+| symbol without a doc comment listed with an empty doc | An exported symbol without a doc comment is listed | 95 |
+
+**`go-api-extractor`: Go API pages and anchors** (form c2; old body 621 characters)
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Link within the library | A Go doc link resolves in the bundle or on pkg.go.dev, Link within the library | no |
+| Link to the standard library | A Go doc link resolves in the bundle or on pkg.go.dev, Link to the standard library | no |
+
+| Old clause | New place (requirement) | Body length |
+| --- | --- | --- |
+| index and per-package pages; page name | Go API pages hold each symbol under a fixed anchor | 445 |
+| symbol heading anchor | Go API pages hold each symbol under a fixed anchor | 445 |
+| doc comment headings shifted | Go API pages hold each symbol under a fixed anchor | 445 |
+| doc links | A Go doc link resolves in the bundle or on pkg.go.dev | 175 |
+
+**`page-renderer`: The landing always carries the generated members block** (form b; old body 578 characters)
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Generated landing for a backfilled release | The landing always carries the generated members block, Generated landing for a backfilled release | no |
+| Heading collision | The landing always carries the generated members block, Heading collision | no |
+
+| Old clause | New place (requirement) | Body length |
+| --- | --- | --- |
+| landing ends with the members section | The landing always carries the generated members block | 472 |
+| authored root _index.md: append, refuse a colliding heading | The landing always carries the generated members block | 472 |
+| without an authored landing: generated front matter and the block alone | A landing without an authored landing holds the generated block alone | 232 |
+
+**`page-renderer`: Completable pages take an authored page first** (form b; old body 519 characters)
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| The operator's resource page | Completable pages take an authored page first, The operator's resource page | no |
+
+| Old clause | New place (requirement) | Body length |
+| --- | --- | --- |
+| authored front matter, body, then generated body; generated: false | Completable pages take an authored page first | 427 |
+| colliding first heading fails with exit 2 | Completable pages take an authored page first | 427 |
+| without an authored page: generated page alone | A completable page without an authored page stands alone | 91 |
+
+**`tool-release`: Consumers pin a release and verify it** (form b; old body 746 characters)
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Pinned in a build image | Consumers pin a release and verify it, Pinned in a build image | no |
+| A tampered archive | Consumers pin a release and verify it, A tampered archive | no |
+
+| Old clause | New place (requirement) | Body length |
+| --- | --- | --- |
+| pin one release in one of two ways, verified before extracting | Consumers pin a release and verify it | 498 |
+| stop on a missing line or a mismatch | Consumers pin a release and verify it | 498 |
+| keep shipping linux_amd64 archive and checksums.txt under the C12 names | Every release keeps shipping the archive and checksums under fixed names | 242 |
+| no source build | No consumer builds the tool from source | 98 |
+
+**`tool-release`: The release key is read only on main** (form c2; old body 655 characters)
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A push to main | The release key is read in one job that runs only on main, A push to main | no |
+| A workflow on another branch asks for the key | The release key is read in one job that runs only on main, A workflow on another branch asks for the key | no |
+| Release binaries build without a cache | The goreleaser job restores no cache and persists no token, Release binaries build without a cache | no |
+
+| Old clause | New place (requirement) | Body length |
+| --- | --- | --- |
+| key read in one job; release environment admits main only | The release key is read in one job that runs only on main | 199 |
+| explicit token permissions; release-please declares none and mints a narrow App token | Release and CI workflows declare their token permissions | 345 |
+| goreleaser: no Actions cache; checkout without persisting the token | The goreleaser job restores no cache and persists no token | 109 |
+
+**`cue-catalog-extractor`: The spec is extracted as structured fields beside its text** (form b; old body 695 characters)
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Required and defaulted fields | The spec is extracted as structured fields beside its text, Required and defaulted fields | no |
+| A vendored type stops the walk | The spec is extracted as structured fields beside its text, A vendored type stops the walk | no |
+
+| Old clause | New place (requirement) | Body length |
+| --- | --- | --- |
+| spec.fields walked from the evaluated value | The spec is extracted as structured fields beside its text | 390 |
+| walk stops at the module boundary and at a visited definition; depth 12 | The spec.fields walk stops at the module boundary and at a visited definition | 211 |
+| spec.cue: authored block and referenced in-module definitions | The authored spec block is recorded as spec.cue | 232 |
+
+**`repository-commands`: A repository command runs without a shell in the source tree** (form c2; old body 661 characters)
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| Environment of a dump | A repository command runs in the source tree without a shell, Environment of a dump | no |
+| A token in the build's environment | A repository command gets an allowlisted environment, A token in the build's environment | no |
+
+| Old clause | New place (requirement) | Body length |
+| --- | --- | --- |
+| argv[0] on PATH, no shell, source tree, own process group | A repository command runs in the source tree without a shell | 247 |
+| allowlisted environment, OPM_DOCS variables, empty stdin, stderr passed through | A repository command gets an allowlisted environment | 451 |
+| no other variable reaches it | A repository command gets an allowlisted environment | 451 |
+| push, promote and pull never run a command | push, promote and pull never run a repository command | 66 |
+
+**`version-history`: A bundle's doc model is checked before it is compared** (form b; old body 509 characters)
+
+| Old scenario name | New place (requirement, scenario name) | Changed text? |
+| --- | --- | --- |
+| A bad page in a bundle | A bundle's doc model is checked before it is compared, A bad page in a bundle | no |
+
+| Old clause | New place (requirement) | Body length |
+| --- | --- | --- |
+| check fqn, kind, page, presence; fail naming segment and data file | A bundle's doc model is checked before it is compared | 375 |
+| schema constrains presence from/to and removed page | The history schema constrains presence changes and removed pages | 236 |
+
+Words added by the B2 rewrite (the only words that are not copied from the old body; the strength changes are also in the Strength table):
+
+| Spec | New requirement | Kind | Text |
+| --- | --- | --- | --- |
+| bundle-format | Outcome B changes the manifest of a bundle | glue | The manifest is the one that `opm-docs push` pushes under "A bundle is one OCI 1.1 artifact with one layer". |
+| bundle-format | Manifest annotations describe the build | repeat | tail repeated: each equal to the matching `manifest.json` field. |
+| cobra-extractor | cobradump adds, skips and refuses commands and flags | subject | "It" -> "The `cobradump` module" (subject copied from the first sentence) |
+| cobra-extractor | cobradump writes home directories as a tilde and sorts | subject | "It" -> "The `cobradump` module"; "SHALL" repeated for the list item |
+| cobra-extractor | The cobradump module depends on cobra and pflag only | subject | 'It SHALL' -> 'The `cobradump` module SHALL' |
+| cobra-extractor | The pages of a cobra source match the cli cmdref output | subject | 'The pages SHALL' -> 'The pages of the `cobra` source SHALL' |
+| dialect-lint | C11 is the only definition of the dialect 1 rules | subject | 'The rules were' -> 'The rules of dialect 1 were' |
+| dialect-lint | A dialect 1 violation prints as a line and exits 2 | subject | 'Each violation SHALL' -> 'Each violation of the dialect 1 rules that `opm-docs lint` finds SHALL' |
+| dialect-lint | A generated page and a section page get the full markup check | term | 'the full check' -> 'the full markup check' |
+| dialect-lint | An authored page of a tab or docs bundle gets the full markup check except for well-formed comments | term | 'the full check except' -> 'the full markup check except' |
+| dialect-lint | Docs mode does not run the markup check | term | 'run the check' -> 'run the markup check' |
+| docs-placement | revise names its checkout of main as the main tree | glue | The main tree is the one of the requirement "An authored page records its file in the main tree". |
+| docs-placement | A release build with no main tree writes no edit | glue | The main tree is the one of the requirement "An authored page records its file in the main tree". |
+| docs-placement | An authored page missing from the main tree has no edit | glue | The main tree is the one of the requirement "An authored page records its file in the main tree". |
+| docs-revision | revise applies the published patches and the fix to a temporary worktree of the tag | subject | 'It SHALL' -> '`opm-docs revise --project P --tag T --fix F` SHALL' |
+| docs-revision | A newest revision that ends with F is built again or refused | subject | prefix "For `opm-docs revise --project P --tag T --fix F`, " and "A" -> "a" |
+| docs-revision | A patched file lastmod is the date of its newest fix | subject | prefix "For `opm-docs revise --project P --tag T --fix F`, " and "A" -> "a" |
+| docs-revision | revise refuses every other change | glue | The other changes are those that "revise allows a changed Markdown file", "revise allows a changed CUE file only when its tokens are equal" and "revise allows a changed Go file only when its tokens and directives are equal" do not allow. |
+| docs-revision | revise refuses every other change | subject | "It SHALL refuse" -> "Between the release tree and the patched tree, `revise` SHALL refuse" |
+| go-api-extractor | A go-api source writes its model file | repeat | cut at "and SHALL write"; subject "A `go-api` source" repeated |
+| page-renderer | A landing without an authored landing holds the generated block alone | subject | 'it SHALL' -> 'the renderer SHALL' |
+| page-renderer | A landing without an authored landing holds the generated block alone | glue | The block is the generated `## Catalog members` section of "The landing always carries the generated members block". |
+| tool-release | Every release keeps shipping the archive and checksums under fixed names | glue | The two patterns are the two ways of the requirement "Consumers pin a release and verify it". |
+| cue-catalog-extractor | The spec is extracted as structured fields beside its text | repeat | cut at ", and `spec.fields`"; subject "For each member the extractor SHALL record" repeated |
+| cue-catalog-extractor | The spec.fields walk stops at the module boundary and at a visited definition | glue | The walk is the one of the requirement "The spec is extracted as structured fields beside its text". |
+| version-history | The history schema constrains presence changes and removed pages | glue | The three values and the pattern are those of "A bundle's doc model is checked before it is compared". |
+
 
 ## The gate
 
@@ -538,6 +860,32 @@ passes only on `GATE PASS` with exit 0. Because this repo has no other open chan
 The review checklist of the guide (scope, meaning kept, scenario text byte equal, no invented
 rule, ledger, no loophole, lengths, forms, one behavior each, repo rules, references, Purpose,
 gate rerun, commits) applies to each section.
+
+## Strength table
+
+Every sentence of this change that gained SHALL, MUST or MAY, found by comparing each new sentence with
+the old sentence it was cut from (an old sentence with no keyword before the cut clause). Sentences that
+repeat a SHALL, SHALL NOT or MUST of the same old sentence are not listed one by one: they carry the
+keyword that the old sentence held for a whole list, for example `pull` SHALL ... for each item of a list
+that one SHALL governed. The human judges these rows at the PR.
+
+| Spec | New requirement | New sentence | Old form |
+| --- | --- | --- | --- |
+| bundle-pull | A tab entry names its signing repository, root and oldest minor | "`tabs` SHALL be keyed by project, each with ..." and "A tab bundle SHALL have placement `kind: "tab"`." | items of the list after the one SHALL of "validate the file against the embedded `#Pull` schema" |
+| bundle-pull | A docs entry names its signing repository and its site versions | "`docs` SHALL be keyed ...", "`versions` SHALL be keyed by site version ..." and "A docs bundle SHALL have placement `kind: "docs"`." | the same list items |
+| bundle-pull | A section entry names its signing repository and root | "`sections` SHALL be keyed by project ..." and "A section bundle SHALL have placement `kind: "section"` ..." | the same list items |
+| bundle-pull | The lock is serialized in one form | "`pull` SHALL serialize the lock as JSON ..." | "serialized as JSON with two-space indent ..." (clause after a semicolon) |
+| bundle-pull | A local lock entry carries only local data | "A local entry of the lock SHALL carry `local: true` ..." | "a local entry carrying `local: true` ..." |
+| bundle-pull | The docs list of the lock is sorted | "The `docs` entries SHALL be sorted by site version ..." | ", sorted by site version, then role ..." (participle) |
+| bundle-pull | Docs bundle paths compare by the URL Hugo serves | "`pull` SHALL compare paths by the URL Hugo serves ..." | "Paths compare by the URL Hugo serves ..." |
+| crd-extractor | The crd page applies the citation policy to descriptions | "A field description on the crd page SHALL follow the source's `citations` policy ..." | no body sentence: stated by two scenarios and by the model requirement |
+| cue-definitions-extractor | The cue-definitions source writes its model file | "The `cue-definitions` source SHALL write the definitions it takes to `data/cue-definitions.json` ..." | "writing them to `data/cue-definitions.json` ..." |
+| opm-docs-cli | serve rebuilds a bundle when its sources change | "`opm-docs serve` SHALL start a rebuild of a bundle within two seconds ..." | "and starting a rebuild of a bundle within two seconds ..." |
+| opm-docs-cli | serve --site previews in the real site | "`opm-docs serve` SHALL run `task bundles:pull` and then `task serve` ..." | "with `--site <dir>`, by running `task bundles:pull` ..." |
+| cobra-extractor | The cobradump v1 format is closed | "any change to its fields SHALL be a new schema" | "any change to its fields is a new schema" |
+| dialect-lint | C11 is the only definition of the dialect 1 rules | "C11 SHALL be their only definition" | "C11 is their only definition" |
+| docs-placement | revise names its checkout of main as the main tree | "`revise` SHALL name its checkout of `main`" | "`revise` names its checkout of `main`" (clause after a semicolon) |
+| docs-revision | revise does not compare layout | "layout SHALL NOT be compared" | "Layout is not compared." |
 
 ## Durable decisions
 

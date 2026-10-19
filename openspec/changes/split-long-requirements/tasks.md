@@ -17,7 +17,7 @@ Specs: `bundle-pull` 9, `enhancements-bundle` 6, `crd-extractor` 4, `cue-definit
 - [x] 1.10 Gate (design.md "The gate") with `N=28`: `GATE PASS`, and
       `openspec validate <spec> --type spec --strict --json` shows no WARNING for a rewritten
       requirement of the six specs
-- [ ] 1.11 `task check` green, then commit `docs(openspec): split the long requirements of batch B1`
+- [x] 1.11 `task check` green, then commit `docs(openspec): split the long requirements of batch B1`
 
 ## 2. Batch docs-kit-B2 (19 requirements)
 
@@ -25,18 +25,18 @@ Specs: `bundle-format` 2, `cobra-extractor` 2, `dialect-lint` 2, `docs-placement
 `docs-revision` 2, `go-api-extractor` 2, `page-renderer` 2, `tool-release` 2,
 `cue-catalog-extractor` 1, `repository-commands` 1, `version-history` 1. Gate with `N=47`.
 
-- [ ] 2.1 Per spec: read the spec on `main` and grep the repo (not `archive/`) for each old
+- [x] 2.1 Per spec: read the spec on `main` and grep the repo (not `archive/`) for each old
       requirement header
-- [ ] 2.2 `bundle-format` (2), `cobra-extractor` (2), `dialect-lint` (2): write the deltas
-- [ ] 2.3 `docs-placement` (2), `docs-revision` (2), `go-api-extractor` (2): write the deltas
-- [ ] 2.4 `page-renderer` (2), `tool-release` (2): write the deltas
-- [ ] 2.5 `cue-catalog-extractor` (1), `repository-commands` (1), `version-history` (1): write
+- [x] 2.2 `bundle-format` (2), `cobra-extractor` (2), `dialect-lint` (2): write the deltas
+- [x] 2.3 `docs-placement` (2), `docs-revision` (2), `go-api-extractor` (2): write the deltas
+- [x] 2.4 `page-renderer` (2), `tool-release` (2): write the deltas
+- [x] 2.5 `cue-catalog-extractor` (1), `repository-commands` (1), `version-history` (1): write
       the deltas
-- [ ] 2.6 Fill the scenario ledger and clause table in `design.md` for all 19 requirements
-- [ ] 2.7 Checklist item 3 per rewritten requirement: no `DIFF:` and no `LOST:` line, exit 0
-- [ ] 2.8 Gate with `N=47`: `GATE PASS`; `openspec validate --all --strict` now prints no
+- [x] 2.6 Fill the scenario ledger and clause table in `design.md` for all 19 requirements
+- [x] 2.7 Checklist item 3 per rewritten requirement: no `DIFF:` and no `LOST:` line, exit 0
+- [x] 2.8 Gate with `N=47`: `GATE PASS`; `openspec validate --all --strict` now prints no
       WARNING from the main specs plus the change
-- [ ] 2.9 `task check` green, then commit `docs(openspec): split the long requirements of batch B2`
+- [x] 2.9 `task check` green, then commit `docs(openspec): split the long requirements of batch B2`
 
 ## 3. Put `--strict` back and run the final gate (repo extra, LAST=1)
 

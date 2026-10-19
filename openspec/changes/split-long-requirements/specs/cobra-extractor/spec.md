@@ -1,0 +1,76 @@
+## REMOVED Requirements
+
+### Requirement: cobradump prints the command tree a CLI shows
+**Reason**: Split into five requirements that each state one behavior.
+**Migration**: See "cobradump writes one document for the command tree", "cobradump adds, skips and refuses commands and flags", "cobradump writes home directories as a tilde and sorts", "The cobradump v1 format is closed" and "The cobradump module depends on cobra and pflag only".
+
+### Requirement: The cobra source renders the command reference
+**Reason**: Split into two requirements that each state one behavior.
+**Migration**: See "A cobra source writes its data file and the command pages" and "The pages of a cobra source match the cli cmdref output".
+
+## ADDED Requirements
+
+### Requirement: cobradump writes one document for the command tree
+The `cobradump` module SHALL provide `Write(root, w, opts)` printing one `docs.opmodel.dev/cobradump/v1` document: the root's name, path, short text, raw long and example text, aliases, usage line, whether it runs, its local flags and its global (persistent) flags, and every available command recursively with its path, name, use, usage line, short text, raw long and example text, aliases, whether it runs, its own flags and its inherited flags other than the global ones.
+
+#### Scenario: A root is dumped as one document
+- **WHEN** `Write(root, w, opts)` prints the cli's root
+- **THEN** the output is one `docs.opmodel.dev/cobradump/v1` document
+
+### Requirement: cobradump adds, skips and refuses commands and flags
+The `cobradump` module SHALL add cobra's default completion command and resolve inherited flags before walking, skip hidden and deprecated commands, the help command, hidden flags and deprecated flags, drop a deprecated shorthand, refuse a shorthand that is not one printable ASCII character.
+
+#### Scenario: Completion is listed and help is not
+- **WHEN** the cli's root is dumped
+- **THEN** `commands` holds `completion` and no `help`
+
+### Requirement: cobradump writes home directories as a tilde and sorts
+The `cobradump` module SHALL write the home directory in a flag default as `~` only when the home directory is absolute and not the file-system root and the match is followed by a path separator or ends the default, and sort commands and flags by name.
+
+#### Scenario: Home in a default
+- **WHEN** a flag defaults to `/home/u/.opm/config.cue` and the home directory is `/home/u`
+- **THEN** its `default` is `~/.opm/config.cue`
+
+#### Scenario: A home that only prefixes a path
+- **WHEN** the home directory is `/root` and a flag defaults to `/rootfs/x`
+- **THEN** its `default` stays `/rootfs/x`
+
+#### Scenario: The root as home
+- **WHEN** the home directory is `/`
+- **THEN** no default is rewritten
+
+#### Scenario: Two runs agree
+- **WHEN** the same binary dumps twice
+- **THEN** both outputs are byte-identical
+
+### Requirement: The cobradump v1 format is closed
+The v1 format is closed: any change to its fields SHALL be a new schema, `docs.opmodel.dev/cobradump/v2`.
+
+#### Scenario: A change to the v1 fields
+- **WHEN** a change adds or alters a field of the v1 document
+- **THEN** it is a new schema, `docs.opmodel.dev/cobradump/v2`
+
+### Requirement: The cobradump module depends on cobra and pflag only
+The `cobradump` module SHALL depend on cobra and pflag only.
+
+#### Scenario: Imports of the module
+- **WHEN** the imports of the `cobradump` module are listed
+- **THEN** they are cobra and pflag only
+
+### Requirement: A cobra source writes its data file and the command pages
+A `cobra` source SHALL run its command (C14), validate the dump, write `data/cobra.json` (`docs.opmodel.dev/data/cobra/v1`), and render `<section>_index.md` with the global flags and `<section><root>-<top>.md` for each top-level command holding that command and every command under it, depth first, each under a heading whose anchor is the command path in kebab case. The section SHALL be one of the bundle's owned paths. Every command name SHALL be lower-case kebab-case.
+
+#### Scenario: A subcommand link
+- **WHEN** `opm module` lists `apply`
+- **THEN** its subcommand table links `/docs/reference/cli/opm-module/#opm-module-apply`
+
+#### Scenario: An unknown dump schema
+- **WHEN** the command prints a document with schema `docs.opmodel.dev/cobradump/v2`
+- **THEN** `build` exits 2 naming the schema and the one this `opm-docs` reads
+
+### Requirement: The pages of a cobra source match the cli cmdref output
+The pages of the `cobra` source SHALL match the cli's `internal/cmdref` output for the same command tree, except that no page carries a generator marker comment.
+
+#### Scenario: Parity with cmdref
+- **WHEN** the cli's dump at commit `ebf0479b`, frozen in the tests, is rendered with the planned config
+- **THEN** every page equals the page cmdref committed at that commit with the marker comments removed
