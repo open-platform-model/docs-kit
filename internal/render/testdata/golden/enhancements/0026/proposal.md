@@ -40,7 +40,7 @@ New: `catalog-version-selection`, `authored-platform`. Changed: `single-build-re
 
 ## Impact
 
-Breaking, pre-GA: a shipped core definition is renamed, and the Platform resource spec changes shape. Five repos change: core, library, cli, opm-operator, catalog.
+Breaking, pre-GA: a shipped core definition is renamed, and the Platform resource spec changes shape. Five repos change: core, library, cli, opm-controller, catalog.
 
 ## Open questions
 

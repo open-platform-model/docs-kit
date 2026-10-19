@@ -575,7 +575,7 @@ func TestOpenSpecAffects(t *testing.T) {
 		t.Fatalf("0042 affects = %q, want %q", got, want)
 	}
 	const cfg = "openspec/changes/0042-fixture-no-specs/config.yaml"
-	for _, name := range []string{"core", "opm-operator", "opmodel.dev", "catalog_opm", ".github", "opm-suite-installer"} {
+	for _, name := range []string{"core", "opm-controller", "opmodel.dev", "catalog_opm", ".github", "opm-suite-installer"} {
 		root := copyFixture(t)
 		replace(t, root, cfg, "  - .github\n", "  - "+name+"\n")
 		if _, err := Extract(options(t, root)); err != nil {
