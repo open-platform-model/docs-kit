@@ -2,7 +2,7 @@
 
 ## Why
 
-docs-kit installs OpenSpec 1.12.0 locally and in CI, while the other repos move to 1.14.1. The repo has no generated OpenSpec skills. The workspace now carries the same eleven skills in every repo.
+docs-kit installs OpenSpec 1.12.0 locally and in CI, while the other repos move to 1.14.1. The repo has no generated OpenSpec skills. The other repos of the workspace carry the eleven generated skills.
 
 `--strict` leaves `task openspec:check` for now. Version 1.14.1 reports a requirement longer than 500 characters as a WARNING. `--strict` fails on any warning, and no flag turns this one check off. docs-kit has 47 such requirements in its main specs. A later change rewrites them and puts `--strict` back.
 
