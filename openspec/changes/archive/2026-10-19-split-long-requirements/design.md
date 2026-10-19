@@ -70,7 +70,7 @@ From `openspec/config.yaml` rules for specs and the guide:
   alone as an enhancement id.
 - Requirements describe observable behavior: files, bytes, tags, exit codes, messages. A new
   scenario uses only words and values of the old body; the plain negation of an old condition is
-  allowed. A scenario that adds a case not in the old text is a question for the human.
+  allowed. A scenario that adds a case not in the old text is not allowed.
 - The loopholes are forbidden in a changed block: no `**Key**:` line (only `**Reason**:` and
   `**Migration**:` in REMOVED), no heading of level 5 or deeper, no fenced block in a body.
 - A new requirement name is unique in its spec. Before a split or a c2 the implementer greps the
@@ -109,7 +109,7 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 
 | Old clause | New place (requirement) | Body length |
 | --- | --- | --- |
-| validate against `#Pull`; registry, signer; top-level keys | The pull config is validated against the embedded schema | 224 |
+| validate against `#Pull`; registry, signer; top-level keys `tabs`, `docs`, `sections` and `versions` | The pull config is validated against the embedded schema | 224 |
 | tabs fields; tab placement kind | A tab entry names its signing repository, root and oldest minor | 192 |
 | docs fields; versions fields; docs placement kind | A docs entry names its signing repository and its site versions | 297 |
 | sections fields; section placement kind | A section entry names its signing repository and root | 175 |
@@ -126,7 +126,7 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 | --- | --- | --- |
 | verify; only then fetch by digest, unpack, lint; any failure fails the pull | A bundle is fetched and unpacked only after its signature verifies | 248 |
 | sigstore-go, trusted root, timestamps, log entry, digest equal | The Sigstore bundle is verified against the public-good trusted root | 261 |
-| issuer, SAN, Source Repository URI, Source Repository Ref | The signer identity must match the config | 255 |
+| issuer, SAN, Source Repository URI, Source Repository Ref, as clauses of "verify each resolved digest's Sigstore bundle" | The signer identity must match the config | 255 |
 
 **`bundle-pull`: The unpack layout and lock are fixed** (form b; old body 689 characters)
 
@@ -328,7 +328,7 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 | Old clause | New place (requirement) | Body length |
 | --- | --- | --- |
 | read CRDs; data/crd.json and schema; per-kind facts; reconciledBy; kind order | The crd source writes a model of each kind | 410 |
-| field tables; validation rules | The crd model holds the field tables and rules of each kind | 230 |
+| `data/crd.json` with schema; field tables; validation rules | The crd model holds the field tables and rules of each kind | 230 |
 | sample selection, hide, strip labels; sample text in the model | The crd source reads the sample of each kind | 374 |
 
 **`crd-extractor`: The crd page is one completable page** (form c2; old body 882 characters)
@@ -405,7 +405,7 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 | exactly one page or exclude with a reason | Each exported definition is placed once or excluded with a reason | 99 |
 | in-tree failures: unplaced, two pages, undeclared placed, undeclared excluded, both | A config in the source tree must place or exclude every definition | 440 |
 | in-tree failures: no summary, anchor collision | A config in the source tree must give each definition a summary and an anchor | 409 |
-| backfill warnings and their handling | A config from outside the source tree gives warnings | 334 |
+| backfill warnings: each problem of the two in-tree requirements, and their handling | A config from outside the source tree gives warnings | 334 |
 
 **`cue-definitions-extractor`: Definitions render as a section index and one page per group** (form c2; old body 656 characters)
 
@@ -515,7 +515,7 @@ Ledger B1 (section 1). Old scenarios in a new requirement of the same delta are 
 | workflow-level concurrency groups | Concurrency groups cover both jobs of a run | 145 |
 
 
-Ledger B2 (section 2). Old scenarios in a new requirement of the same delta are kept byte for byte (checklist item 3: 19 runs, 0 `DIFF:`, 0 `LOST:`); the new scenarios added by the rewrite are listed in the delta only, and each restates the rule of its body. Every SHALL, value, default, exit code and citation of an old body is in the clause rows. Every body is built from whole sentences of the old body; a sentence over 500 characters was cut at a list boundary, the parts verbatim. Three sentences of 500 characters or less were cut too: two because the restated subject (cobradump, 496) or the `Source:` line (docs-placement, 499) did not fit, and one (bundle-format, 402) to attach the outcome B exception to the `artifactType` and empty config clauses only. A ruling on that is asked in the PR review.
+Ledger B2 (section 2). Old scenarios in a new requirement of the same delta are kept byte for byte (checklist item 3: 19 runs, 0 `DIFF:`, 0 `LOST:`); the new scenarios added by the rewrite are listed in the delta only, and each restates the rule of its body. Every SHALL, value, default, exit code and citation of an old body is in the clause rows. Every body is built from whole sentences of the old body; a sentence over 500 characters was cut at a list boundary, the parts verbatim. Three sentences of 500 characters or less were cut too: two because the restated subject (cobradump, 496) or the `Source:` line (docs-placement, 499) did not fit, and one (bundle-format, 402) to attach the outcome B exception to the `artifactType` and empty config clauses only.
 
 **`bundle-format`: A bundle is one OCI 1.1 artifact with one layer** (form b; old body 634 characters)
 
@@ -702,7 +702,7 @@ Ledger B2 (section 2). Old scenarios in a new requirement of the same delta are 
 | --- | --- | --- |
 | parse the matched packages without building; exclusions | A go-api source parses a module's exported packages | 255 |
 | write data/go-api.json: packages, symbols, declaration, doc as Markdown | A go-api source writes its model file | 403 |
-| symbol without a doc comment listed with an empty doc | An exported symbol without a doc comment is listed | 95 |
+| symbol without a doc comment listed in `data/go-api.json` with an empty doc | An exported symbol without a doc comment is listed | 95 |
 
 **`go-api-extractor`: Go API pages and anchors** (form c2; old body 621 characters)
 
@@ -841,6 +841,7 @@ Words added by the B2 rewrite (the only words that are not copied from the old b
 | version-history | The history schema constrains presence changes and removed pages | glue | The three values and the pattern are those of "A bundle's doc model is checked before it is compared". |
 | bundle-format | A bundle manifest carries the bundle artifact type and the empty config | condition | ", except when the section-1 spike records outcome B" (words of the old outcome B sentence; one connective). It attaches to the `artifactType` and empty config clauses only, the two that outcome B replaces. The layer and repository clauses stay in "A bundle is one OCI 1.1 artifact with one layer" with no exception. The old sentence is cut at the list boundary after the empty config descriptor; "and" before "exactly one layer" is dropped and "with" opens the second part. |
 | crd-extractor | The crd page holds one entry per kind | cut | "The one exception is the `### Served by` sentence." is the old sentence "The one exception is the `### Served by` sentence, which SHALL name the reconciler ...", cut at the comma; the rest is in "The served-by sentence names no product". |
+| cue-definitions-extractor | A config from outside the source tree gives warnings | referent | "each of the problems of" and the two exact headers of the in-tree requirements replace "each", which meant each problem listed before it in the old requirement |
 | docs-revision | revise does not compare layout | subject | prefix "Between the release tree and the patched tree," copied from the first sentence of the old requirement; "Layout is not compared." -> "layout SHALL NOT be compared" |
 | page-renderer | A completable page without an authored page stands alone | condition | "When a renderer marks a page completable," (copied from the first sentence of the old requirement) |
 | docs-placement | An authored page missing from the main tree has no edit | condition | prefix "In a bundle with `placement.kind: "docs"`, for every page with `generated: false`," (copied from the old first sentence) |
@@ -878,7 +879,7 @@ Every sentence of this change that gained SHALL, MUST or MAY, found by comparing
 the old sentence it was cut from (an old sentence with no keyword before the cut clause). Sentences that
 repeat a SHALL, SHALL NOT or MUST of the same old sentence are not listed one by one: they carry the
 keyword that the old sentence held for a whole list, for example `pull` SHALL ... for each item of a list
-that one SHALL governed. The B1 rows come from a script and one review pass; they are the best list available, not a proof. The human judges these rows at the PR.
+that one SHALL governed. The B1 rows come from a script and one review pass.
 
 | Spec | New requirement | New sentence | Old form |
 | --- | --- | --- | --- |

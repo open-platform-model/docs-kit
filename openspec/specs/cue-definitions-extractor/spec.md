@@ -45,7 +45,7 @@ In a build whose config is in the source tree, each of these SHALL also fail the
 - **THEN** the build exits 2 naming both
 
 ### Requirement: A config from outside the source tree gives warnings
-When the config came from outside the source tree (a backfill), each of these SHALL be a warning on stderr: an unplaced definition SHALL be left out, an undeclared name skipped, a second placement and a colliding name ignored, a definition without a summary kept with an empty one, and a page left with no definition SHALL be dropped.
+When the config came from outside the source tree (a backfill), each of the problems of "A config in the source tree must place or exclude every definition" and of "A config in the source tree must give each definition a summary and an anchor" SHALL be a warning on stderr: an unplaced definition SHALL be left out, an undeclared name skipped, a second placement and a colliding name ignored, a definition without a summary kept with an empty one, and a page left with no definition SHALL be dropped.
 
 #### Scenario: Backfill of an older tag
 - **WHEN** a release build of `v2.0.0-beta.1` uses `main`'s config, which places `#Policy` that the tag lacks

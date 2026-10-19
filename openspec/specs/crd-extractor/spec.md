@@ -13,7 +13,7 @@ A `crd` source SHALL read every `CustomResourceDefinition` in the YAML files of 
 - **THEN** `data/crd.json` lists the kinds by kind name
 
 ### Requirement: The crd model holds the field tables and rules of each kind
-The `crd` source SHALL write, per kind, the spec and status field tables (path, type, required, description cleaned by the doc-comment rules and the citation policy, default, enum) and the validation rules with what enforces them.
+The `crd` source SHALL write `data/crd.json` with schema `docs.opmodel.dev/data/crd/v1`: per kind the spec and status field tables (path, type, required, description cleaned by the doc-comment rules and the citation policy, default, enum) and the validation rules with what enforces them.
 
 #### Scenario: A required spec field
 - **WHEN** `ModuleInstance`'s schema lists `module` under `spec.required`

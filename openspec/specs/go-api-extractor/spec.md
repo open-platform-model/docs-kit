@@ -20,7 +20,7 @@ A `go-api` source SHALL write `data/go-api.json` with schema `docs.opmodel.dev/d
 - **THEN** `New` is listed among `Kernel`'s functions, not among the package's functions
 
 ### Requirement: An exported symbol without a doc comment is listed
-An exported symbol without a doc comment SHALL be listed with its declaration and an empty doc.
+An exported symbol without a doc comment SHALL be listed in `data/go-api.json` with its declaration and an empty doc.
 
 #### Scenario: A symbol without a doc comment
 - **WHEN** an exported symbol has no doc comment

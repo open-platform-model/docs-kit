@@ -58,7 +58,7 @@ The lock SHALL carry an optional `docs` list after `bundles` (and after `history
 ## ADDED Requirements
 
 ### Requirement: The pull config is validated against the embedded schema
-`opm-docs pull --config <file>` SHALL validate the file against the embedded `#Pull` schema: a `registry` and a `signer` (issuer, workflow URL, allowed ref globs), beside `tabs`, `docs` and `sections`, each keyed by project.
+`opm-docs pull --config <file>` SHALL validate the file against the embedded `#Pull` schema: a `registry` and a `signer` (issuer, workflow URL, allowed ref globs), beside `tabs`, `docs` and `sections`, each keyed by project, and `versions` keyed by site version (`v<MAJOR>.<MINOR>`).
 
 #### Scenario: A config with a registry and a signer
 - **WHEN** `opm-docs pull --config <file>` runs on a file that holds a `registry`, a `signer` (issuer, workflow URL, allowed ref globs) and `tabs`, `docs` and `sections` keyed by project
@@ -115,7 +115,7 @@ Before any network call `pull` SHALL refuse, with exit 1 naming the version and 
 - **THEN** `pull` fails the whole pull, naming the project, tag and digest
 
 ### Requirement: The signer identity must match the config
-`pull` SHALL require issuer `https://token.actions.githubusercontent.com`, a SAN equal to the signer workflow URL at a ref matching an allowed glob, Source Repository URI `https://github.com/<repo>` of the tab, and Source Repository Ref `refs/heads/main`.
+`pull` SHALL verify each resolved digest's Sigstore bundle, requiring issuer `https://token.actions.githubusercontent.com`, a SAN equal to the signer workflow URL at a ref matching an allowed glob, Source Repository URI `https://github.com/<repo>` of the tab, and Source Repository Ref `refs/heads/main`.
 
 #### Scenario: A bundle signed by another repository
 - **WHEN** a digest under `docs/catalog-opm` carries a valid signature whose Source Repository URI is `https://github.com/open-platform-model/cli`
