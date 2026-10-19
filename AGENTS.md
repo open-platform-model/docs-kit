@@ -41,6 +41,7 @@ internal/           one package per concern: config, bundle, build, extract/ (on
 docs/               contracts other repositories read; the cross-repo orchestration plan
 .github/workflows/  the reusable publish workflow, CI, cite-lint, release
 openspec/           OpenSpec workspace: config.yaml (constitution), specs/, changes/
+hack/               refresh-snapshots.sh, run by task snapshots:refresh
 ```
 
 ## Commands
