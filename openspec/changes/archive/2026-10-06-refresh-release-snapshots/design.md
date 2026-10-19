@@ -26,7 +26,7 @@ docs-kit replaced four reference generators. Its parity tests prove the replacem
 1. Keep the frozen generator copies as dated residue - they stay true but can never follow a rename, and the old names stay in docs-kit.
 2. Delete the parity tests - the extractors keep unit tests and goldens, but nothing checks a real tree end to end.
 3. Compare with released bundles - real trees, refreshable, traceable to a digest.
-**Decision**: option 3, which the rename to opm-controller (enhancement 0032, "The operator becomes the controller") needs, since a frozen copy cannot follow it.
+**Decision**: option 3, which the rename to opm-controller needs, since a frozen copy cannot follow it.
 **Rationale**: it keeps an end-to-end check on real input and lets the snapshot follow the products.
 
 ### Seeding before the renamed releases exist
