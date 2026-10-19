@@ -135,7 +135,7 @@ context: |
   1. task fmt:check — every Go file gofmt-formatted
   2. task vet and task lint — go vet and golangci-lint pass
   3. task test — every test passes, offline
-  4. task openspec:check — main specs and active changes validate under --strict
+  4. task openspec:check — main specs and active changes validate (--strict is off until the long-requirement rewrite lands)
   `task check` runs all four.
 
   ## Commit Standards
