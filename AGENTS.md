@@ -22,6 +22,8 @@ artifact rules).
   contracts other repositories read. A change to one names every consuming repository.
 - Feature work ships as an OpenSpec change (`spec-driven` schema, specs included), cut into
   mergeable sections that each end green and close with their own commit.
+  The OpenSpec workflow skills (`openspec-propose`, `openspec-apply-change` and the rest) are in
+  `.claude/skills/`.
 - Never push to a registry from a laptop. Registry writes happen in GitHub Actions, through
   `publish.yml` in a caller's CI.
 - Callers pin `publish.yml` by docs-kit release tag. A moved docs-kit tag would let other code sign
@@ -51,7 +53,7 @@ hack/               refresh-snapshots.sh, run by task snapshots:refresh
 | `task build` | Builds `bin/opm-docs` with the version stamped in |
 | `task fmt`, `task fmt:check` | Formats; fails on an unformatted file |
 | `task vet`, `task lint`, `task test` | Vet, golangci-lint, offline unit tests. They cover `cobradump/` too |
-| `task openspec:check` | Validates every spec and active change under `--strict`. `task openspec:install` installs the CLI |
+| `task openspec:check` | Validates every spec and active change with `--strict`. `task openspec:install` installs the CLI |
 | `task cite-lint` | Checks Go and CUE files against the comment rule. Run it by hand: it needs a newer Go than `task check` assumes. CI runs the same check; the excludes are in both and change together |
 | `task check` | `fmt:check`, `vet`, `lint`, `openspec:check`, `test`: the gate before every commit |
 
