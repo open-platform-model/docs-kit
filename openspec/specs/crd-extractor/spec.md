@@ -141,16 +141,16 @@ A kind page SHALL be titled by the kind, weighted by its 1-based position in mod
 ### Requirement: The controller's release snapshot holds one released bundle
 docs-kit SHALL keep a release snapshot of the controller under `internal/render/testdata/controller`: the pages of one released controller docs bundle under its owned section, verified by `opm-docs pull`, the release commit's `docs-kit.cue`, CRDs, samples and authored section index, and a `SOURCE` naming the bundle tag, digest, docs revision, the opm-docs version that built it and the commit.
 
-#### Scenario: A docs revision fix touching an input
-- **WHEN** the pulled bundle is a docs revision whose fix commit changes a file under `config/crd/bases`
-- **THEN** `task snapshots:refresh` exits non-zero naming the fix commit and the file, and the snapshot is unchanged
-
 ### Requirement: The controller's release snapshot renders to its released pages
 Built with the snapshot's own crd source config and its index completed by the authored one, the section SHALL equal the released pages, page set and bodies byte for byte. `task snapshots:refresh` SHALL take a snapshot from a released version and a clone holding its commit, and SHALL refuse a docs revision whose fix commit changes an input of the snapshot.
 
 #### Scenario: Parity with the released controller bundle
 - **WHEN** the snapshot's CRDs and samples are rendered with its `docs-kit.cue` crd source and the index is completed with its authored `_index.md`
 - **THEN** every page equals the released page of the same path, and the released section holds no other page
+
+#### Scenario: A docs revision fix touching an input
+- **WHEN** the pulled bundle is a docs revision whose fix commit changes a file under `config/crd/bases`
+- **THEN** `task snapshots:refresh` exits non-zero naming the fix commit and the file, and the snapshot is unchanged
 
 ### Requirement: A render change after the release is a named rewrite
 A deliberate render change made after the snapshot's bundle was built SHALL be a named rewrite of the released pages in the test, which SHALL fail when the rewrite matches no page.
