@@ -67,7 +67,7 @@ Every extractor source SHALL accept `citations` (`"strip"`, the default, or `"li
 A `markdown` source SHALL accept `include` and `exclude`, lists of patterns relative to its `dir` (a glob, or a directory ending `/` matching every file under it), copying a file that matches some `include` (all files when it is absent) and no `exclude`.
 
 #### Scenario: Include selects one page
-- **WHEN** a `markdown` source has `dir: "docs/site"` and `include: ["reference/operator-resources.md"]`
+- **WHEN** a `markdown` source has `dir: "docs/site"` and `include: ["reference/controller-resources.md"]`
 - **THEN** only that page is copied from `docs/site`
 
 #### Scenario: Exclude a committed generated directory

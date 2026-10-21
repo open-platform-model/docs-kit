@@ -72,8 +72,8 @@ func coreSpec(version string) docsSpec {
 	return docsSpec{project: "core", version: version, owns: []string{"reference/definitions/"}, pages: []string{"reference/definitions/_index.md", "concepts/module.md"}}
 }
 
-func operatorSpec() docsSpec {
-	return docsSpec{project: "opm-operator", version: "1.0.0-beta.4", owns: []string{"reference/operator-resources.md"}, pages: []string{"reference/operator-resources.md"}}
+func controllerSpec() docsSpec {
+	return docsSpec{project: "opm-controller", version: "1.0.0-beta.4", owns: []string{"reference/controller-resources.md"}, pages: []string{"reference/controller-resources.md"}}
 }
 
 // publishDocs pushes, signs as its own repository and promotes a docs
@@ -91,14 +91,14 @@ docs: {
 	cli:            {repo: "open-platform-model/cli"}
 	core:           {repo: "open-platform-model/core"}
 	library:        {repo: "open-platform-model/library"}
-	"opm-operator": {repo: "open-platform-model/opm-operator"}
+	"opm-controller": {repo: "open-platform-model/opm-controller"}
 }
 ` + versions)
 }
 
 const v10 = `versions: "v1.0": {
 	anchor: {project: "cli", tag: "1.0"}
-	pinned: ["core", "opm-operator"]
+	pinned: ["core", "opm-controller"]
 }
 `
 
@@ -126,8 +126,8 @@ func (e *env) publishV10() {
 	e.t.Helper()
 	e.publishDocs(coreSpec("2.0.0-beta.1"))
 	e.publishDocs(coreSpec("2.0.0-beta.2"))
-	e.publishDocs(operatorSpec())
-	e.publishDocs(cliSpec("1.0.0-beta.6", map[string]string{"core": "2.0.0-beta.1", "opm-operator": "1.0.0-beta.4", "library": "1.0.0-beta.1"}))
+	e.publishDocs(controllerSpec())
+	e.publishDocs(cliSpec("1.0.0-beta.6", map[string]string{"core": "2.0.0-beta.1", "opm-controller": "1.0.0-beta.4", "library": "1.0.0-beta.1"}))
 }
 
 func TestSiteVersionFromPins(t *testing.T) {
@@ -138,7 +138,7 @@ func TestSiteVersionFromPins(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := docsOrder(l); got != "v1.0/anchor/cli@1.0=1.0.0-beta.6,v1.0/pinned/core@2.0.0-beta.1=2.0.0-beta.1,v1.0/pinned/opm-operator@1.0.0-beta.4=1.0.0-beta.4" {
+	if got := docsOrder(l); got != "v1.0/anchor/cli@1.0=1.0.0-beta.6,v1.0/pinned/core@2.0.0-beta.1=2.0.0-beta.1,v1.0/pinned/opm-controller@1.0.0-beta.4=1.0.0-beta.4" {
 		t.Fatalf("docs %s", got)
 	}
 	a := l.Docs[0]
@@ -233,18 +233,18 @@ func TestSiteVersionRefusals(t *testing.T) {
 		want  []string
 	}{
 		{"a pinned project without a pin", func(e *env) {
-			e.publishDocs(cliSpec("1.0.0-beta.6", map[string]string{"opm-operator": "1.0.0-beta.4"}))
-			e.publishDocs(operatorSpec())
+			e.publishDocs(cliSpec("1.0.0-beta.6", map[string]string{"opm-controller": "1.0.0-beta.4"}))
+			e.publishDocs(controllerSpec())
 		}, v10, []string{"v1.0", "cli 1.0.0-beta.6", "sha256:", "pins no version of core"}},
 		{"a pinned release without a bundle", func(e *env) {
-			e.publishDocs(cliSpec("1.0.0-beta.6", map[string]string{"core": "2.0.0-beta.1", "opm-operator": "1.0.0-beta.5"}))
+			e.publishDocs(cliSpec("1.0.0-beta.6", map[string]string{"core": "2.0.0-beta.1", "opm-controller": "1.0.0-beta.5"}))
 			e.publishDocs(coreSpec("2.0.0-beta.1"))
-			e.publishDocs(operatorSpec())
-		}, v10, []string{"v1.0", "cli 1.0.0-beta.6", "pins opm-operator 1.0.0-beta.5", "has no bundle", "publish it"}},
+			e.publishDocs(controllerSpec())
+		}, v10, []string{"v1.0", "cli 1.0.0-beta.6", "pins opm-controller 1.0.0-beta.5", "has no bundle", "publish it"}},
 		{"a pinned project never published", func(e *env) {
-			e.publishDocs(cliSpec("1.0.0-beta.6", map[string]string{"core": "2.0.0-beta.1", "opm-operator": "1.0.0-beta.4"}))
+			e.publishDocs(cliSpec("1.0.0-beta.6", map[string]string{"core": "2.0.0-beta.1", "opm-controller": "1.0.0-beta.4"}))
 			e.publishDocs(coreSpec("2.0.0-beta.1"))
-		}, v10, []string{"pins opm-operator 1.0.0-beta.4", "has no bundle"}},
+		}, v10, []string{"pins opm-controller 1.0.0-beta.4", "has no bundle"}},
 		{"an anchor without its tag", func(e *env) {
 			e.publishDocs(cliSpec("0.9.0", nil))
 		}, v10, []string{"v1.0", "/cli has no tag 1.0"}},
@@ -292,7 +292,7 @@ func TestRefusedSiteVersionKeepsThePreviousOne(t *testing.T) {
 	cliBefore := readPage(t, o.Out, "_versions/v1.0/cli/content/reference/cli/opm-module.md")
 	// The next cli pins a core release that has no bundle: the anchor
 	// itself is fine, and is not swapped in.
-	e.publishDocs(cliSpec("1.0.0-beta.7", map[string]string{"core": "2.0.0-beta.3", "opm-operator": "1.0.0-beta.4"}))
+	e.publishDocs(cliSpec("1.0.0-beta.7", map[string]string{"core": "2.0.0-beta.3", "opm-controller": "1.0.0-beta.4"}))
 	if _, err := Run(context.Background(), o); err == nil {
 		t.Fatal("pulled")
 	}
@@ -335,11 +335,11 @@ func TestSiteVersionAllLocal(t *testing.T) {
 	e := newEnv(t)
 	o := e.options(e.docsConfig(v10))
 	e.offline(&o)
-	pins := map[string]string{"core": "2.0.0-beta.1", "opm-operator": "1.0.0-beta.4"}
+	pins := map[string]string{"core": "2.0.0-beta.1", "opm-controller": "1.0.0-beta.4"}
 	o.Locals = []Local{
 		{"cli", "v1.0", docsTree(t, cliSpec("edge", pins))}, // an author's tree: edge is not checked against the anchor's tag
 		{"core", "v1.0", docsTree(t, coreSpec("2.0.0-beta.1"))},
-		{"opm-operator", "v1.0", docsTree(t, operatorSpec())},
+		{"opm-controller", "v1.0", docsTree(t, controllerSpec())},
 	}
 	l, err := Run(context.Background(), o)
 	if err != nil {
@@ -351,7 +351,7 @@ func TestSiteVersionAllLocal(t *testing.T) {
 		}
 	}
 	data, _ := os.ReadFile(o.Lock)
-	if !strings.Contains(string(data), "\"role\": \"anchor\",\n      \"local\": true,") || !strings.Contains(string(data), "\"dir\": \"_versions/v1.0/opm-operator\"") {
+	if !strings.Contains(string(data), "\"role\": \"anchor\",\n      \"local\": true,") || !strings.Contains(string(data), "\"dir\": \"_versions/v1.0/opm-controller\"") {
 		t.Fatalf("lock:\n%s", data)
 	}
 }
@@ -360,11 +360,11 @@ func TestSiteVersionLocalRefusals(t *testing.T) {
 	e := newEnv(t)
 	o := e.options(e.docsConfig(v10))
 	e.offline(&o)
-	pins := map[string]string{"core": "2.0.0-beta.1", "opm-operator": "1.0.0-beta.4"}
+	pins := map[string]string{"core": "2.0.0-beta.1", "opm-controller": "1.0.0-beta.4"}
 	o.Locals = []Local{
 		{"cli", "v1.0", docsTree(t, cliSpec("edge", pins))},
 		{"core", "v1.0", docsTree(t, coreSpec("2.0.0-beta.1"))},
-		{"opm-operator", "v1.0", docsTree(t, operatorSpec())},
+		{"opm-controller", "v1.0", docsTree(t, controllerSpec())},
 	}
 	if _, err := Run(context.Background(), o); err != nil {
 		t.Fatal(err)
@@ -384,9 +384,9 @@ func TestSiteVersionLocalRefusals(t *testing.T) {
 	o.Locals = []Local{
 		{"cli", "v1.0", docsTree(t, cliSpec("1.0.0", map[string]string{"core": "2.0.0-beta.1"}))},
 		{"core", "v1.0", docsTree(t, coreSpec("2.0.0-beta.1"))},
-		{"opm-operator", "v1.0", docsTree(t, operatorSpec())},
+		{"opm-controller", "v1.0", docsTree(t, controllerSpec())},
 	}
-	if _, err := Run(context.Background(), o); err == nil || IsUsage(err) || !strings.Contains(err.Error(), "cli 1.0.0 (local) pins no version of opm-operator") {
+	if _, err := Run(context.Background(), o); err == nil || IsUsage(err) || !strings.Contains(err.Error(), "cli 1.0.0 (local) pins no version of opm-controller") {
 		t.Fatalf("pin missing: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(o.Out, VersionsDir, "v1.0", "cli", "manifest.json")); err != nil {
@@ -400,12 +400,12 @@ func TestSiteVersionLocalAnchorPinsPulledProjects(t *testing.T) {
 	e := newEnv(t)
 	e.publishV10()
 	o := e.options(e.docsConfig(v10))
-	o.Locals = []Local{{"cli", "v1.0", docsTree(t, cliSpec("1.0.0-beta.7", map[string]string{"core": "2.0.0-beta.2", "opm-operator": "1.0.0-beta.4"}))}}
+	o.Locals = []Local{{"cli", "v1.0", docsTree(t, cliSpec("1.0.0-beta.7", map[string]string{"core": "2.0.0-beta.2", "opm-controller": "1.0.0-beta.4"}))}}
 	l, err := Run(context.Background(), o)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := docsOrder(l); got != "v1.0/anchor/cli@=1.0.0-beta.7,v1.0/pinned/core@2.0.0-beta.2=2.0.0-beta.2,v1.0/pinned/opm-operator@1.0.0-beta.4=1.0.0-beta.4" {
+	if got := docsOrder(l); got != "v1.0/anchor/cli@=1.0.0-beta.7,v1.0/pinned/core@2.0.0-beta.2=2.0.0-beta.2,v1.0/pinned/opm-controller@1.0.0-beta.4=1.0.0-beta.4" {
 		t.Fatalf("docs %s", got)
 	}
 	if !l.Docs[0].Local || l.Docs[1].Local || l.Docs[0].Pins["core"] != "2.0.0-beta.2" {
@@ -427,9 +427,9 @@ func TestSiteVersionOverlaps(t *testing.T) {
 	}{
 		{"a page under another bundle's owned directory", nil, core([]string{"reference/definitions/"}, "reference/definitions/_index.md", "reference/cli/_index.md"),
 			"v1.0: core 2.0.0 has reference/cli/_index.md, under reference/cli/, which cli 1.0.0 owns"},
-		{"a page under another bundle's owned page", func(s *docsSpec) { s.pages = append(s.pages, "reference/operator-resources/extra.md") },
-			core([]string{"reference/operator-resources.md"}, "reference/operator-resources.md"),
-			"v1.0: cli 1.0.0 has reference/operator-resources/extra.md, under reference/operator-resources.md, which core 2.0.0 owns"},
+		{"a page under another bundle's owned page", func(s *docsSpec) { s.pages = append(s.pages, "reference/controller-resources/extra.md") },
+			core([]string{"reference/controller-resources.md"}, "reference/controller-resources.md"),
+			"v1.0: cli 1.0.0 has reference/controller-resources/extra.md, under reference/controller-resources.md, which core 2.0.0 owns"},
 		{"a page in two bundles, owned by neither", func(s *docsSpec) { s.pages = append(s.pages, "start/_index.md") }, core(nil, "start/_index.md"),
 			"v1.0: start/_index.md is in both cli 1.0.0 and core 2.0.0"},
 		{"cli.md and cli/_index.md serve one URL", func(s *docsSpec) { s.pages = append(s.pages, "guides/cli.md") }, core(nil, "guides/cli/_index.md"),
@@ -508,7 +508,7 @@ func TestSiteVersionFrozenOffline(t *testing.T) {
 	want, _ := os.ReadFile(o.Lock)
 	_ = os.WriteFile(saved, want, 0o600)
 	// A tag moved since: the frozen pull ignores it.
-	e.publishDocs(cliSpec("1.0.0-beta.7", map[string]string{"core": "2.0.0-beta.2", "opm-operator": "1.0.0-beta.4"}))
+	e.publishDocs(cliSpec("1.0.0-beta.7", map[string]string{"core": "2.0.0-beta.2", "opm-controller": "1.0.0-beta.4"}))
 	_ = os.RemoveAll(o.Out)
 	o.Frozen, o.Offline = saved, true
 	e.stop()
@@ -649,9 +649,9 @@ func TestSiteVersionFrozenLockShape(t *testing.T) {
 	}{
 		{"one project twice", func(l *Lock) { l.Docs = append(l.Docs, l.Docs[docsIndex(l, "core")]) }, "locks v1.0 core twice"},
 		{"a configured project missing", func(l *Lock) {
-			i := docsIndex(l, "opm-operator")
+			i := docsIndex(l, "opm-controller")
 			l.Docs = append(l.Docs[:i], l.Docs[i+1:]...)
-		}, "has no entry for v1.0 opm-operator, which the config pulls as pinned"},
+		}, "has no entry for v1.0 opm-controller, which the config pulls as pinned"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			oo := o

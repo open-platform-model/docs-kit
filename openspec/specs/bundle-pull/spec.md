@@ -267,8 +267,8 @@ After the anchor, `pull` SHALL resolve each pinned project at the release tag eq
 A pinned project with no pin in the anchor's manifest, or a pin whose release tag does not exist, SHALL fail the pull with exit 2 naming the anchor's version, the project, the pinned version and the release to publish. Source: DESIGN decisions 9 and 10.
 
 #### Scenario: A pinned release without a bundle
-- **WHEN** the anchor pins `opm-operator` `1.0.0-beta.5` and `docs/opm-operator` has no tag `1.0.0-beta.5`
-- **THEN** `pull` exits 2 naming the cli version, `opm-operator`, `1.0.0-beta.5` and the release to publish
+- **WHEN** the anchor pins `opm-controller` `1.0.0-beta.5` and `docs/opm-controller` has no tag `1.0.0-beta.5`
+- **THEN** `pull` exits 2 naming the cli version, `opm-controller`, `1.0.0-beta.5` and the release to publish
 
 #### Scenario: A pinned project with no pin
 - **WHEN** the anchor's manifest has no pin for a `pinned` project

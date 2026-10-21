@@ -8,7 +8,7 @@ Status: proposed 2026-10-02, now partly built: phase 1 and phase 1b are built an
 
 ## Why
 
-Today each of four repositories carries its own reference generator: cli (`hack/cmdref`), opm-operator (`hack/crdref`), catalog_opm (`tools/refgen`) and core (`tools/refgen`). That is about 5,800 lines of Go that solve the same problems four times: doc-comment cleanup, citation stripping, Markdown escaping, marker blocks and staleness checks. Each commits its generated pages to git, so every change to a doc comment needs a regenerate step, and catalog_opm's release workflow has to regenerate pages on the release branch.
+Today each of four repositories carries its own reference generator: cli (`hack/cmdref`), opm-controller (`hack/crdref`), catalog_opm (`tools/refgen`) and core (`tools/refgen`). That is about 5,800 lines of Go that solve the same problems four times: doc-comment cleanup, citation stripping, Markdown escaping, marker blocks and staleness checks. Each commits its generated pages to git, so every change to a doc comment needs a regenerate step, and catalog_opm's release workflow has to regenerate pages on the release branch.
 
 The site, in turn, reads every source repository through git. It resolves release lines from tags, archives trees, computes git dates and lints every page with a shell copy of the page dialect. It cannot show more than one version of a single repository's pages side by side, which the Catalogs tab needs: one entry per catalog MAJOR.MINOR, switchable on its own.
 
@@ -29,7 +29,7 @@ Made by the owner on 2026-10-02. Decisions 13 to 16 were approved by the owner l
 | 7 | The bundle is its own artifact under its own path, so its tags follow docs-kit's scheme, not CUE's module rules. |
 | 8 | The Catalogs tab starts at the first opm release published after catalog_opm adopts docs-kit; earlier minors are not backfilled. Amended 2026-10-03: originally "starts at opm 4.4", but every earlier tag holds the catalog at `opm/` while `main` moved it to `src/`, so a backfill with `main`'s config cannot build. Until that release the tab shows only `edge`. |
 | 9 | A site version follows release tags, never branch heads: it shows the newest release of its line plus that release's docs revisions. No bundle is published from a release branch. |
-| 10 | A site version shows the docs of the versions its cli pins (library, core, opm-operator), as it does today. |
+| 10 | A site version shows the docs of the versions its cli pins (library, core, opm-controller), as it does today. |
 | 11 | Third-party catalogs in the Catalogs tab are a possible future extension, out of scope for now. |
 | 12 | Version history in the Catalogs tab is badges and a per-member change list only; no side-by-side diff view. |
 | 13 | Phase 1's done criterion is split: phase 1 ends when the site shows the first released opm minor and edge in the Catalogs tab from pulled, verified bundles; the docs-revision half (`opm-docs revise` and a revision reaching the site) is the follow-up change `add-docs-revisions`. |
@@ -39,7 +39,7 @@ Made by the owner on 2026-10-02. Decisions 13 to 16 were approved by the owner l
 | 17 | The opm repository publishes releases with release-please, and its docs bundle ships on each release, as every other repository's does. |
 | 18 | The enhancements repository is bundled too: one edge-only, unversioned bundle placed at `/enhancements/`. With it, the site build reads no git repository except its own. |
 | 19 | "Edit this page" on a docs page links the page's source file on `main`, whichever version the page shows. |
-| 20 | core, cli, library and opm-operator ship their authored `docs/site/` in the same bundle as their generated reference, from the day they adopt docs-kit: one cutover per repository. Their committed generated pages are excluded from the bundle until the site reads it, then deleted. Phase 3 is left with catalog_opm's docs, opm and enhancements. |
+| 20 | core, cli, library and opm-controller ship their authored `docs/site/` in the same bundle as their generated reference, from the day they adopt docs-kit: one cutover per repository. Their committed generated pages are excluded from the bundle until the site reads it, then deleted. Phase 3 is left with catalog_opm's docs, opm and enhancements. |
 | 21 | opm's first release is `1.0.0-beta.1`, so its minor tag `1.0` follows the v1.0 site version. |
 
 Carried over from the site's existing rules: reference facts are generated in the repository that owns their source; a generated entry states only what its source proves; pages follow the page dialect in the workspace `STYLE.md` ("Site Pages").
@@ -76,7 +76,7 @@ One OCI repository per project, under a `docs/` path so the bundles never mix wi
 ghcr.io/open-platform-model/docs/catalog-opm
 ghcr.io/open-platform-model/docs/core
 ghcr.io/open-platform-model/docs/cli
-ghcr.io/open-platform-model/docs/opm-operator
+ghcr.io/open-platform-model/docs/opm-controller
 ghcr.io/open-platform-model/docs/library
 ghcr.io/open-platform-model/docs/opm          (phase 3: the authored-only repository)
 ```
@@ -218,7 +218,7 @@ Each extractor turns one kind of source into the doc model in `data/`. The rende
 |---|---|---|---|
 | `cue-catalog` | a catalog module, evaluated with the CUE Go API: members, fulfilment, `optional`, served-by from the transformers, doc comments, and each spec as structured fields (path, type, default, required) beside its formatted CUE | catalog_opm `tools/refgen` | yes |
 | `cue-definitions` | a CUE package's exported definitions, parsed with their doc comments | core `tools/refgen` | yes |
-| `crd` | controller-gen CRD YAML, plus `config/samples` | opm-operator `hack/crdref` | yes |
+| `crd` | controller-gen CRD YAML, plus `config/samples` | opm-controller `hack/crdref` | yes |
 | `cobra` | a JSON dump of a cobra command tree | cli `internal/cmdref` | needs a hook |
 | `go-api` | a Go package's exported API with `go/doc` | nothing yet (library, phase 2) | yes |
 | `markdown` | authored pages in the page dialect, copied with their git dates | the site's git archives (phase 3) | yes |
@@ -305,14 +305,14 @@ The first published minor is the oldest with a bundle, so a member present in it
 ### Phase 2: every generated reference
 
 - docs-kit: `cue-definitions`, `crd`, `cobra` (with `cobradump`) and `go-api` extractors.
-- core, opm-operator, cli: their generators and committed pages removed; bundles placed in `/docs/` of the site version. Each of core, cli, library and opm-operator ships its authored `docs/site/` in the same bundle from adoption on (decision 20), so phase 3 does not touch them again.
+- core, opm-controller, cli: their generators and committed pages removed; bundles placed in `/docs/` of the site version. Each of core, cli, library and opm-controller ships its authored `docs/site/` in the same bundle from adoption on (decision 20), so phase 3 does not touch them again.
 - library: an API reference for the first time.
 - Done when: no repository commits generated pages, and the site's two Reference placeholders are gone.
 
 ### Phase 3: authored pages
 
 - docs-kit: the `markdown` extractor with git dates; `opm-docs serve`.
-- Every remaining repository's `docs/site/` ships in its bundle (core, cli, library and opm-operator already did in phase 2, decision 20): catalog_opm's as a second project beside its tab; the opm repository gets one, released with release-please (decision 17) from `1.0.0-beta.1` (decision 21); the enhancements repository gets an edge-only bundle (decision 18).
+- Every remaining repository's `docs/site/` ships in its bundle (core, cli, library and opm-controller already did in phase 2, decision 20): catalog_opm's as a second project beside its tab; the opm repository gets one, released with release-please (decision 17) from `1.0.0-beta.1` (decision 21); the enhancements repository gets an edge-only bundle (decision 18).
 - opmodel.dev: site versions resolve from bundle tags instead of git; `materialise.sh`, the git-date step and the shell lint are removed.
 - Done when: the site build reads no git repository except its own.
 

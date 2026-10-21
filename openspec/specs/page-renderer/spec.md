@@ -84,9 +84,9 @@ Each source kind SHALL write one data file under `data/` with its own schema id,
 ### Requirement: Completable pages take an authored page first
 When a renderer marks a page completable and a `markdown` source of the same bundle supplies a page at the same path, the bundle's page SHALL be the authored front matter and body, one blank line, then the generated body without its own front matter, recorded as `generated: false` with the authored file as `source`. An authored body holding the generated body's first heading SHALL fail the build with exit 2 naming the file.
 
-#### Scenario: The operator's resource page
-- **WHEN** the `crd` source renders `reference/operator-resources.md` and a `markdown` source over `docs/site` supplies `reference/operator-resources.md`
-- **THEN** the page holds the authored front matter and intro followed by the generated resource entries, and `manifest.json` records it with `source` `docs/site/reference/operator-resources.md`
+#### Scenario: The controller's resource page
+- **WHEN** the `crd` source renders `reference/controller-resources.md` and a `markdown` source over `docs/site` supplies `reference/controller-resources.md`
+- **THEN** the page holds the authored front matter and intro followed by the generated resource entries, and `manifest.json` records it with `source` `docs/site/reference/controller-resources.md`
 
 ### Requirement: A landing without an authored landing holds the generated block alone
 The block is the generated `## Catalog members` section of "The landing always carries the generated members block". Without an authored landing, the renderer SHALL write a landing holding generated front matter and the block alone.

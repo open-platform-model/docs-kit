@@ -43,7 +43,7 @@ func TestPlacement(t *testing.T) {
 	}{
 		{`{"kind": "tab", "root": "/catalogs/opm/"}`, true},
 		{`{"kind": "docs", "root": "/docs/"}`, true},
-		{`{"kind": "docs", "root": "/docs/", "owns": ["reference/cli/", "reference/operator-resources.md"]}`, true},
+		{`{"kind": "docs", "root": "/docs/", "owns": ["reference/cli/", "reference/controller-resources.md"]}`, true},
 		{`{"kind": "docs", "root": "/docs/", "owns": ["reference/cli"]}`, false},
 		{`{"kind": "docs", "root": "/docs/", "owns": ["/reference/"]}`, false},
 		{`{"kind": "docs", "root": "/docs/", "owns": ["reference/../x/"]}`, false},

@@ -14,14 +14,14 @@ import (
 )
 
 // editRepo is a repository whose tag v1.0.0 holds docs/site/start/install.md,
-// docs/site/guide.md and docs/site/reference/operator-resources.md (which
+// docs/site/guide.md and docs/site/reference/controller-resources.md (which
 // completes the fake extractor's completable page), and whose main has
 // since renamed install.md to setup.md and added new.md.
 func editRepo(t *testing.T) *gittest.Repo {
 	t.Helper()
 	t.Setenv("GITHUB_REPOSITORY", "")
 	t.Setenv("GITHUB_REF_TYPE", "")
-	extractors = append(extractors, fakeExtractor{pages: []string{"reference/operator-resources.md", "reference/generated.md"}})
+	extractors = append(extractors, fakeExtractor{pages: []string{"reference/controller-resources.md", "reference/generated.md"}})
 	rendererFor = func(s string) (render.Renderer, error) {
 		if s == fakeSchema {
 			return fakeRenderer{}, nil
@@ -30,13 +30,13 @@ func editRepo(t *testing.T) *gittest.Repo {
 	}
 	t.Cleanup(func() { extractors = extractors[:len(extractors)-1]; rendererFor = render.For })
 	r := gittest.New(t, "https://github.com/example/cli.git")
-	page := func(title string) string { return strings.Replace(authoredOps, "Operator resources", title, 1) }
+	page := func(title string) string { return strings.Replace(authoredOps, "Controller resources", title, 1) }
 	r.Write(map[string]string{
-		"README.md":                                 "x\n",
-		"docs/site/start/install.md":                page("Install"),
-		"docs/site/guide.md":                        page("Guide"),
-		"docs/site/reference/operator-resources.md": authoredOps,
-		"docs/catalogs/demo/_index.md":              "---\ntitle: \"Demo\"\ndescription: \"x\"\n---\n\nThe demo catalog.\n",
+		"README.md":                                   "x\n",
+		"docs/site/start/install.md":                  page("Install"),
+		"docs/site/guide.md":                          page("Guide"),
+		"docs/site/reference/controller-resources.md": authoredOps,
+		"docs/catalogs/demo/_index.md":                "---\ntitle: \"Demo\"\ndescription: \"x\"\n---\n\nThe demo catalog.\n",
 	})
 	r.Commit("docs")
 	r.Git("tag", "v1.0.0")
@@ -103,10 +103,10 @@ func TestEditRelease(t *testing.T) {
 	r := editRepo(t)
 	pages := editBuild(t, Options{Source: tagTree(t, r), Main: r.Dir, Release: "v1.0.0"}, "docs")
 	wantEdits(t, pages, map[string]string{
-		"guide.md":                        "docs/site/guide.md",
-		"reference/operator-resources.md": "docs/site/reference/operator-resources.md", // completed: authored
-		"start/install.md":                "",                                          // renamed on main
-		"reference/generated.md":          "",
+		"guide.md":                          "docs/site/guide.md",
+		"reference/controller-resources.md": "docs/site/reference/controller-resources.md", // completed: authored
+		"start/install.md":                  "",                                            // renamed on main
+		"reference/generated.md":            "",
 	})
 	if p := pages["start/install.md"]; p.Source != "docs/site/start/install.md" {
 		t.Errorf("renamed page keeps its source: %+v", p)
@@ -131,11 +131,11 @@ func TestEditEdge(t *testing.T) {
 	// the main tree.
 	pages := editBuild(t, Options{Source: r.Dir}, "docs")
 	wantEdits(t, pages, map[string]string{
-		"guide.md":                        "docs/site/guide.md",
-		"new.md":                          "docs/site/new.md",
-		"start/setup.md":                  "docs/site/start/setup.md",
-		"reference/operator-resources.md": "docs/site/reference/operator-resources.md",
-		"reference/generated.md":          "",
+		"guide.md":                          "docs/site/guide.md",
+		"new.md":                            "docs/site/new.md",
+		"start/setup.md":                    "docs/site/start/setup.md",
+		"reference/controller-resources.md": "docs/site/reference/controller-resources.md",
+		"reference/generated.md":            "",
 	})
 }
 
@@ -144,17 +144,17 @@ func TestEditRevision(t *testing.T) {
 	src := tagTree(t, r)
 	fix := r.Head()
 	// The fix's new page, applied and staged as revise leaves the tree.
-	if err := os.WriteFile(filepath.Join(src, "docs", "site", "new.md"), []byte(strings.Replace(authoredOps, "Operator resources", "New", 1)), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(src, "docs", "site", "new.md"), []byte(strings.Replace(authoredOps, "Controller resources", "New", 1)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	r.Git("-C", src, "add", "docs/site/new.md")
 	pages := editBuild(t, Options{Source: src, Main: r.Dir, Release: "v1.0.0", Revision: 1, Patches: []string{fix}}, "docs")
 	wantEdits(t, pages, map[string]string{
-		"guide.md":                        "docs/site/guide.md",
-		"new.md":                          "docs/site/new.md",
-		"start/install.md":                "",
-		"reference/operator-resources.md": "docs/site/reference/operator-resources.md",
-		"reference/generated.md":          "",
+		"guide.md":                          "docs/site/guide.md",
+		"new.md":                            "docs/site/new.md",
+		"start/install.md":                  "",
+		"reference/controller-resources.md": "docs/site/reference/controller-resources.md",
+		"reference/generated.md":            "",
 	})
 }
 
@@ -196,9 +196,9 @@ func TestEditFixed(t *testing.T) {
 	pages := editBuild(t, Options{Source: tagTree(t, r), Main: r.Dir, Release: "v1.0.0",
 		Edits: map[string]string{"start/install.md": "docs/site/start/install.md"}}, "docs")
 	wantEdits(t, pages, map[string]string{
-		"start/install.md":                "docs/site/start/install.md",
-		"guide.md":                        "",
-		"reference/operator-resources.md": "",
-		"reference/generated.md":          "",
+		"start/install.md":                  "docs/site/start/install.md",
+		"guide.md":                          "",
+		"reference/controller-resources.md": "",
+		"reference/generated.md":            "",
 	})
 }

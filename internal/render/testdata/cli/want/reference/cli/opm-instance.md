@@ -1,0 +1,524 @@
+---
+title: "opm instance"
+description: "Work with instance files and deployed instances."
+type: reference
+---
+
+Every command on this page also takes the [global flags](/docs/reference/cli/#global-flags).
+
+## opm instance
+
+Work with instance files and deployed instances.
+
+```text
+opm instance [command]
+```
+
+Aliases: `i`, `ins`, `inst`.
+
+Work with OPM instance files.
+
+Use this command group when you are starting from an instance definition: create one for a published module, render it, validate it, diff it, apply it, or inspect an already deployed instance.
+
+For operations that start from module source, use `opm module`.
+
+**Subcommands**
+
+| Command | Summary |
+| --- | --- |
+| [opm instance apply](/docs/reference/cli/opm-instance/#opm-instance-apply) | Deploy instance to cluster. |
+| [opm instance build](/docs/reference/cli/opm-instance/#opm-instance-build) | Render an instance to manifests. |
+| [opm instance delete](/docs/reference/cli/opm-instance/#opm-instance-delete) | Delete instance resources from cluster. |
+| [opm instance diff](/docs/reference/cli/opm-instance/#opm-instance-diff) | Show differences between instance file and cluster. |
+| [opm instance events](/docs/reference/cli/opm-instance/#opm-instance-events) | Show events for an instance. |
+| [opm instance init](/docs/reference/cli/opm-instance/#opm-instance-init) | Create an instance package for a published module. |
+| [opm instance list](/docs/reference/cli/opm-instance/#opm-instance-list) | List deployed instances. |
+| [opm instance status](/docs/reference/cli/opm-instance/#opm-instance-status) | Show resource status for an instance. |
+| [opm instance tree](/docs/reference/cli/opm-instance/#opm-instance-tree) | Show resource hierarchy for an instance. |
+| [opm instance vet](/docs/reference/cli/opm-instance/#opm-instance-vet) | Validate instance file without generating manifests. |
+
+## opm instance apply
+
+Deploy instance to cluster.
+
+```text
+opm instance apply <instance.cue> [flags]
+```
+
+Deploy an OPM instance file to a Kubernetes cluster using server-side apply.
+
+Apply records what it deployed in a ModuleInstance custom resource, so the ModuleInstance CRD must be installed first (run `opm controller install --crds-only`). Apply fails fast with a hint if it is missing or out of date.
+
+Pruning keeps PersistentVolumeClaims: a claim the module no longer renders stays in the cluster and in the inventory, is listed with the status "kept", and does not fail the apply. Pass `--delete-data` to prune such claims and the data on them; a claim kept by an earlier apply is pruned then too. On a controller-managed instance the controller decides what is pruned: a controller that has spec.dataPolicy keeps PersistentVolumeClaims unless that field of the instance is Delete, an older controller prunes them, and `--delete-data` does not change either.
+
+Arguments:
+
+```text
+instance.cue    Path to the instance .cue file (required)
+```
+
+**Flags**
+
+| Flag | Shorthand | Type | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--context` |  | string |  | Kubernetes context to use. |
+| `--create-namespace` |  | bool |  | Create target namespace if it does not exist. |
+| `--delete-data` |  | bool |  | Also prune stale PersistentVolumeClaims and the data on them (kept by default). |
+| `--dry-run` |  | bool |  | Server-side dry run (no changes made); skips objects whose CustomResourceDefinition or namespace the apply creates, which the server cannot validate yet. |
+| `--force` |  | bool |  | Allow empty render to prune all previously tracked resources. |
+| `--kubeconfig` |  | string |  | Path to kubeconfig file. |
+| `--namespace` | `-n` | string |  | Namespace; must equal the instance file's metadata.namespace. |
+| `--no-prune` |  | bool |  | Skip stale resource pruning. |
+| `--platform` |  | string |  | Platform module directory (overrides the cluster Platform and the instance's own deps). |
+| `--skip-unprovided` |  | bool |  | Render what the platform can: skip provider-fulfilled contracts nothing on the platform provides, and report each one. |
+| `--timeout` |  | duration | `5m0s` | Bound on the CustomResourceDefinition establish wait (counted from the start of the apply), on the `--wait` readiness wait, and on the controller-reconcile wait (controller-managed instances). |
+| `--values` | `-f` | stringArray |  | Values files added on top of the instance package, which already includes its `values.cue` (can be repeated). |
+| `--wait` |  | bool |  | Wait until every applied resource is healthy before returning (skipped on `--dry-run`; controller-managed instances always wait for the controller). |
+
+**Examples**
+
+```sh
+# Apply an instance file
+opm instance apply ./jellyfin_instance.cue
+
+# Apply and block until every resource is healthy (or --timeout runs out)
+opm instance apply ./jellyfin_instance.cue --wait --timeout 10m
+
+# Dry run (skips the cluster gates; no CRD required)
+opm instance apply ./jellyfin_instance.cue --dry-run
+```
+
+## opm instance build
+
+Render an instance to manifests.
+
+```text
+opm instance build <instance.cue | instance-dir> [flags]
+```
+
+Render an OPM instance to Kubernetes manifests.
+
+The argument names an instance package: a .cue file (the instance is the package in the file's directory) or a directory holding the package. The directory may be a CUE module of its own or a package inside another module, such as an instance directory within a module tree. What the package is decides, not its file names: a module package is refused with the command that builds it, `opm module build <dir>`.
+
+The platform is `--platform <dir>`, else the cluster's Platform when the kubeconfig context reaches one, else a platform generated from the instance package's own dependency pins. The cluster is never required: an absent Platform or an unreachable cluster warns and falls back to the deps, and `--offline` skips the cluster entirely.
+
+Arguments:
+
+```text
+instance.cue    Path to an instance .cue file
+instance-dir    Path to an instance package directory
+```
+
+**Flags**
+
+| Flag | Shorthand | Type | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--context` |  | string |  | Kubernetes context to use. |
+| `--kubeconfig` |  | string |  | Path to kubeconfig file. |
+| `--namespace` | `-n` | string |  | Namespace; must equal the instance file's metadata.namespace. |
+| `--offline` |  | bool |  | Never contact a cluster; render against `--platform` or the instance's own deps. |
+| `--out-dir` |  | string | `./manifests` | Directory for split output. |
+| `--output` | `-o` | string | `yaml` | Output format: yaml, json. |
+| `--platform` |  | string |  | Platform module directory (overrides the cluster Platform and the instance's own deps). |
+| `--skip-unprovided` |  | bool |  | Render what the platform can: skip provider-fulfilled contracts nothing on the platform provides, and report each one. |
+| `--split` |  | bool |  | Write separate files per resource. |
+| `--values` | `-f` | stringArray |  | Values files added on top of the instance package, which already includes its `values.cue` (can be repeated). |
+
+**Examples**
+
+```sh
+# Build an instance file
+opm instance build ./jellyfin_instance.cue
+
+# Build an instance package directory
+opm instance build ./instances/jellyfin
+
+# Build with split output
+opm instance build ./jellyfin_instance.cue --split --out-dir ./manifests
+
+# Build as JSON
+opm instance build ./jellyfin_instance.cue -o json
+
+# Build without contacting any cluster
+opm instance build ./jellyfin_instance.cue --offline
+```
+
+## opm instance delete
+
+Delete instance resources from cluster.
+
+```text
+opm instance delete <file|name|uuid> [flags]
+```
+
+Delete the resources belonging to an OPM instance from a Kubernetes cluster (CRDs and Namespaces are left behind, PersistentVolumeClaims are kept).
+
+PersistentVolumeClaims are kept by default, because deleting one deletes the data on its volume. Each kept claim is listed with the status "kept", the command still exits 0, and the closing output prints the `kubectl delete pvc` command for each one. The ModuleInstance is deleted, so OPM no longer tracks a kept claim and no later opm command deletes it; applying the instance again takes it back. Pass `--delete-data` to delete the claims and their data with the instance; the confirmation prompt then names each claim. Claims a StatefulSet created from volumeClaimTemplates are not tracked by OPM and are never deleted here, with or without the flag: Kubernetes keeps them by default.
+
+None of this holds for a controller-managed instance: there the controller deletes what the instance tracks when spec.prune is set, and leaves all of it running otherwise. A controller that has spec.dataPolicy keeps PersistentVolumeClaims unless that field of the instance is Delete; a controller without the field deletes them. The confirmation prompt says which holds: it reads spec.prune and spec.dataPolicy from the instance, and from the ModuleInstance CRD whether the controller has the field. `--delete-data` does not change what the controller does.
+
+CustomResourceDefinitions and Namespaces are never deleted, since deleting one takes every custom resource of its kind, or everything inside it, with it. Each tracked resource is also read again just before its delete, and a resource that is no longer managed by OPM, now belongs to another instance, or carries an `opmodel.dev/adopt` annotation naming another instance is left behind. Every resource left behind is listed with its reason; remove it with `kubectl delete` once nothing else needs it.
+
+The command returns when the API server has accepted every delete. A deleted resource can still exist then, terminating, until its dependents and its finalizers are gone. Pass `--wait` to return only when every resource this run deleted is gone: its read returns NotFound, or a new object holds its name. `--timeout` (default 5m0s) bounds the wait and starts with it. Kept claims, resources left behind and resources that were already gone are not waited for. When the wait times out, the command lists each resource that is still terminating, with its finalizers, keeps the ModuleInstance and exits 1; run the same command again to wait again, or without `--wait` to delete the ModuleInstance and stop tracking those resources. `--wait` does nothing on `--dry-run`, and nothing when a resource failed to delete. For a controller-managed instance the command always waits, bounded by `--timeout`, until the ModuleInstance is gone, with or without `--wait`; it does not check the resources the controller prunes.
+
+Deleting an instance that deploys the controller (the instance opm-controller in opm-system, any instance of the controller module, or one whose inventory holds the controller's CRDs) is refused in two cases, dry runs included. While it is controller-owned: the controller never reconciles or prunes the instance that deploys it, so set spec.owner to cli first. And while any instance still carries the controller's `opmodel.dev/cleanup` finalizer: removing the controller would leave them unable to finish deletion. Run `opm controller uninstall --remove-finalizers` to remove that finalizer first, which orphans those instances' workloads. `--yes` does not bypass either.
+
+Arguments:
+
+```text
+file         Path to an instance.cue file or directory containing one.
+             The instance name and namespace are read from the file's metadata.
+             --namespace overrides the namespace found in the file.
+name         Instance name (use -n / --namespace to scope by namespace).
+uuid         Instance UUID.
+```
+
+**Flags**
+
+| Flag | Shorthand | Type | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--context` |  | string |  | Kubernetes context to use. |
+| `--delete-data` |  | bool |  | Also delete PersistentVolumeClaims and the data on them (kept by default). |
+| `--dry-run` |  | bool |  | Preview without deleting. |
+| `--kubeconfig` |  | string |  | Path to kubeconfig file. |
+| `--namespace` | `-n` | string |  | Target namespace. |
+| `--timeout` |  | duration | `5m0s` | Bound on the `--wait` wait, and on the controller-cleanup wait of a controller-managed instance. |
+| `--wait` |  | bool |  | Wait until every resource this run deleted is gone before returning (skipped on `--dry-run`; controller-managed instances always wait for the controller). |
+| `--yes` | `-y` | bool |  | Skip the confirmation prompt. |
+
+**Examples**
+
+```sh
+# Delete by instance.cue file in the current directory
+opm instance delete .
+
+# Delete by instance.cue file path
+opm instance delete ./instances/jellyfin/instance.cue -n media
+
+# Delete by name
+opm instance delete jellyfin -n media
+
+# Preview what would be deleted
+opm instance delete jellyfin -n media --dry-run
+
+# Skip the confirmation prompt
+opm instance delete jellyfin -n media --yes
+
+# Also delete the PersistentVolumeClaims and the data on them
+opm instance delete jellyfin -n media --delete-data
+
+# Return only when the deleted resources are gone, or after two minutes
+opm instance delete jellyfin -n media --yes --wait --timeout 2m
+```
+
+## opm instance diff
+
+Show differences between instance file and cluster.
+
+```text
+opm instance diff <instance.cue> [flags]
+```
+
+Show differences between an instance file and live cluster state.
+
+Arguments:
+
+```text
+instance.cue    Path to the instance .cue file (required)
+```
+
+**Flags**
+
+| Flag | Shorthand | Type | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--context` |  | string |  | Kubernetes context to use. |
+| `--kubeconfig` |  | string |  | Path to kubeconfig file. |
+| `--namespace` | `-n` | string |  | Namespace; must equal the instance file's metadata.namespace. |
+| `--platform` |  | string |  | Platform module directory (overrides the cluster Platform and the instance's own deps). |
+| `--skip-unprovided` |  | bool |  | Render what the platform can: skip provider-fulfilled contracts nothing on the platform provides, and report each one. |
+| `--values` | `-f` | stringArray |  | Values files added on top of the instance package, which already includes its `values.cue` (can be repeated). |
+
+**Examples**
+
+```sh
+# Diff an instance file against the cluster
+opm instance diff ./jellyfin_instance.cue
+```
+
+## opm instance events
+
+Show events for an instance.
+
+```text
+opm instance events <file|name|uuid> [flags]
+```
+
+Show Kubernetes events for all resources belonging to an OPM instance.
+
+Arguments:
+
+```text
+file         Path to an instance.cue file or directory containing one.
+             The instance name and namespace are read from the file's metadata.
+             --namespace overrides the namespace found in the file.
+name         Instance name (use -n / --namespace to scope by namespace).
+uuid         Instance UUID.
+```
+
+**Flags**
+
+| Flag | Shorthand | Type | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--context` |  | string |  | Kubernetes context to use. |
+| `--kubeconfig` |  | string |  | Path to kubeconfig file. |
+| `--namespace` | `-n` | string |  | Target namespace. |
+| `--output` | `-o` | string | `table` | Output format (table, json, yaml). |
+| `--since` |  | string | `1h` | Time window for events (e.g., 30m, 1h, 2h30m). |
+| `--type` |  | string |  | Filter by event type: Normal, Warning. |
+| `--watch` |  | bool |  | Stream new events in real-time. |
+
+**Examples**
+
+```sh
+# Identify by instance.cue file in the current directory
+opm instance events .
+
+# Identify by instance.cue file path
+opm instance events ./instances/jellyfin/instance.cue -n media
+
+# Identify by name
+opm instance events jellyfin -n media
+
+# Stream events in real-time
+opm instance events jellyfin -n media --watch
+```
+
+## opm instance init
+
+Create an instance package for a published module.
+
+```text
+opm instance init [instance-name] [module-path] [flags]
+```
+
+Create a standalone instance package that deploys a published module.
+
+The package is a directory holding three files:
+
+```text
+cue.mod/module.cue  pins the module at the resolved version, core at the
+                    version the module declares, and their dependencies
+instance.cue        binds the module to a #ModuleInstance with the name
+                    and namespace
+values.cue          starting values: the module's initValues, else its
+                    debugValues when fully concrete, else empty
+```
+
+The module path carries no major. Without `--version` the newest release of the highest major built on this CLI's core major is chosen; `--version` vN floats within major N and `--version` X.Y.Z pins that release.
+
+The target directory must not exist and must not sit inside another CUE module. The package is written completely or not at all. Init does not validate the values; run `opm instance vet <dir>/instance.cue` next.
+
+Missing arguments are prompted for on a terminal, in the order instance name, module path, namespace.
+
+Exit codes: 0 written, 2 refused, 3 registry unreachable.
+
+**Flags**
+
+| Flag | Shorthand | Type | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--dir` |  | string |  | Target directory (defaults to the instance name). |
+| `--from` |  | string |  | Module path to deploy (instead of the positional). |
+| `--module-path` |  | string |  | The package's own module path (defaults to `instance.local/<name>@v0`). |
+| `--namespace` | `-n` | string |  | Instance namespace (prompted on a terminal). |
+| `--version` |  | string |  | vN floats within major N; X.Y.Z pins a release. |
+
+**Examples**
+
+```sh
+# Deploy cert_manager into its own namespace
+opm instance init cert-manager opmodel.dev/modules/cert_manager -n cert-manager
+
+# Pin a release and choose the directory
+opm instance init web opmodel.dev/modules/web_app --version 1.0.4 -n demo --dir deploy/web
+
+# Name the module with --from
+opm instance init web --from opmodel.dev/modules/web_app -n demo
+```
+
+## opm instance list
+
+List deployed instances.
+
+```text
+opm instance list [flags]
+```
+
+List all deployed OPM instances in a namespace.
+
+**Flags**
+
+| Flag | Shorthand | Type | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--all-namespaces` | `-A` | bool |  | List instances across all namespaces. |
+| `--context` |  | string |  | Kubernetes context to use. |
+| `--kubeconfig` |  | string |  | Path to kubeconfig file. |
+| `--namespace` | `-n` | string |  | Kubernetes namespace (default from config). |
+| `--output` | `-o` | string | `table` | Output format (table, wide, yaml, json). |
+
+**Examples**
+
+```sh
+# List instances in the default namespace
+opm instance list
+
+# List instances in a specific namespace
+opm instance list -n production
+
+# List across all namespaces
+opm instance list -A
+```
+
+## opm instance status
+
+Show resource status for an instance.
+
+```text
+opm instance status <file|name|uuid> [flags]
+```
+
+Show status of resources deployed by an OPM instance.
+
+The exit code carries the verdict, so a pipeline can act on it without reading the output:
+
+```text
+0  every tracked resource is healthy
+1  usage error, or the instance record could not be read
+2  a resource is not ready, or a tracked resource could not be read
+3  the cluster could not be reached
+4  permission denied
+5  the instance or its resources were not found
+```
+
+Arguments:
+
+```text
+file         Path to an instance.cue file or directory containing one.
+             The instance name and namespace are read from the file's metadata.
+             --namespace overrides the namespace found in the file.
+name         Instance name (use -n / --namespace to scope by namespace).
+uuid         Instance UUID.
+```
+
+**Flags**
+
+| Flag | Shorthand | Type | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--context` |  | string |  | Kubernetes context to use. |
+| `--details` |  | bool |  | Show pod-level diagnostics for unhealthy workloads. |
+| `--kubeconfig` |  | string |  | Path to kubeconfig file. |
+| `--namespace` | `-n` | string |  | Target namespace (default: from config). |
+| `--output` | `-o` | string | `table` | Output format (table, wide, yaml, json). |
+
+**Examples**
+
+```sh
+# Identify by instance.cue file in the current directory
+opm instance status .
+
+# Identify by instance.cue file path
+opm instance status ./instances/jellyfin/instance.cue
+
+# Identify by name
+opm instance status jellyfin -n media
+
+# Wide output
+opm instance status jellyfin -n media -o wide
+```
+
+## opm instance tree
+
+Show resource hierarchy for an instance.
+
+```text
+opm instance tree <file|name|uuid> [flags]
+```
+
+Show the component and resource hierarchy of a deployed OPM instance.
+
+Arguments:
+
+```text
+file         Path to an instance.cue file or directory containing one.
+             The instance name and namespace are read from the file's metadata.
+             --namespace overrides the namespace found in the file.
+name         Instance name (use -n / --namespace to scope by namespace).
+uuid         Instance UUID.
+```
+
+**Flags**
+
+| Flag | Shorthand | Type | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--context` |  | string |  | Kubernetes context to use. |
+| `--depth` |  | int | `2` | Tree depth: `0=summary`, `1=resources`, `2=full` hierarchy. |
+| `--kubeconfig` |  | string |  | Path to kubeconfig file. |
+| `--namespace` | `-n` | string |  | Target namespace. |
+| `--output` | `-o` | string | `table` | Output format (table, json, yaml). |
+
+**Examples**
+
+```sh
+# Identify by instance.cue file in the current directory
+opm instance tree .
+
+# Identify by instance.cue file path
+opm instance tree ./instances/jellyfin/instance.cue
+
+# Identify by name, full tree (default depth=2)
+opm instance tree jellyfin -n media
+
+# Component summary only
+opm instance tree jellyfin -n media --depth 0
+```
+
+## opm instance vet
+
+Validate instance file without generating manifests.
+
+```text
+opm instance vet <instance.cue> [flags]
+```
+
+Validate an OPM instance file via the render pipeline.
+
+This command loads an instance file and renders it through the library kernel (component matching and transformer execution happen inside that one build), so it validates the instance can be rendered successfully. No manifests are output — purely a pass/fail validation tool.
+
+The platform is `--platform <dir>`, else the cluster's Platform when the kubeconfig context reaches one, else a platform generated from the instance package's own dependency pins. The cluster is never required: an absent Platform or an unreachable cluster warns and falls back to the deps, and `--offline` skips the cluster entirely.
+
+Arguments:
+
+```text
+instance.cue    Path to the instance .cue file (required)
+```
+
+**Flags**
+
+| Flag | Shorthand | Type | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--context` |  | string |  | Kubernetes context to use. |
+| `--kubeconfig` |  | string |  | Path to kubeconfig file. |
+| `--namespace` | `-n` | string |  | Namespace; must equal the instance file's metadata.namespace. |
+| `--offline` |  | bool |  | Never contact a cluster; render against `--platform` or the instance's own deps. |
+| `--platform` |  | string |  | Platform module directory (overrides the cluster Platform and the instance's own deps). |
+| `--skip-unprovided` |  | bool |  | Render what the platform can: skip provider-fulfilled contracts nothing on the platform provides, and report each one. |
+| `--values` | `-f` | stringArray |  | Values files added on top of the instance package, which already includes its `values.cue` (can be repeated). |
+
+**Examples**
+
+```sh
+# Validate an instance file
+opm instance vet ./jellyfin_instance.cue
+
+# Validate without contacting any cluster
+opm instance vet ./jellyfin_instance.cue --offline
+```

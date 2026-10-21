@@ -59,7 +59,7 @@ func (fakeRenderer) Render(data []byte, _ render.Target) ([]render.Page, error) 
 	return out, nil
 }
 
-const authoredOps = "---\ntitle: \"Operator resources\"\ndescription: \"x\"\ntype: reference\n---\n\nIntro, with the [catalog](/catalogs/opm/4/).\n"
+const authoredOps = "---\ntitle: \"Controller resources\"\ndescription: \"x\"\ntype: reference\n---\n\nIntro, with the [catalog](/catalogs/opm/4/).\n"
 
 // docsBuild builds a docs-placed bundle owning owns from a fake extractor
 // writing pages and a markdown source over docs/site holding files.
@@ -111,16 +111,16 @@ func pageEntry(m *bundle.Manifest, path string) bundle.Page {
 }
 
 func TestDocsCompletablePage(t *testing.T) {
-	m, dir, err := docsBuild(t, []string{"reference/"}, []string{"reference/operator-resources.md"},
-		map[string]string{"docs/site/reference/operator-resources.md": authoredOps, "docs/site/guide.md": strings.Replace(authoredOps, "Intro", "Guide", 1)})
+	m, dir, err := docsBuild(t, []string{"reference/"}, []string{"reference/controller-resources.md"},
+		map[string]string{"docs/site/reference/controller-resources.md": authoredOps, "docs/site/guide.md": strings.Replace(authoredOps, "Intro", "Guide", 1)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	body, _ := os.ReadFile(filepath.Join(dir, "content", "reference", "operator-resources.md"))
+	body, _ := os.ReadFile(filepath.Join(dir, "content", "reference", "controller-resources.md"))
 	if string(body) != authoredOps+"\n"+fakeTail {
 		t.Fatalf("completed page:\n%s", body)
 	}
-	if p := pageEntry(m, "reference/operator-resources.md"); p.Generated || p.Source != "docs/site/reference/operator-resources.md" {
+	if p := pageEntry(m, "reference/controller-resources.md"); p.Generated || p.Source != "docs/site/reference/controller-resources.md" {
 		t.Fatalf("entry %+v", p)
 	}
 	if m.Placement.Kind != "docs" || len(m.Placement.Owns) != 1 || m.Placement.Owns[0] != "reference/" {
@@ -133,16 +133,16 @@ func TestDocsCompletablePage(t *testing.T) {
 }
 
 func TestDocsCompletablePageAlone(t *testing.T) {
-	m, dir, err := docsBuild(t, []string{"reference/"}, []string{"reference/operator-resources.md"},
+	m, dir, err := docsBuild(t, []string{"reference/"}, []string{"reference/controller-resources.md"},
 		map[string]string{"docs/site/guide.md": authoredOps})
 	if err != nil {
 		t.Fatal(err)
 	}
-	body, _ := os.ReadFile(filepath.Join(dir, "content", "reference", "operator-resources.md"))
+	body, _ := os.ReadFile(filepath.Join(dir, "content", "reference", "controller-resources.md"))
 	if !strings.HasPrefix(string(body), "---\ntitle: \"Generated\"") {
 		t.Fatalf("standalone page:\n%s", body)
 	}
-	if p := pageEntry(m, "reference/operator-resources.md"); !p.Generated {
+	if p := pageEntry(m, "reference/controller-resources.md"); !p.Generated {
 		t.Fatalf("entry %+v", p)
 	}
 }
@@ -155,15 +155,15 @@ func TestDocsRefusals(t *testing.T) {
 		files map[string]string
 		want  []string
 	}{
-		{"heading collision", []string{"reference/"}, []string{"reference/operator-resources.md"},
-			map[string]string{"docs/site/reference/operator-resources.md": authoredOps + "\n## Resources\n"},
-			[]string{"docs/site/reference/operator-resources.md", "## Resources"}},
+		{"heading collision", []string{"reference/"}, []string{"reference/controller-resources.md"},
+			map[string]string{"docs/site/reference/controller-resources.md": authoredOps + "\n## Resources\n"},
+			[]string{"docs/site/reference/controller-resources.md", "## Resources"}},
 		{"generated page outside owns", []string{"reference/cli/"}, []string{"reference/cli/opm.md", "reference/commands/opm.md"},
 			map[string]string{"docs/site/guide.md": authoredOps},
 			[]string{"content/reference/commands/opm.md", "placement.owns", "reference/cli/"}},
-		{"completed page outside owns", []string{"reference/cli/"}, []string{"reference/operator-resources.md"},
-			map[string]string{"docs/site/reference/operator-resources.md": authoredOps},
-			[]string{"content/reference/operator-resources.md", "placement.owns"}},
+		{"completed page outside owns", []string{"reference/cli/"}, []string{"reference/controller-resources.md"},
+			map[string]string{"docs/site/reference/controller-resources.md": authoredOps},
+			[]string{"content/reference/controller-resources.md", "placement.owns"}},
 		{"page path with ..", []string{"reference/"}, []string{"reference/../escape.md"},
 			map[string]string{"docs/site/guide.md": authoredOps},
 			[]string{"fake rendered the page path", "reference/../escape.md"}},

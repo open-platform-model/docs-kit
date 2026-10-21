@@ -29,7 +29,7 @@ Every project, planned ones included, so changes built in parallel need not edit
 |---|---|---|---|---|
 | `catalog-opm` | catalog_opm (`opmodel.dev/catalogs/opm@v4`) | `opm-v` | tab, `/catalogs/opm/` | 1 |
 | `core` | core | `v` | docs, owns `reference/definitions/` | 2 |
-| `opm-operator` | opm-operator | `v` | docs, owns `reference/operator-resources.md` | 2 |
+| `opm-controller` | opm-controller | `v` | docs, owns `reference/controller/` | 2 |
 | `cli` | cli | `v` | docs, owns `reference/cli/`, carries `pins` | 2 |
 | `library` | library | `v` | docs, owns `reference/go-api/` | 2 |
 | `catalog-opm-docs` | catalog_opm | `opm-v` | docs (its `docs/site/`) | 3 |
@@ -437,7 +437,7 @@ package schema
 	// Exactly one of page and section. page: one completable page holding
 	// every kind. section: the section index and one page per kind.
 	page?:    =~"^([a-z0-9]+(-[a-z0-9]+)*/)*[a-z0-9]+(-[a-z0-9]+)*\\.md$" // under content/, an owned path
-	section?: =~"^([a-z0-9]+(-[a-z0-9]+)*/)+$"                           // the directory the pages go in: "reference/operator/"
+	section?: =~"^([a-z0-9]+(-[a-z0-9]+)*/)+$"                           // the directory the pages go in: "reference/controller/"
 	matchN(1, [{page!: _, ...}, {section!: _, ...}])
 	title:       string & !="" // the page's or the section index's front matter when no authored page completes it
 	description: string & !=""
@@ -1086,7 +1086,7 @@ A bundle with `placement: {kind: "docs", root: "/docs/", owns: [...]}` merges in
 
 **Completable pages.** A renderer may mark a page completable, with the heading its generated body opens with. When a `markdown` source of the same bundle supplies a page at that path, the bundle's page is the authored front matter and body, unchanged, then one blank line, then the generated body without front matter, recorded as `generated: false` with the authored file as `source`. An authored body that already holds the heading, or another heading the renderer lists with it (the `crd` page lists every kind's), exits `2` naming the file. Without an authored page, the generated page stands alone with its own front matter, `generated: true`. The catalog landing is the first completable page (heading `## Catalog members`; output unchanged).
 
-**Authored docs** (`add-authored-docs`, DESIGN decisions 19 to 21). A repository has one docs-placed bundle (C1's naming rule). Its authored `docs/site/` is a `markdown` source of that bundle, beside any extractor source: core, cli, library and opm-operator ship both from their adoption on (DESIGN decision 20); catalog_opm's `docs/site/` and opm's follow as their own docs bundles. The rules:
+**Authored docs** (`add-authored-docs`, DESIGN decisions 19 to 21). A repository has one docs-placed bundle (C1's naming rule). Its authored `docs/site/` is a `markdown` source of that bundle, beside any extractor source: core, cli, library and opm-controller ship both from their adoption on (DESIGN decision 20); catalog_opm's `docs/site/` and opm's follow as their own docs bundles. The rules:
 
 - The `markdown` source copies its `dir` (all of it, or what `include` and `exclude` select, C6) into `content/` as written: no link is rewritten, and docs-mode link rules apply in bundle-mode lint (above). Each page is `generated: false` with its `source` and `lastmod`. Figure shortcodes pass as in dialect `1` (C11).
 - It may supply a root `_index.md` and section `_index.md` pages. Each section page under `/docs/` has one owner across a site version (opm owns `_index.md` and `start/_index.md`); that uniqueness is the site version's `pull` check (`pull-docs-placement`), not `build`'s.
@@ -1135,14 +1135,14 @@ A site version (`v1.0`) shows, in its `/docs/` tree, the docs bundles (C15) of t
 
 ```cue
 docs: {
-	cli:            {repo: "open-platform-model/cli"}
-	core:           {repo: "open-platform-model/core"}
-	library:        {repo: "open-platform-model/library"}
-	"opm-operator": {repo: "open-platform-model/opm-operator"}
+	cli:              {repo: "open-platform-model/cli"}
+	core:             {repo: "open-platform-model/core"}
+	library:          {repo: "open-platform-model/library"}
+	"opm-controller": {repo: "open-platform-model/opm-controller"}
 }
 versions: "v1.0": {
 	anchor: {project: "cli", tag: "1.0"}
-	pinned: ["library", "core", "opm-operator"]
+	pinned: ["library", "core", "opm-controller"]
 }
 ```
 
@@ -1164,10 +1164,10 @@ Every bundle of a site version must be `placement.kind: "docs"` and its own proj
   catalog-opm/4.5/ ...                    tabs (C7)
   _versions/
     v1.0/
-      cli/           manifest.json  content/  data/
-      core/          ...
-      library/       ...
-      opm-operator/  ...
+      cli/             manifest.json  content/  data/
+      core/            ...
+      library/         ...
+      opm-controller/  ...
 ```
 
 `_versions` cannot collide with a project (C1 names have no `_`). Every bundle of site version `v` unpacks and lints in `<out>/_versions/.incoming-<v>/<project>/`; the checks below run over that set; only once every site version, every tab, every history and the lock have passed is each `<v>` replaced whole (the previous tree moves aside to `.outgoing-<v>`, the new one takes its place, then the previous one is removed), so a refusal leaves the previous `<out>/_versions/<v>/` and the previous lock as they were. The sweep removes every entry of `_versions/` that this run did not write, and `_versions/` itself when the config has no `versions`.
@@ -1205,7 +1205,7 @@ Links across bundles are not checked here; the site's post-build link check cove
   "pins": {
     "core": "2.0.0-beta.1",
     "library": "1.0.0-beta.1",
-    "opm-operator": "1.0.0-beta.4"
+    "opm-controller": "1.0.0-beta.4"
   },
   "dir": "_versions/v1.0/cli"
 }
@@ -1217,7 +1217,7 @@ Links across bundles are not checked here; the site's post-build link check cove
 
 **Exit codes**, as C7: `1` for the config checks above, a bad `--local` and a frozen lock that does not fit; `2` for resolution, signature, placement, lint and cross-bundle failures.
 
-**Consumers.** opmodel.dev (`pull-reference-bundles`) writes `docs` and `versions`, mounts `_versions/<v>/<project>/content` into that version's `/docs/` and reads the lock's `docs` entries and each manifest's page data. The cli's bundle carries `pins` (C15); core, library and opm-operator publish a bundle for every release the cli pins. `#Pull` and `#Lock` are closed, so an `opm-docs` older than this contract refuses a `bundles.cue` with `docs` or `versions` and a frozen lock with `docs`: the site bumps its `opm-docs` first (C12).
+**Consumers.** opmodel.dev (`pull-reference-bundles`) writes `docs` and `versions`, mounts `_versions/<v>/<project>/content` into that version's `/docs/` and reads the lock's `docs` entries and each manifest's page data. The cli's bundle carries `pins` (C15); core, library and opm-controller publish a bundle for every release the cli pins. `#Pull` and `#Lock` are closed, so an `opm-docs` older than this contract refuses a `bundles.cue` with `docs` or `versions` and a frozen lock with `docs`: the site bumps its `opm-docs` first (C12).
 
 ## C17. `cue-definitions`
 
@@ -1310,26 +1310,26 @@ An anchor is the name lowercased without `#` (`#ComponentNames` is `componentnam
 
 ## C18. The `crd` source and `data/crd.json`
 
-**Config.** `#CRD` in C6; a `crd` source belongs in a docs bundle (C15), and a tab bundle holding one exits `1`. `dir` holds controller-gen output; every `*.yaml` file in it is read, and every document in a file must be an `apiextensions.k8s.io/v1` `CustomResourceDefinition` with exactly one version that has a schema. `samples`, when set, holds kubebuilder samples. `order` puts kinds first in that order, the rest by name; `reconciledBy` maps a kind to the name of the reconciler that watches it (stated by the author, never inferred from code). `citations` is the source's citation policy ("Doc-comment rules"). A source takes exactly one of `page` (the page layout: one completable page holding every kind) and `section` (the section layout: a completable index and one page per kind); both or neither exits `1` ("a crd source takes exactly one of page (one page holding every kind) and section (an index and a page per kind)"). Every CRD and sample file read must be a regular file (a symbolic link is refused). A `samples` directory that is set but missing exits `2`, except when the config came from outside the source tree (a backfill, C5), where it means no samples. opm-operator's file in the section layout (its tags up to the switch keep `page: "reference/operator-resources.md"`, `owns: ["reference/operator-resources.md"]` and the title "Operator resources", and still build):
+**Config.** `#CRD` in C6; a `crd` source belongs in a docs bundle (C15), and a tab bundle holding one exits `1`. `dir` holds controller-gen output; every `*.yaml` file in it is read, and every document in a file must be an `apiextensions.k8s.io/v1` `CustomResourceDefinition` with exactly one version that has a schema. `samples`, when set, holds kubebuilder samples. `order` puts kinds first in that order, the rest by name; `reconciledBy` maps a kind to the name of the reconciler that watches it (stated by the author, never inferred from code). `citations` is the source's citation policy ("Doc-comment rules"). A source takes exactly one of `page` (the page layout: one completable page holding every kind) and `section` (the section layout: a completable index and one page per kind); both or neither exits `1` ("a crd source takes exactly one of page (one page holding every kind) and section (an index and a page per kind)"). Every CRD and sample file read must be a regular file (a symbolic link is refused). A `samples` directory that is set but missing exits `2`, except when the config came from outside the source tree (a backfill, C5), where it means no samples. opm-controller's file in the section layout (its tags before the section switch keep their page-layout config and still build):
 
 ```cue
-bundles: "opm-operator": {
-	placement: {kind: "docs", root: "/docs/", owns: ["reference/operator/"]}
+bundles: "opm-controller": {
+	placement: {kind: "docs", root: "/docs/", owns: ["reference/controller/"]}
 	version: {from: "tag", prefix: "v"}
 	sources: [
-		// docs/site/reference/operator/_index.md completes the section index.
+		// docs/site/reference/controller/_index.md completes the section index.
 		{kind: "markdown", dir: "docs/site"},
 		{
 			kind:        "crd"
 			dir:         "./config/crd/bases"
 			samples:     "./config/samples"
-			section:     "reference/operator/"
-			title:       "Operator Reference"
-			description: "One generated page per operator resource kind: ModuleInstance, ModulePackage, Platform and TransformerRegistration."
+			section:     "reference/controller/"
+			title:       "Controller Reference"
+			description: "One generated page per controller resource kind: ModuleInstance, ModulePackage, Platform and TransformerRegistration."
 			weight:      7
 			order: ["ModuleInstance", "ModulePackage", "Platform", "TransformerRegistration"]
 			hideSamplesMatching: ["testing.opmodel.dev"]
-			stripLabels: {"app.kubernetes.io/name": "opm-operator", "app.kubernetes.io/managed-by": "kustomize"}
+			stripLabels: {"app.kubernetes.io/name": "opm-controller", "app.kubernetes.io/managed-by": "kustomize"}
 			reconciledBy: {ModuleInstance: "moduleinstance", ModulePackage: "modulepackage", Platform: "platform", TransformerRegistration: "transformerregistration"}
 			citations: "link"
 		},
@@ -1346,14 +1346,14 @@ bundles: "opm-operator": {
   "schema": "docs.opmodel.dev/data/crd/v1",
   "citations": "link",
   "layout": "section",
-  "page": {"path": "reference/operator/_index.md", "title": "Operator Reference", "description": "...", "weight": 7},
+  "page": {"path": "reference/controller/_index.md", "title": "Controller Reference", "description": "...", "weight": 7},
   "kinds": [
     {
       "kind": "ModuleInstance", "group": "opmodel.dev", "plural": "moduleinstances",
       "scope": "Namespaced", "shortNames": ["mi"], "categories": [], "subresources": ["status"],
       "versions": [{"name": "v1alpha1", "served": true, "storage": true}],
       "file": "config/crd/bases/opmodel.dev_moduleinstances.yaml",
-      "summary": "ModuleInstance asks the operator to render one CUE module ...",
+      "summary": "ModuleInstance asks the controller to render one CUE module ...",
       "notes": ["<paragraph>"],
       "columns": [{"name": "Ready", "type": "string", "jsonPath": ".status.conditions[?(@.type=='Ready')].status", "priority": 0}],
       "spec": [{"path": "spec.module.path", "type": "string", "required": true, "description": "...", "default": null, "enum": []}],
@@ -1364,7 +1364,7 @@ bundles: "opm-operator": {
       ],
       "sample": {"file": "config/samples/opmodel.dev_v1alpha1_modulepackage.yaml", "yaml": "<text>"},
       "reconciledBy": "moduleinstance",
-      "page": "reference/operator/moduleinstance.md"
+      "page": "reference/controller/moduleinstance.md"
     }
   ]
 }
@@ -1388,13 +1388,13 @@ bundles: "opm-operator": {
 | `<section>_index.md` | front matter `title`, `description`, `weight` when set, no `type`; "Each page in this section covers one resource kind, generated from its CustomResourceDefinition."; `## Kinds` and a table `\| Kind \| Scope \| Summary \|`, one row per kind in model order: the kind linking its page (`/docs/<section><kind lower-cased>/`), its scope, its escaped summary (citations linked under `"link"`). Completable (C15) with heading `## Kinds`. Standing alone it has no `source` and its `lastmod` is the newest commit date of every CRD and sample file read; completed, all three are the authored page's |
 | `<section><kind lower-cased>.md` | front matter `title` the kind, `description` its summary with every citation removed (or "The <Kind> resource." when it has none), `type: reference`, `weight` its 1-based position in model order; then the kind's entry as the page layout writes it, without the `## <Kind>` heading and with every part one level up (`## At a glance`, `## Spec`, `## Status`, `## Example`, `## Notes`, `## Served by`, `## Enforcement`), so its anchors carry no suffix. Generated only, never completable; `source` the kind's CRD file, `lastmod` the newest commit date of that file and the sample file read for it, no `edit` |
 
-The renderer writes no link between kinds in either layout (the only links it writes are enhancement references), so the section layout has no in-page anchor to rewrite. A link another page holds into the page layout (`/docs/reference/operator-resources/#moduleinstance`) is its owner's to move to the kind's page.
+The renderer writes no link between kinds in either layout (the only links it writes are enhancement references), so the section layout has no in-page anchor to rewrite. A link another page holds into a page-layout page (`#moduleinstance` on it) is its owner's to move to the kind's page.
 
-**Parity.** The page's generated body equals opm-operator `hack/crdref`'s block, byte for byte apart from the `### Served by` sentence (below), for opm-operator `main` at `bf8d3c5` and for `v1.0.0-beta.4` (crdref run over that tag's tree), checked 2026-10-03. `TestOperatorCRDParity` runs in every test run on a copy of the operator's CRDs, samples and page at `bf8d3c5` (`internal/render/testdata/operator`), and on a live checkout with `OPM_OPERATOR_CHECKOUT=<checkout> go test ./internal/render -run TestOperatorCRDParity`. Parity is the page layout's; `TestOperatorCRDSection` checks that the section layout renders the same copy as the index and four kind pages in the configured order, each kind page's body that kind's page-layout entry with its parts lifted one level. One deliberate difference is visible: the `### Served by` sentence names the reconciler without a product ("The `moduleinstance` reconciler watches every ModuleInstance." where crdref wrote "The operator's `moduleinstance` controller ..."), and the parity check rewrites crdref's sentence before comparing. The other deliberate differences show nothing on the operator's tree: a CEL rule on `spec` or `status` itself is listed (crdref skipped it); `{{` is escaped; decoding is strict where crdref decoded strictly only the Kubernetes CRD type, and every construct crdref accepted but did not show (`multipleOf`, another `format`, `messageExpression`, `x-kubernetes-embedded-resource`, tuple `items`, `metadata` constraints, other top-level properties) is refused; the names, scope and column types above are refused; the example's fence grows past the sample's backtick and tilde runs; a decision link is built from the citation alone, never kept from the text.
+**Parity.** `TestControllerCRDParity` checks, on every test run, that docs-kit renders a released controller tree to the pages that release shipped. `internal/render/testdata/controller` holds a release snapshot (its `SOURCE` names the bundle tag, digest, docs revision, the opm-docs version that built it and the commit): the release commit's `docs-kit.cue`, CRDs, samples and authored section index, and under `want/` the released bundle's pages in its owned section. The test builds the section with the snapshot's own crd source config, completes the index with the authored one, and compares page set and bodies byte for byte. `TestControllerCRDSection` builds the same snapshot once more in the page layout and checks that each kind's entry, its parts lifted one level, is that kind's section page body, so the page layout is held to the released pages too. A render change made after the snapshot's bundle was built is a named rewrite of the released pages in the test, and a rewrite that matches nothing fails the test. Today there is one. `enhancementParenRewrite`: the snapshot taken from the controller's `1.0.0-beta.9` bundle, built by opm-docs 0.7.1, keeps a parenthesis that holds only enhancement references, which the strip policy now removes, so the test drops it with its leading space. `task snapshots:refresh KIND=controller PROJECT=<project> VERSION=<version> CHECKOUT=<clone>` (`hack/refresh-snapshots.sh`, needs network) takes a new snapshot: it verifies and unpacks the bundle with `opm-docs pull`, exports the inputs from the commit the manifest names, and refuses a docs revision whose fix commit touches an input. Before the controller retired crdref, the page layout equalled crdref's block byte for byte apart from the served-by sentence, measured on 2026-10-03 at the controller's `main` `bf8d3c5` and at `v1.0.0-beta.4`. The deliberate differences from crdref show nothing on the controller's tree: a CEL rule on `spec` or `status` itself is listed (crdref skipped it); `{{` is escaped; decoding is strict where crdref decoded strictly only the Kubernetes CRD type, and every construct crdref accepted but did not show (`multipleOf`, another `format`, `messageExpression`, `x-kubernetes-embedded-resource`, tuple `items`, `metadata` constraints, other top-level properties) is refused; the names, scope and column types above are refused; the example's fence grows past the sample's backtick and tilde runs; a decision citation is removed, never linked.
 
-**Consumers.** opm-operator (`publish-crd-bundle`): its `docs-kit.cue` as above; after the site reads the bundle it deletes crdref, the marker block and the `exclude`. opmodel.dev pulls `opm-operator` per site version (C16).
+**Consumers.** opm-controller (`publish-crd-bundle`): its `docs-kit.cue` as above; after the site reads the bundle it deletes crdref, the marker block and the `exclude`. opmodel.dev pulls `opm-controller` per site version (C16).
 
-The section layout (`add-crd-section-layout`) is additive: an `opm-docs` that predates it refuses a `section` on a `crd` source (`#CRD` is closed), so opm-operator moves its `.opm-docs-version` and its `publish.yml` ref to the docs-kit release that carries it in the same PR that switches to `section`, moves its authored `docs/site/reference/operator-resources.md` to `docs/site/reference/operator/_index.md`, and updates its own links to the old page. The moved page completes the index, so its front matter is what the site shows: it drops `type: reference` (a section overview declares no type, and the build refuses one: "content/reference/operator/_index.md:4: a section overview (_index.md) declares no type"), sets the title the sidebar shows ("Operator Reference"; the authored title wins over the config's `title` once it completes the index), and rewrites its intro for a section of one page per kind; its body must not hold `## Kinds`. opmodel.dev needs no `opm-docs` bump for it: no field of `manifest.json` changes, and `pull` reads the pages as written. Links to `/docs/reference/operator-resources/` are their owners' to move: opmodel.dev's site pages, and opm's `docs/site/start/_index.md`. The old URL gets no redirect.
+The section layout (`add-crd-section-layout`) is additive: an `opm-docs` that predates it refuses a `section` on a `crd` source (`#CRD` is closed), so opm-controller moves its `.opm-docs-version` and its `publish.yml` ref to the docs-kit release that carries it in the same PR that switches to `section`, moves its authored page-layout page to `docs/site/reference/controller/_index.md`, and updates its own links to the old page. The moved page completes the index, so its front matter is what the site shows: it drops `type: reference` (a section overview declares no type, and the build refuses one: "content/reference/controller/_index.md:4: a section overview (_index.md) declares no type"), sets the title the sidebar shows ("Controller Reference"; the authored title wins over the config's `title` once it completes the index), and rewrites its intro for a section of one page per kind; its body must not hold `## Kinds`. opmodel.dev needs no `opm-docs` bump for it: no field of `manifest.json` changes, and `pull` reads the pages as written. Links to the old page-layout URL are their owners' to move: opmodel.dev's site pages, and opm's `docs/site/start/_index.md`. The old URL gets no redirect.
 
 **Section cards.** The site's docs layout appends a card per child page to a section overview unless its front matter sets `cards: false`, so the index would list the kinds twice, in the `## Kinds` table and as cards. Dialect `1` admits only `title`, `description`, `type` and `weight` in front matter (C11), so neither the generated index nor an authored one completing it can set `cards: false` today; the go-api index (`## Packages`) has the same duplication. Turning the cards off is the site's decision (a layout rule for generated reference sections), or a dialect change that admits `cards`.
 
@@ -1468,7 +1468,7 @@ The anchor of an entry is its path in lower-case kebab case (`#opm-module-apply`
 
 **Help-text rules.** `long` splits into paragraphs at blank lines. The first is prose; the base indentation is the shallowest first line of any later paragraph; a line indented beyond it is preformatted, a line at it is prose. A prose line `Examples:` (or `Example:`) starts examples, which run to the next prose line; `example` is appended after them, a blank line between. A preformatted block whose every line is `- item` or `N. item` becomes a list; any other is a fence, `sh` when it holds only commands of the CLI and comments, `text` otherwise. In prose, flags, paths, file names, placeholders, environment variables, CUE definitions and single-quoted spans become code spans (neighbours one space apart share one), and every other Markdown character is escaped. A fence is longer than any backtick run it holds, and Hugo shortcode delimiters are written in their shown form (`{{</* x */>}}`). `citations` applies to formatted prose only, never to a fence.
 
-**Parity.** For the cli tree at commit `ebf0479b`, every page equals the page the cli's `internal/cmdref` committed under `docs/site/reference/cli/` once its two marker comments are removed (the cobra pages carry none). The dump and those pages are frozen in `internal/render/testdata/cli/`, and `TestCLICommandParity` checks them on every run. `TestCLICommandParityLive` repeats it against a live checkout named by `OPM_CLI_CHECKOUT` and skips without one, without `hack/docskit-dump` or without a committed reference.
+**Parity.** `TestCLICommandParity` checks, on every test run, that docs-kit renders a released cli to the pages that release shipped. `internal/render/testdata/cli` holds a release snapshot (its `SOURCE` names the bundle tag, digest, docs revision, the opm-docs version that built it and the commit): the release commit's `docs-kit.cue`, the dump its `hack/docskit-dump` printed, and under `want/` the released bundle's pages in its owned section. The test renders the dump with the snapshot's own cobra source config and compares page set and bodies byte for byte. `task snapshots:refresh KIND=cli PROJECT=cli VERSION=<version> CHECKOUT=<clone>` takes a new snapshot as C18 describes, running the dump twice in an exported release tree and refusing differing output (C14). Before the cli retired `internal/cmdref`, every page equalled the page cmdref committed once its two marker comments were removed, measured at cli commit `ebf0479b`.
 
 **Backfill.** The hook must exist in the tagged tree, so a cli release tagged before it carries no cli bundle and cannot be backfilled; a docs revision of such a release is refused too (a help-text fix is a Go change, which "Docs revisions" refuses).
 

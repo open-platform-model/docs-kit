@@ -193,10 +193,10 @@ func TestWatchRoots(t *testing.T) {
 	cfgPath := filepath.Join(dir, "docs-kit.cue")
 	write(t, cfgPath, `bundles: {
 	ops: {
-		placement: {kind: "docs", root: "/docs/", owns: ["reference/operator-resources.md"]}
+		placement: {kind: "docs", root: "/docs/", owns: ["reference/controller-resources.md"]}
 		version: {from: "tag", prefix: "v"}
 		sources: [
-			{kind: "crd", dir: "./config/crd/bases", samples: "./config/samples", page: "reference/operator-resources.md", title: "t", description: "d"},
+			{kind: "crd", dir: "./config/crd/bases", samples: "./config/samples", page: "reference/controller-resources.md", title: "t", description: "d"},
 			{kind: "markdown", dir: "docs/site"},
 		]
 	}

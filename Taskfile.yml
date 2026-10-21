@@ -115,6 +115,13 @@ tasks:
       - task: openspec:check
       - task: test
 
+  snapshots:refresh:
+    desc: "Refresh a parity release snapshot from a released docs bundle (KIND=controller|cli PROJECT VERSION CHECKOUT; needs network)"
+    requires:
+      vars: [KIND, PROJECT, VERSION, CHECKOUT]
+    cmds:
+      - bash hack/refresh-snapshots.sh {{.KIND}} {{.PROJECT}} {{.VERSION}} {{.CHECKOUT}}
+
   clean:
     desc: Remove build output
     cmds:

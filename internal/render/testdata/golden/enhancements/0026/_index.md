@@ -32,7 +32,7 @@ Let a platform admit a catalog path with a version range, and let each module's 
 | core | 1 |
 | catalog | 1 |
 | library | 1 |
-| opm-operator | 1 |
+| opm-controller | 1 |
 | cli | 1 |
 
 The list is [0026: Tasks](/enhancements/0026/tasks/).

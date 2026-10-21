@@ -19,7 +19,7 @@ func crdSectionFixture(t *testing.T) []Page {
 	m, err := crd.Extract(crd.Options{
 		Root: crdTree, Dir: "./config/crd/bases", Samples: "./config/samples",
 		HideSamplesMatching: []string{"testing.opmodel.dev"},
-		StripLabels:         map[string]string{"app.kubernetes.io/name": "opm-operator", "app.kubernetes.io/managed-by": "kustomize"},
+		StripLabels:         map[string]string{"app.kubernetes.io/name": "opm-controller", "app.kubernetes.io/managed-by": "kustomize"},
 		Section:             "reference/widgets/",
 		Page:                crd.Page{Title: "Widget reference", Description: "One page per widget kind.", Weight: &weight},
 		Order:               []string{"Widget"},
@@ -165,19 +165,22 @@ func TestCRDSectionIndexLinksChecked(t *testing.T) {
 	}
 }
 
-// TestOperatorCRDSection renders opm-operator's CRDs as the section its
-// docs-kit.cue will declare: the index and one page per kind, weighted in
-// the configured order, each page's body its crdref entry with the parts
-// one level up.
-func TestOperatorCRDSection(t *testing.T) {
-	root := filepath.Join("testdata", "operator")
-	o := operatorOptions(root)
+// TestControllerCRDSection renders the controller's release snapshot in
+// both layouts: the section its docs-kit.cue configures, the index and one
+// page per kind weighted in the configured order, and the single page, whose
+// entry for each kind, its parts lifted one level, is that kind's page body.
+// TestControllerCRDParity ties the section to the released pages, so this
+// ties the page layout to them too.
+func TestControllerCRDSection(t *testing.T) {
+	o := controllerOptions(t)
+	section := o.Section
+	o.Section = ""
+	o.Page.Path = "reference/controller-resources.md"
 	single, err := crd.Extract(o)
 	if err != nil {
 		t.Fatal(err)
 	}
-	o.Page = crd.Page{Title: "Operator Reference", Description: "One page per operator resource kind."}
-	o.Section = "reference/operator/"
+	o.Section, o.Page.Path = section, ""
 	m, err := crd.Extract(o)
 	if err != nil {
 		t.Fatal(err)
@@ -199,7 +202,7 @@ func TestOperatorCRDSection(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i, p := range pages {
-		if p.Path != "reference/operator/"+want[i]+".md" {
+		if p.Path != section+want[i]+".md" {
 			t.Errorf("page %d is %s, want %s.md", i, p.Path, want[i])
 		}
 		if i == 0 {

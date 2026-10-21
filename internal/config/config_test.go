@@ -116,12 +116,12 @@ func docs(owns, exclude string) string {
 }
 
 func TestLoadDocsPlacement(t *testing.T) {
-	c, err := Load(write(t, "docs-kit.cue", docs(`"reference/cli/", "reference/operator-resources.md"`, `"reference/cli/"`)))
+	c, err := Load(write(t, "docs-kit.cue", docs(`"reference/cli/", "reference/controller-resources.md"`, `"reference/cli/"`)))
 	if err != nil {
 		t.Fatal(err)
 	}
 	b := c.Bundles["cli"]
-	if len(b.Placement.Owns) != 2 || b.Placement.Owns[1] != "reference/operator-resources.md" || len(b.Sources[0].Markdown.Exclude) != 1 {
+	if len(b.Placement.Owns) != 2 || b.Placement.Owns[1] != "reference/controller-resources.md" || len(b.Sources[0].Markdown.Exclude) != 1 {
 		t.Fatalf("decoded %+v", b)
 	}
 	for _, x := range []struct{ name, body string }{
@@ -163,11 +163,11 @@ docs: {
 	cli:            {repo: "open-platform-model/cli"}
 	core:           {repo: "open-platform-model/core"}
 	library:        {repo: "open-platform-model/library"}
-	"opm-operator": {repo: "open-platform-model/opm-operator"}
+	"opm-controller": {repo: "open-platform-model/opm-controller"}
 }
 versions: "v1.0": {
 	anchor: {project: "cli", tag: "1.0"}
-	pinned: ["library", "core", "opm-operator"]
+	pinned: ["library", "core", "opm-controller"]
 }
 `
 
@@ -182,7 +182,7 @@ versions: "v0.9": {anchor: {project: "cli", tag: "0"}}
 		t.Fatalf("site versions %s", got)
 	}
 	v := p.Versions["v1.0"]
-	if v.Anchor != (Anchor{"cli", "1.0"}) || strings.Join(v.Pinned, ",") != "library,core,opm-operator" || len(v.Tags) != 0 || p.Docs["core"].Repo != "open-platform-model/core" {
+	if v.Anchor != (Anchor{"cli", "1.0"}) || strings.Join(v.Pinned, ",") != "library,core,opm-controller" || len(v.Tags) != 0 || p.Docs["core"].Repo != "open-platform-model/core" {
 		t.Fatalf("decoded %+v", v)
 	}
 	if p.Versions["v0.9"].Pinned == nil || v.Role("core") != "pinned" || v.Role("cli") != "anchor" || p.Versions["v0.10"].Role("core") != "tag" || v.Role("opm") != "" {
@@ -200,8 +200,8 @@ func TestLoadPullSiteVersionRefusals(t *testing.T) {
 		want       []string
 	}{
 		{"undeclared project", strings.Replace(siteConfig, `core:           {repo: "open-platform-model/core"}`, "", 1), []string{`"v1.0"`, "core", "not in docs"}},
-		{"a project twice", strings.Replace(siteConfig, `["library", "core", "opm-operator"]`, `["library", "core", "cli"]`, 1), []string{`"v1.0"`, "cli twice"}},
-		{"pinned and tags", strings.Replace(siteConfig, `pinned: ["library", "core", "opm-operator"]`, `pinned: ["core"], tags: core: "2"`, 1), []string{`"v1.0"`, "core twice"}},
+		{"a project twice", strings.Replace(siteConfig, `["library", "core", "opm-controller"]`, `["library", "core", "cli"]`, 1), []string{`"v1.0"`, "cli twice"}},
+		{"pinned and tags", strings.Replace(siteConfig, `pinned: ["library", "core", "opm-controller"]`, `pinned: ["core"], tags: core: "2"`, 1), []string{`"v1.0"`, "core twice"}},
 		{"tab and docs", siteConfig + `docs: "catalog-opm": {repo: "open-platform-model/catalog_opm"}` + "\n", []string{"catalog-opm", "both a tab and a docs project"}},
 		{"bad site version", strings.Replace(siteConfig, `"v1.0"`, `"1.0"`, 1), []string{"versions"}},
 		{"bad tag", strings.Replace(siteConfig, `tag: "1.0"`, `tag: "v1.0"`, 1), []string{"tag"}},

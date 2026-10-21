@@ -160,7 +160,7 @@ rules:
     - Identify affected command(s), package(s) and contracts (bundle format, tag scheme,
       workflow interface, docs-kit.cue, pull config, lock file).
     - Name every repository that consumes a contract the change touches (catalog_opm, core,
-      cli, opm-operator, library, opm, opmodel.dev) and what each has to do.
+      cli, opm-controller, library, opm, opmodel.dev) and what each has to do.
     - "State the release class per SemVer. docs-kit is on 0.x: a breaking contract change is a
       minor bump with a `BREAKING CHANGE:` footer that is the migration note."
     - Scope MUST cut into at most about five tasks.md sections, each ending green and leaving

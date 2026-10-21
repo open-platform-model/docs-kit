@@ -35,11 +35,11 @@ When `samples` is set, the `crd` source SHALL read the sample of each kind there
 - **THEN** the shown sample has no such label
 
 ### Requirement: The crd page holds one entry per kind
-In the page layout (the source sets `page`, not `section`), the renderer SHALL write one page at the source's `page` path, one of the bundle's owned paths: per kind a `## <Kind>` entry with `### At a glance`, the printer-column table, `### Spec`, `### Status`, `### Example` when a sample exists, `### Notes`, `### Served by` when `reconciledBy` names a reconciler, and `### Enforcement`, in crdref's order and wording. The one exception is the `### Served by` sentence.
+In the page layout (the source sets `page`, not `section`), the renderer SHALL write one page at the source's `page` path, one of the bundle's owned paths: per kind a `## <Kind>` entry with `### At a glance`, the printer-column table, `### Spec`, `### Status`, `### Example` when a sample exists, `### Notes`, `### Served by` when `reconciledBy` names a reconciler, and `### Enforcement`, in that order.
 
 #### Scenario: An entry of the page
 - **WHEN** a `crd` source sets `page` and a kind has a sample
-- **THEN** the page holds a `## <Kind>` entry with `### At a glance`, the printer-column table, `### Spec`, `### Status`, `### Example`, `### Notes` and `### Enforcement`, in crdref's order
+- **THEN** the page holds a `## <Kind>` entry with `### At a glance`, the printer-column table, `### Spec`, `### Status`, `### Example`, `### Notes` and `### Enforcement`, in that order
 
 ### Requirement: The crd page applies the citation policy to descriptions
 A field description on the crd page SHALL follow the source's `citations` policy: under `link` an enhancement reference becomes a link to its entry and a decision citation is removed without a link.
@@ -53,11 +53,7 @@ A field description on the crd page SHALL follow the source's `citations` policy
 - **THEN** the description renders without the citation, and without a link
 
 ### Requirement: The served-by sentence names no product
-The `### Served by` sentence SHALL name the reconciler without naming a product: "The `<name>` reconciler watches every <Kind>." Apart from that sentence, the entries SHALL match crdref's generated block for the same tree.
-
-#### Scenario: Parity with crdref
-- **WHEN** opm-operator's tree at its newest tag is built with the planned config
-- **THEN** the generated entries equal crdref's block between its markers, once crdref's "The operator's `<name>` controller watches every <Kind>." sentences read "The `<name>` reconciler watches every <Kind>."
+The `### Served by` sentence SHALL name the reconciler without naming a product: "The `<name>` reconciler watches every <Kind>."
 
 #### Scenario: The served-by sentence names no product
 - **WHEN** `reconciledBy` maps `Widget` to `widget`
@@ -67,7 +63,7 @@ The `### Served by` sentence SHALL name the reconciler without naming a product:
 The page SHALL be completable, so an authored page with the same path from a `markdown` source supplies the front matter and intro; without one, the page takes the configured `title`, `description` and `weight`.
 
 #### Scenario: Authored intro kept
-- **WHEN** a `markdown` source over `docs/site` supplies `reference/operator-resources.md` holding front matter and an intro paragraph and no `## ModuleInstance` heading
+- **WHEN** a `markdown` source over `docs/site` supplies `reference/controller-resources.md` holding front matter and an intro paragraph and no `## ModuleInstance` heading
 - **THEN** the bundle's page is that front matter and intro followed by the four generated entries
 
 #### Scenario: No authored page
@@ -103,15 +99,15 @@ A `crd` source SHALL take exactly one of `page` and `section`; a source with bot
 - **THEN** loading the config exits `1` saying a crd source takes exactly one of page and section
 
 #### Scenario: Page layout unchanged
-- **WHEN** a `crd` source sets `page`
-- **THEN** the page's generated body still equals crdref's block for the operator's tree
+- **WHEN** the controller's release snapshot is built once with its configured `section` and once with a `page` instead
+- **THEN** each kind's entry on the single page, its parts lifted one level, equals that kind's page body in the section
 
 ### Requirement: The crd section writes an index and one page per kind
 With `section`, the renderer SHALL write `<section>_index.md` and one page per kind at `<section><kind lower-cased>.md`. Two kinds whose lower-cased names are equal SHALL exit `2` naming both.
 
-#### Scenario: Operator section
-- **WHEN** opm-operator's CRDs are built with `section: "reference/operator/"`
-- **THEN** the bundle holds `reference/operator/_index.md`, `moduleinstance.md`, `modulepackage.md`, `platform.md` and `transformerregistration.md`, with weights 1 to 4 in the configured order
+#### Scenario: Controller section
+- **WHEN** opm-controller's CRDs are built with `section: "reference/controller/"`
+- **THEN** the bundle holds `reference/controller/_index.md`, `moduleinstance.md`, `modulepackage.md`, `platform.md` and `transformerregistration.md`, with weights 1 to 4 in the configured order
 
 #### Scenario: Kinds that differ only in case
 - **WHEN** two kinds have lower-cased names that are equal
@@ -121,7 +117,7 @@ With `section`, the renderer SHALL write `<section>_index.md` and one page per k
 The index SHALL carry the configured `title`, `description` and `weight`, an intro, and a `## Kinds` table linking every kind page in model order, and SHALL be completable with heading `## Kinds`.
 
 #### Scenario: Authored index completed
-- **WHEN** a `markdown` source supplies `reference/operator/_index.md` holding front matter and an intro and no `## Kinds` heading
+- **WHEN** a `markdown` source supplies `reference/controller/_index.md` holding front matter and an intro and no `## Kinds` heading
 - **THEN** the bundle's index is that front matter and intro followed by the generated `## Kinds` table
 
 #### Scenario: The index links each kind page
@@ -141,3 +137,32 @@ A kind page SHALL be titled by the kind, weighted by its 1-based position in mod
 #### Scenario: The layout in the model
 - **WHEN** a `crd` source sets `page`
 - **THEN** `data/crd.json` records `layout` `"page"` and `null` as each kind's `page` path
+
+### Requirement: The controller's release snapshot holds one released bundle
+docs-kit SHALL keep a release snapshot of the controller under `internal/render/testdata/controller`: the pages of one released controller docs bundle under its owned section, verified by `opm-docs pull`, the release commit's `docs-kit.cue`, CRDs, samples and authored section index, and a `SOURCE` naming the bundle tag, digest, docs revision, the opm-docs version that built it and the commit.
+
+#### Scenario: The snapshot names its origin
+- **WHEN** the snapshot folder is listed
+- **THEN** it holds a `SOURCE` naming the bundle tag, digest, docs revision, the opm-docs version and the commit
+
+### Requirement: The controller's release snapshot renders to its released pages
+Built with the snapshot's own crd source config and its index completed by the authored one, the section SHALL equal the released pages, page set and bodies byte for byte. `task snapshots:refresh` SHALL take a snapshot from a released version and a clone holding its commit, and SHALL refuse a docs revision whose fix commit changes an input of the snapshot.
+
+#### Scenario: Parity with the released controller bundle
+- **WHEN** the snapshot's CRDs and samples are rendered with its `docs-kit.cue` crd source and the index is completed with its authored `_index.md`
+- **THEN** every page equals the released page of the same path, and the released section holds no other page
+
+#### Scenario: A docs revision fix touching an input
+- **WHEN** the pulled bundle is a docs revision whose fix commit changes a file under `config/crd/bases`
+- **THEN** `task snapshots:refresh` exits non-zero naming the fix commit and the file, and the snapshot is unchanged
+
+### Requirement: A render change after the release is a named rewrite
+A deliberate render change made after the snapshot's bundle was built SHALL be a named rewrite of the released pages in the test, which SHALL fail when the rewrite matches no page.
+
+#### Scenario: A render change postdating the release
+- **WHEN** the test names a rewrite for a render change made after the snapshot's bundle was built
+- **THEN** it applies the rewrite to the released pages before comparing
+
+#### Scenario: A stale rewrite
+- **WHEN** a refresh brings a bundle built with the change, so a named rewrite matches no released page
+- **THEN** the parity test fails and asks for the rewrite to be deleted

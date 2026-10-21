@@ -70,9 +70,23 @@ A `cobra` source SHALL run its command (C14), validate the dump, write `data/cob
 - **WHEN** the command prints a document with schema `docs.opmodel.dev/cobradump/v2`
 - **THEN** `build` exits 2 naming the schema and the one this `opm-docs` reads
 
-### Requirement: The pages of a cobra source match the cli cmdref output
-The pages of the `cobra` source SHALL match the cli's `internal/cmdref` output for the same command tree, except that no page carries a generator marker comment.
+### Requirement: No cobra page carries a generator marker comment
+No page of a `cobra` source SHALL carry a generator marker comment.
 
-#### Scenario: Parity with cmdref
-- **WHEN** the cli's dump at commit `ebf0479b`, frozen in the tests, is rendered with the planned config
-- **THEN** every page equals the page cmdref committed at that commit with the marker comments removed
+#### Scenario: A rendered page
+- **WHEN** a `cobra` source renders its pages
+- **THEN** no page holds a generator marker comment
+
+### Requirement: The cli's release snapshot holds one released bundle
+docs-kit SHALL keep a release snapshot of the cli under `internal/render/testdata/cli`: the pages of one released cli docs bundle under its owned section, verified by `opm-docs pull`, the release commit's `docs-kit.cue`, the dump that commit's `hack/docskit-dump` printed (two runs, identical), and a `SOURCE` naming the bundle tag, digest, docs revision, the opm-docs version that built it and the commit.
+
+#### Scenario: The dump differs between runs
+- **WHEN** two runs of the release's `hack/docskit-dump` print different output during a refresh
+- **THEN** `task snapshots:refresh` exits non-zero and the snapshot is unchanged
+
+### Requirement: The cli's release snapshot renders to its released pages
+Rendered with the snapshot's own cobra source config, the pages SHALL equal the released pages, page set and bodies byte for byte. `task snapshots:refresh` SHALL take the snapshot from a released version and a clone holding its commit.
+
+#### Scenario: Parity with the released cli bundle
+- **WHEN** the snapshot's dump is rendered with its `docs-kit.cue` cobra source
+- **THEN** every page equals the released page of the same path, and the released section holds no other page

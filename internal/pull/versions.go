@@ -127,7 +127,7 @@ func docsURL(u string) string {
 }
 
 // ownedURL is the URL an owned path ("reference/cli/" or
-// "reference/operator-resources.md") holds, with everything under it.
+// "reference/controller-resources.md") holds, with everything under it.
 func ownedURL(owned string) string {
 	if strings.HasSuffix(owned, "/") {
 		return strings.TrimSuffix(owned, "/")

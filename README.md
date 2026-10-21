@@ -179,6 +179,6 @@ Or from a terminal: `gh workflow run docs.yml --ref main -f project=catalog-opm 
 
 ## Development
 
-`task check` runs every gate (format, vet, golangci-lint, OpenSpec, tests). Tests are offline. `TestCatalogOPMParity` compares the rendered opm catalog with catalog_opm's former generator when `OPM_DOCS_CATALOG_OPM` names a catalog_opm checkout at `opm-v4.4.5` (it reads CUE modules from GHCR: set `CUE_REGISTRY='opmodel.dev=ghcr.io/open-platform-model,registry.cue.works'`).
+`task check` runs every gate (format, vet, golangci-lint, OpenSpec, tests). Tests are offline. `TestControllerCRDParity` and `TestCLICommandParity` compare the render with release snapshots of the controller's and the cli's docs bundles under `internal/render/testdata/`; `task snapshots:refresh` (network) takes a new one from a release (`docs/contracts.md` C18, C19). `TestCatalogOPMParity` compares the rendered opm catalog with catalog_opm's former generator when `OPM_DOCS_CATALOG_OPM` names a catalog_opm checkout at `opm-v4.4.5` (it reads CUE modules from GHCR: set `CUE_REGISTRY='opmodel.dev=ghcr.io/open-platform-model,registry.cue.works'`).
 
 Licensed under the Apache License, Version 2.0; see [LICENSE](LICENSE).

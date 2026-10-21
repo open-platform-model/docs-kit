@@ -1,0 +1,66 @@
+## MODIFIED Requirements
+
+### Requirement: The crd section layout writes an index and one page per kind
+A `crd` source SHALL take exactly one of `page` and `section`; a source with both or neither SHALL fail config validation (exit `1`). With `page`, the source SHALL render the single completable page, unchanged. With `section`, the renderer SHALL write `<section>_index.md` and one page per kind at `<section><kind lower-cased>.md`. The index SHALL carry the configured `title`, `description` and `weight`, an intro, and a `## Kinds` table linking every kind page in model order, and SHALL be completable with heading `## Kinds`. A kind page SHALL be titled by the kind, weighted by its 1-based position in model order, typed `reference`, and SHALL hold the kind's entry without its `## <Kind>` heading and with its parts one level up (`## Spec`). `data/crd.json` SHALL record `layout` (`"page"` or `"section"`) and each kind's `page` path (`null` in page layout). Two kinds whose lower-cased names are equal SHALL exit `2` naming both.
+
+#### Scenario: Controller section
+- **WHEN** opm-controller's CRDs are built with `section: "reference/controller/"`
+- **THEN** the bundle holds `reference/controller/_index.md`, `moduleinstance.md`, `modulepackage.md`, `platform.md` and `transformerregistration.md`, with weights 1 to 4 in the configured order
+
+#### Scenario: Authored index completed
+- **WHEN** a `markdown` source supplies `reference/controller/_index.md` holding front matter and an intro and no `## Kinds` heading
+- **THEN** the bundle's index is that front matter and intro followed by the generated `## Kinds` table
+
+#### Scenario: The index links each kind page
+- **WHEN** the section index is linted in bundle mode
+- **THEN** every link in its `## Kinds` table names a page of the bundle
+
+#### Scenario: Both page and section
+- **WHEN** a `crd` source sets both `page` and `section`
+- **THEN** loading the config exits `1` saying a crd source takes exactly one of page and section
+
+#### Scenario: Page layout unchanged
+- **WHEN** the controller's release snapshot is built once with its configured `section` and once with a `page` instead
+- **THEN** each kind's entry on the single page, its parts lifted one level, equals that kind's page body in the section
+
+## REMOVED Requirements
+
+### Requirement: The crd page is one completable page
+**Reason**: it ties the entries to crdref's generated block, and its scenario "Parity with crdref" checks a frozen crdref copy. crdref is retired upstream and the copy can never be refreshed; OpenSpec cannot drop a scenario in place.
+**Migration**: replaced, with the same page layout, by "The crd page layout writes one completable page"; parity moves to "The controller's release snapshot renders to its released pages".
+
+## ADDED Requirements
+
+### Requirement: The crd page layout writes one completable page
+In the page layout (the source sets `page`, not `section`), the renderer SHALL write one page at the source's `page` path, one of the bundle's owned paths: per kind a `## <Kind>` entry with `### At a glance`, the printer-column table, `### Spec`, `### Status`, `### Example` when a sample exists, `### Notes`, `### Served by` when `reconciledBy` names a reconciler, and `### Enforcement`, in that order. The `### Served by` sentence SHALL name the reconciler without naming a product: "The `<name>` reconciler watches every <Kind>." The page SHALL be completable, so an authored page with the same path from a `markdown` source supplies the front matter and intro; without one, the page takes the configured `title`, `description` and `weight`.
+
+#### Scenario: Authored intro kept
+- **WHEN** a `markdown` source over `docs/site` supplies `reference/controller-resources.md` holding front matter and an intro paragraph and no `## ModuleInstance` heading
+- **THEN** the bundle's page is that front matter and intro followed by the four generated entries
+
+#### Scenario: Citation linked
+- **WHEN** a field description names `enhancement 0021` and the source has `citations: "link"`
+- **THEN** the description renders `[enhancement 0021](/enhancements/0021/)`
+
+#### Scenario: The served-by sentence names no product
+- **WHEN** `reconciledBy` maps `Widget` to `widget`
+- **THEN** the Widget entry's `Served by` part reads "The `widget` reconciler watches every Widget." and names no product
+
+### Requirement: The controller's release snapshot renders to its released pages
+docs-kit SHALL keep a release snapshot of the controller under `internal/render/testdata/controller`: the pages of one released controller docs bundle under its owned section, verified by `opm-docs pull`, the release commit's `docs-kit.cue`, CRDs, samples and authored section index, and a `SOURCE` naming the bundle tag, digest, docs revision, the opm-docs version that built it and the commit. Built with the snapshot's own crd source config and its index completed by the authored one, the section SHALL equal the released pages, page set and bodies byte for byte. A deliberate render change made after the snapshot's bundle was built SHALL be a named rewrite of the released pages in the test, which SHALL fail when the rewrite matches no page. `task snapshots:refresh` SHALL take a snapshot from a released version and a clone holding its commit, and SHALL refuse a docs revision whose fix commit changes an input of the snapshot.
+
+#### Scenario: Parity with the released controller bundle
+- **WHEN** the snapshot's CRDs and samples are rendered with its `docs-kit.cue` crd source and the index is completed with its authored `_index.md`
+- **THEN** every page equals the released page of the same path, and the released section holds no other page
+
+#### Scenario: A render change postdating the release
+- **WHEN** the test names a rewrite for a render change made after the snapshot's bundle was built
+- **THEN** it applies the rewrite to the released pages before comparing
+
+#### Scenario: A stale rewrite
+- **WHEN** a refresh brings a bundle built with the change, so a named rewrite matches no released page
+- **THEN** the parity test fails and asks for the rewrite to be deleted
+
+#### Scenario: A docs revision fix touching an input
+- **WHEN** the pulled bundle is a docs revision whose fix commit changes a file under `config/crd/bases`
+- **THEN** `task snapshots:refresh` exits non-zero naming the fix commit and the file, and the snapshot is unchanged
