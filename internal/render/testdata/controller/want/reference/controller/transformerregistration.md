@@ -32,11 +32,11 @@ The resource definition declares these `kubectl get` columns. A column with a pr
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `spec.catalog` | `string` | Yes | Catalog is the provider catalog's major-suffixed CUE module path (e.g. "opmodel.dev/catalogs/k8up@v1"). It names a catalog, never a module: a catalog is what carries transformers, so a claim naming a module names nothing that could implement a contract. Acceptance refuses a non-catalog artifact structurally ([0015:D10](/enhancements/0015/decisions/)). |
-| `spec.providerRef` | `object` | Yes | ProviderRef identifies the ModuleInstance that rendered this claim. It is stamped from the rendering instance and never authored, so a module cannot claim to be another provider ([0015:D11](/enhancements/0015/decisions/)). |
+| `spec.catalog` | `string` | Yes | Catalog is the provider catalog's major-suffixed CUE module path (e.g. "opmodel.dev/catalogs/k8up@v1"). It names a catalog, never a module: a catalog is what carries transformers, so a claim naming a module names nothing that could implement a contract. Acceptance refuses a non-catalog artifact structurally (enhancement 0015). |
+| `spec.providerRef` | `object` | Yes | ProviderRef identifies the ModuleInstance that rendered this claim. It is stamped from the rendering instance and never authored, so a module cannot claim to be another provider (enhancement 0015). |
 | `spec.providerRef.name` | `string` | Yes | Name of the claiming ModuleInstance. |
 | `spec.providerRef.namespace` | `string` | Yes | Namespace of the claiming ModuleInstance. |
-| `spec.provides` | `[]string` | Yes | Provides lists every provider-fulfilled contract FQN the named catalog claims to implement. Required but MAY be empty. A provider catalog implementing no provider-fulfilled contract is a claim acceptance refuses on its merits, naming the catalog it re-derived from, not a malformed object. The CRD is the wrong place to encode a rule the reconciler states better. |
+| `spec.provides` | `[]string` | Yes | Provides lists every provider-fulfilled contract FQN the named catalog claims to implement. Required but MAY be empty: the CRD sets no minimum on its length. Acceptance compares the list with the contracts re-derived from the catalog, for exact equality. An empty list therefore passes for a catalog that implements no provider-fulfilled contract, and is refused with reason ProvidesMismatch, naming both lists, for any other catalog. The CRD is the wrong place to encode a rule the reconciler states better. |
 | `spec.version` | `string` | Yes | Version is the released build of the named catalog, a bare SemVer string (e.g. "1.0.0"). It pins the claim to one build, which is what lets acceptance re-derive Provides from the artifact this names. |
 
 ## Status
@@ -50,15 +50,15 @@ The resource definition declares these `kubectl get` columns. A column with a pr
 
 ## Notes
 
-It is the cluster-scoped claim a provider module ships among its rendered resources, the second path by which transformers reach a platform ([0015:D3](/enhancements/0015/decisions/)); the first is a subscription in Platform.spec.registry.
+It is the cluster-scoped claim a provider module ships among its rendered resources, the second path by which transformers reach a platform (enhancement 0015); the first is a subscription in Platform.spec.registry.
 
-metadata.name is the dot-joined "\<namespace\>.\<name\>" of the claiming instance ([0015:D12](/enhancements/0015/decisions/)). A namespace cannot contain a dot, so the join is collision-free and two instances of one provider module produce two distinct claims, the second refused at acceptance naming the claimant, rather than contending for one object.
+metadata.name is the dot-joined "\<namespace\>.\<name\>" of the claiming instance (enhancement 0015). A namespace cannot contain a dot, so the join is collision-free and two instances of one provider module produce two distinct claims, the second refused at acceptance naming the claimant, rather than contending for one object.
 
-Creating one requires platform-admin RBAC. The operator ships that role unbound (config/rbac/transformerregistration\_admin\_role.yaml) and ships no tenant-facing role granting create, so a module applied under an impersonated tenant ServiceAccount cannot register a transformer unless a cluster administrator deliberately bound it.
+Creating one requires platform-admin RBAC. The controller ships that role unbound (config/rbac/transformerregistration\_admin\_role.yaml) and ships no tenant-facing role granting create, so a module applied under an impersonated tenant ServiceAccount cannot register a transformer unless a cluster administrator deliberately bound it.
 
 ## Served by
 
-The operator's `transformerregistration` controller watches every TransformerRegistration.
+The `transformerregistration` reconciler watches every TransformerRegistration.
 
 ## Enforcement
 

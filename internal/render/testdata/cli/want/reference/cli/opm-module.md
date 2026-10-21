@@ -48,13 +48,15 @@ Deploy an OPM module to a Kubernetes cluster by synthesizing a `#ModuleInstance`
 
 A published module is fetched from the registry at the version `--version` selects (v1: newest in major 1; 1.0.4: that release; none: newest release of the highest major built on this CLI's core), resolved before the cluster is contacted.
 
-The synthetic instance defaults to `<module>-debug`. `--name` and `--namespace` participate in instance identity (different values produce different instances, each with its own ModuleInstance CR). The ModuleInstance CRD must be installed first (run `opm operator install --crds-only`). For persistent deploys, author an `instance.cue` file and use `opm instance apply` instead.
+The synthetic instance defaults to `<module>-debug`. `--name` and `--namespace` participate in instance identity (different values produce different instances, each with its own ModuleInstance CR). The ModuleInstance CRD must be installed first (run `opm controller install --crds-only`). For persistent deploys, author an `instance.cue` file and use `opm instance apply` instead.
 
 When switching from `opm module apply` to `opm instance apply` (or vice versa) with a different instance name, delete the previous instance first to avoid orphan inventory:
 
 ```sh
 opm instance delete <module>-debug
 ```
+
+Pruning keeps PersistentVolumeClaims: a claim the module no longer renders stays in the cluster and in the inventory, is listed with the status "kept", and does not fail the apply. Pass `--delete-data` to prune such claims and the data on them; a claim kept by an earlier apply is pruned then too. On a controller-managed instance the controller decides what is pruned: a controller that has spec.dataPolicy keeps PersistentVolumeClaims unless that field of the instance is Delete, an older controller prunes them, and `--delete-data` does not change either.
 
 Arguments:
 
@@ -71,6 +73,7 @@ module-path   Published module path without a major, e.g.
 | --- | --- | --- | --- | --- |
 | `--context` |  | string |  | Kubernetes context to use. |
 | `--create-namespace` |  | bool |  | Create target namespace if it does not exist. |
+| `--delete-data` |  | bool |  | Also prune stale PersistentVolumeClaims and the data on them (kept by default). |
 | `--dry-run` |  | bool |  | Server-side dry run (no changes made); skips objects whose CustomResourceDefinition or namespace the apply creates, which the server cannot validate yet. |
 | `--force` |  | bool |  | Allow empty render to prune all previously tracked resources. |
 | `--kubeconfig` |  | string |  | Path to kubeconfig file. |
@@ -79,10 +82,10 @@ module-path   Published module path without a major, e.g.
 | `--no-prune` |  | bool |  | Skip stale resource pruning. |
 | `--platform` |  | string |  | Platform module directory (overrides the cluster Platform and the module's own deps). |
 | `--skip-unprovided` |  | bool |  | Render what the platform can: skip provider-fulfilled contracts nothing on the platform provides, and report each one. |
-| `--timeout` |  | duration | `5m0s` | Bound on the CustomResourceDefinition establish wait (counted from the start of the apply), on the `--wait` readiness wait, and on the operator-reconcile wait (operator-managed instances). |
+| `--timeout` |  | duration | `5m0s` | Bound on the CustomResourceDefinition establish wait (counted from the start of the apply), on the `--wait` readiness wait, and on the controller-reconcile wait (controller-managed instances). |
 | `--values` | `-f` | stringArray |  | Additional values files (can be repeated). |
 | `--version` |  | string |  | Version of a published module: vN takes the newest in major N, X.Y.Z pins (default: highest major on this CLI's core). |
-| `--wait` |  | bool |  | Wait until every applied resource is healthy before returning (skipped on `--dry-run`; operator-managed instances always wait for the operator). |
+| `--wait` |  | bool |  | Wait until every applied resource is healthy before returning (skipped on `--dry-run`; controller-managed instances always wait for the controller). |
 
 **Examples**
 
@@ -261,7 +264,7 @@ The pipeline reads `identity/identity.cue`, validates it against core's `#Identi
 
 `--version` fills an open identity Version by writing it into `identity/identity.cue` just before the push (never on `--dry-run`), and the zip carries that written file. It asserts a declared Version and never overwrites one.
 
-Exit codes: 0 published (or dry-run GO), 2 refused, 3 registry unreachable.
+Exit codes: 0 published (or dry-run GO), 2 refused or no registry configured, 3 a registry operation failed (unreachable, or another registry error), 4 the registry refused the credentials.
 
 Arguments:
 
@@ -315,6 +318,12 @@ opm module template list [flags]
 ```
 
 List the official module templates: name, description, and the default major an unsuffixed shortcut floats within. Every name is usable as an `opm mod init` template shortcut. Offline — the table ships in the binary, release-coupled to the published set.
+
+**Flags**
+
+| Flag | Shorthand | Type | Default | Description |
+| --- | --- | --- | --- | --- |
+| `--output` | `-o` | string | `table` | Output format (table, json, yaml). |
 
 ## opm module tidy
 
@@ -421,6 +430,8 @@ This command first verifies the module's identity and coordinates — the identi
 
 It then renders the module exactly as `opm module build` does and reports each rendered object without printing it, so vet and build reach the same verdict. By default the render runs against a platform generated from the module's own `cue.mod/module.cue`, one registry entry per catalog the module pins, at the pinned version; the cluster is not read. Pass `--platform <dir>` to render against a platform module instead.
 
+Exit codes: 0 valid, 1 usage error or the platform could not be generated or acquired, 2 validation failure, render refusal or no registry configured, 3 the core schema fetch failed (registry unreachable, or another registry error), 4 the registry refused the credentials.
+
 Arguments:
 
 ```text
@@ -431,7 +442,7 @@ path    Path to module directory (default: current directory)
 
 | Flag | Shorthand | Type | Default | Description |
 | --- | --- | --- | --- | --- |
-| `--instance-name` |  | string |  | Instance name (default: `<module name>-debug`). |
+| `--name` |  | string |  | Synthetic instance name (default: `<module name>-debug`). |
 | `--namespace` | `-n` | string |  | Target namespace. |
 | `--platform` |  | string |  | Render against this platform module directory instead of the module's own deps. |
 | `--skip-unprovided` |  | bool |  | Render what the platform can: skip provider-fulfilled contracts nothing on the platform provides, and report each one. |

@@ -1,9 +1,9 @@
 Release snapshot for docs-kit's parity tests (contracts C18, C19).
 
-Bundle:   ghcr.io/open-platform-model/docs/cli:1.0.0-beta.10 (docs revision 0)
-Digest:   sha256:ebf2a8a8c07bef8b0d84211e9f16feb2ebb7cd647e9dd7ed04421fd7f2a35749
+Bundle:   ghcr.io/open-platform-model/docs/cli:1.0.0-beta.12 (docs revision 0)
+Digest:   sha256:82ae5d98c9ce13935bff7fd9cd5d11277c8fa049a8489be6b7d528dbe07a6c98
 Built by: opm-docs 0.4.0
-Source:   open-platform-model/cli at 5b72b294ae0f431162c0caa6e82487f8ab1eb4d5 (Apache-2.0)
+Source:   open-platform-model/cli at b1a79109eeab06e48d9193171a5a228f4bdbb0f6 (Apache-2.0)
 
 want/ holds the bundle's pages under reference/cli/. docs-kit.cue is the release
 commit's; dump.json is what its hack/docskit-dump printed, twice alike.

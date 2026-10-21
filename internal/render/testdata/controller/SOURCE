@@ -1,11 +1,11 @@
 Release snapshot for docs-kit's parity tests (contracts C18, C19).
 
-Bundle:   ghcr.io/open-platform-model/docs/opm-operator:1.0.0-beta.8 (docs revision 1)
-Digest:   sha256:294a09ab53142d106794326c71f75803af6c3b6e3676c10c1dc7fdef89ec0fae
-Built by: opm-docs 0.7.0
-Source:   open-platform-model/opm-operator at 9ea3bcd0d038de445f6e4b92c7c9be7cc4a9b13c (Apache-2.0)
+Bundle:   ghcr.io/open-platform-model/docs/opm-controller:1.0.0-beta.9 (docs revision 0)
+Digest:   sha256:820f29b3127020de04c3108ea5fcbad2d9b5481f9ceb10359df4993980407b26
+Built by: opm-docs 0.7.1
+Source:   open-platform-model/opm-controller at 7c39347a1e8e771aec76f39c6e40a7da35163500 (Apache-2.0)
 
-want/ holds the bundle's pages under reference/operator/. docs-kit.cue, config/crd/bases,
+want/ holds the bundle's pages under reference/controller/. docs-kit.cue, config/crd/bases,
 config/samples and the authored section index under docs/site/ are the
 release commit's inputs to them.
 

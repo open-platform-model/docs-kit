@@ -59,6 +59,8 @@ unfulfilled       exits 0 — a platform may define a contract ahead of the
                   refused by the render that demands it
 ```
 
+A platform module that does not build exits with the validation error code, with one exception: when the registry refuses the credentials while the module's imports resolve, the command exits 4 and names the login command (opm registry login).
+
 The platform is resolved as `[dir]` &gt; `--platform` &gt; the cluster's Platform, read through `--kubeconfig/--context`. With none of the three the command refuses; it never checks a platform from the OPM home directory.
 
 **Flags**
@@ -89,7 +91,7 @@ opm platform pull <dir> [flags]
 
 Reproduce the cluster's platform package on this machine.
 
-Reads the cluster Platform CR, generates the platform module the operator generated from the same inputs -- the effective registry it recorded on status.registry, or the CR's subscriptions when it has recorded none -- and writes that module's files to `<dir>`. Building against the result renders what the cluster renders:
+Reads the cluster Platform CR, generates the platform module the controller generated from the same inputs -- the effective registry it recorded on status.registry, or the CR's subscriptions when it has recorded none -- and writes that module's files to `<dir>`. Building against the result renders what the cluster renders:
 
 ```sh
 opm module build --platform <dir> ./my-module

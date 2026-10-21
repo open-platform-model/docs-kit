@@ -3,7 +3,7 @@
   "name": "opm",
   "path": "opm",
   "short": "Open Platform Model CLI",
-  "long": "OPM CLI manages module lifecycle and configuration for the Open Platform Model.",
+  "long": "OPM CLI manages module lifecycle and configuration for the Open Platform Model.\n\nExit codes:\n  0  success\n  1  general error, usage errors included (unknown command or flag,\n     wrong number of arguments)\n  2  validation error or refusal\n  3  connectivity error (cluster or registry unreachable)\n  4  permission denied\n  5  not found\n\nThe help of a command states where it differs, for example\n'opm instance status', which exits 2 when a resource is not ready.",
   "example": "",
   "aliases": [],
   "useLine": "opm [flags]",
@@ -46,7 +46,7 @@
       "use": "catalog",
       "useLine": "opm catalog [flags]",
       "short": "Work with catalog source",
-      "long": "Work with OPM catalogs.\n\n\t\tUse this command group when you are starting from catalog source: publish a\n\t\tcatalog release from its source tree.",
+      "long": "Work with OPM catalogs.\n\nUse this command group when you are starting from catalog source: publish a\ncatalog release from its source tree.",
       "example": "",
       "aliases": [],
       "runnable": false,
@@ -59,7 +59,7 @@
           "use": "publish [path]",
           "useLine": "opm catalog publish [path] [flags]",
           "short": "Publish a catalog from its committed source",
-          "long": "Publish an OPM catalog to its registry, at the coordinates the catalog itself\ndeclares.\n\n\tThe pipeline reads identity/identity.cue, validates it against core's\n\t#IdentityPackage, derives repository/major/tag from the declared module path,\n\truns the publish gates, prints the resolved plan, and pushes. What is\n\tpublished is the catalog directory as it is on disk, zipped by CUE's module\n\tmachinery: no copied build directory, no generated version override, and no\n\tgit state is checked, so commit first.\n\n\tExit codes: 0 published (or dry-run GO), 2 refused, 3 registry unreachable.\n\n\tArguments:\n\t  path    Path to the catalog directory (default: current directory)\n\n\tExamples:\n\t  # See the plan and every gate verdict without pushing\n\t  opm catalog publish ./src --dry-run\n\n\t  # Publish at the committed (release-owned) version\n\t  opm catalog publish ./src\n\n\t  # Assert the version being released\n\t  opm catalog publish ./src --version 1.3.0",
+          "long": "Publish an OPM catalog to its registry, at the coordinates the catalog itself\ndeclares.\n\nThe pipeline reads identity/identity.cue, validates it against core's\n#IdentityPackage, derives repository/major/tag from the declared module path,\nruns the publish gates, prints the resolved plan, and pushes. What is\npublished is the catalog directory as it is on disk, zipped by CUE's module\nmachinery: no copied build directory, no generated version override, and no\ngit state is checked, so commit first.\n\nExit codes: 0 published (or dry-run GO), 2 refused or no registry\nconfigured, 3 a registry operation failed (unreachable, or another\nregistry error), 4 the registry refused the credentials.\n\nArguments:\n  path    Path to the catalog directory (default: current directory)\n\nExamples:\n  # See the plan and every gate verdict without pushing\n  opm catalog publish ./src --dry-run\n\n  # Publish at the committed (release-owned) version\n  opm catalog publish ./src\n\n  # Assert the version being released\n  opm catalog publish ./src --version 1.3.0",
           "example": "",
           "aliases": [],
           "runnable": true,
@@ -88,7 +88,7 @@
           "use": "registry",
           "useLine": "opm catalog registry [flags]",
           "short": "Work with published catalogs",
-          "long": "Work with catalogs already published to a registry.\n\n\tUse this command group when you are starting from a published artifact:\n\tverify a build out of band, after the fact, from the consumer's side.",
+          "long": "Work with catalogs already published to a registry.\n\nUse this command group when you are starting from a published artifact:\nverify a build out of band, after the fact, from the consumer's side.",
           "example": "",
           "aliases": [],
           "runnable": false,
@@ -101,7 +101,7 @@
               "use": "check <path@version>",
               "useLine": "opm catalog registry check <path@version> [flags]",
               "short": "Verify a published catalog out of band",
-              "long": "Pull a published catalog by path@version and check its declared identity: it\nis concrete, and its modulePath and version agree with the coordinate the\nbuild was fetched by.\nThe report lists the catalog's members per kind and apiVersion.\n\n\tWith --compat, additionally compare every beta/GA member against the last\n\tpublished build that shipped it, under the additive-only rule — exactly the\n\tcomparison publish enforces.\n\n\tThis check is an aid, not a guarantee: nothing requires it to have been run, and enforcement exists only at publish — it does not make an unchecked catalog trustworthy; it makes it checkable.\n\n\tExit codes: 0 clean, 2 findings, 3 registry unreachable.\n\n\tExamples:\n\t  # Verify a published build's identity and see what it contains\n\t  opm catalog registry check opmodel.dev/catalogs/opm@v4.4.4\n\n\t  # Additionally check it kept its published contracts\n\t  opm catalog registry check opmodel.dev/catalogs/opm@v4.4.4 --compat",
+              "long": "Pull a published catalog by path@version and check its declared identity: it\nis concrete, and its modulePath and version agree with the coordinate the\nbuild was fetched by.\nThe report lists the catalog's members per kind and apiVersion.\n\nWith --compat, additionally compare every beta/GA member against the last\npublished build that shipped it, under the additive-only rule — exactly the\ncomparison publish enforces.\n\nThis check is an aid, not a guarantee: nothing requires it to have been run, and enforcement exists only at publish — it does not make an unchecked catalog trustworthy; it makes it checkable.\n\nExit codes: 0 clean, 2 findings, 3 registry unreachable.\n\nExamples:\n  # Verify a published build's identity and see what it contains\n  opm catalog registry check opmodel.dev/catalogs/opm@v4.4.4\n\n  # Additionally check it kept its published contracts\n  opm catalog registry check opmodel.dev/catalogs/opm@v4.4.4 --compat",
               "example": "",
               "aliases": [],
               "runnable": true,
@@ -125,7 +125,7 @@
           "use": "tidy [path]",
           "useLine": "opm catalog tidy [path] [flags]",
           "short": "Resolve, pin and prune the catalog's CUE dependencies",
-          "long": "Tidy the catalog's cue.mod/module.cue (and cue.mod/local-module.cue) the\n\tway 'cue mod tidy' does, without needing the cue binary.\n\n\tEvery dependency an import needs is pinned at the version minimum version\n\tselection picks; a dependency imported for the first time is added at its\n\tnewest published version; a dependency nothing imports is removed. An\n\talready tidy catalog is left untouched (no write, no mtime change).\n\n\tThe path must be the catalog's module root itself; parent directories are\n\tnot searched. Modules resolve through the same registry every other opm\n\tcommand reads (--registry, then OPM_REGISTRY, then the config file).\n\n\tWith --check nothing is written: the command fails when tidying would\n\tchange a file, for use as a CI gate.\n\n\tExit codes: 0 tidied (or already tidy, or check passed), 1 dependency\n\tresolution or registry failure, 2 not tidy under --check or not a module\n\troot.\n\n\tArguments:\n\t  path    Path to the catalog directory (default: current directory)\n\n\tExamples:\n\t  # Tidy the catalog in the current directory\n\t  opm catalog tidy\n\n\t  # Fail in CI when a dependency is missing or unused\n\t  opm catalog tidy --check ./src",
+          "long": "Tidy the catalog's cue.mod/module.cue (and cue.mod/local-module.cue) the\nway 'cue mod tidy' does, without needing the cue binary.\n\nEvery dependency an import needs is pinned at the version minimum version\nselection picks; a dependency imported for the first time is added at its\nnewest published version; a dependency nothing imports is removed. An\nalready tidy catalog is left untouched (no write, no mtime change).\n\nThe path must be the catalog's module root itself; parent directories are\nnot searched. Modules resolve through the same registry every other opm\ncommand reads (--registry, then OPM_REGISTRY, then the config file).\n\nWith --check nothing is written: the command fails when tidying would\nchange a file, for use as a CI gate.\n\nExit codes: 0 tidied (or already tidy, or check passed), 1 dependency\nresolution or registry failure, 2 not tidy under --check or not a module\nroot.\n\nArguments:\n  path    Path to the catalog directory (default: current directory)\n\nExamples:\n  # Tidy the catalog in the current directory\n  opm catalog tidy\n\n  # Fail in CI when a dependency is missing or unused\n  opm catalog tidy --check ./src",
           "example": "",
           "aliases": [],
           "runnable": true,
@@ -147,7 +147,7 @@
           "use": "version",
           "useLine": "opm catalog version [flags]",
           "short": "Manage the catalog's declared version",
-          "long": "Manage the version an OPM catalog declares in identity/identity.cue.\n\n\tThe declared version is the single source the publish pipeline reads; these\n\tcommands edit it deliberately so a commit sits between deciding a version\n\tand pushing an artifact.",
+          "long": "Manage the version an OPM catalog declares in identity/identity.cue.\n\nThe declared version is the single source the publish pipeline reads; these\ncommands edit it deliberately so a commit sits between deciding a version\nand pushing an artifact.",
           "example": "",
           "aliases": [],
           "runnable": false,
@@ -160,7 +160,7 @@
               "use": "set <version> [path]",
               "useLine": "opm catalog version set <version> [path] [flags]",
               "short": "Set the catalog's declared version",
-              "long": "Set the version the catalog declares in identity/identity.cue.\n\n\tThe write is surgical: only the version value changes — comments, field\n\torder, alignment, any type assertion on the field, and release-automation\n\tmarker lines all survive byte-for-byte. A defaulted declaration (the shape\n\trelease automation owns) stays defaulted with its marker intact. Setting\n\tthe version the file already declares writes nothing (no mtime change) and\n\treports the no-op.\n\n\tThe command is offline: no registry access, no schema fetch. It refuses an\n\tidentity file that does not structurally carry a Version field; run\n\t'opm catalog publish --dry-run' for full conformance checking — every\n\tpublish gate runs, nothing is pushed.\n\n\tExit codes: 0 set (or already set), 2 refused.\n\n\tArguments:\n\t  version    Bare SemVer to declare (no \"v\" prefix)\n\t  path       Path to the catalog directory (default: current directory)\n\n\tExamples:\n\t  # Declare the next release version in the current directory\n\t  opm catalog version set 1.3.0\n\n\t  # Same, against an explicit catalog directory\n\t  opm catalog version set 1.3.0 ./src",
+              "long": "Set the version the catalog declares in identity/identity.cue.\n\nThe write is surgical: only the version value changes — comments, field\norder, alignment, any type assertion on the field, and release-automation\nmarker lines all survive byte-for-byte. A defaulted declaration (the shape\nrelease automation owns) stays defaulted with its marker intact. Setting\nthe version the file already declares writes nothing (no mtime change) and\nreports the no-op.\n\nThe command is offline: no registry access, no schema fetch. It refuses an\nidentity file that does not structurally carry a Version field; run\n'opm catalog publish --dry-run' for full conformance checking — every\npublish gate runs, nothing is pushed.\n\nExit codes: 0 set (or already set), 2 refused.\n\nArguments:\n  version    Bare SemVer to declare (no \"v\" prefix)\n  path       Path to the catalog directory (default: current directory)\n\nExamples:\n  # Declare the next release version in the current directory\n  opm catalog version set 1.3.0\n\n  # Same, against an explicit catalog directory\n  opm catalog version set 1.3.0 ./src",
               "example": "",
               "aliases": [],
               "runnable": true,
@@ -327,6 +327,156 @@
       ]
     },
     {
+      "path": "opm controller",
+      "name": "controller",
+      "use": "controller",
+      "useLine": "opm controller [flags]",
+      "short": "Install and manage the opm-controller on a cluster",
+      "long": "Install, upgrade, and remove the opm-controller on a Kubernetes cluster.\n\nopm controller prepares a cluster for OPM workflows that depend on the controller:\nits CRDs (ModuleInstance, ModulePackage, Platform,\nTransformerRegistration) and, for full deployments,\nthe running controller itself.",
+      "example": "",
+      "aliases": [],
+      "runnable": false,
+      "flags": [],
+      "inheritedFlags": [],
+      "commands": [
+        {
+          "path": "opm controller install",
+          "name": "install",
+          "use": "install",
+          "useLine": "opm controller install [flags]",
+          "short": "Install the opm-controller on a cluster",
+          "long": "Install the opm-controller from its OPM module, opmodel.dev/modules/opm_controller,\nas the CLI-owned ModuleInstance opm-controller in opm-system, wait for\nit to roll out, and give it a Platform to reconcile.\n\nInstall pulls the module from the configured registry (--registry,\nOPM_REGISTRY or the config file); an air-gapped cluster installs from a\nmirror that serves the module and its dependencies. Without --version it\ninstalls the module version this CLI pins; --version takes a module version\n(0.2.0 pins, v0 floats to the newest release of that major), and install\nprints the controller release that version deploys. The module renders against\nits own dependency pins, never the cluster Platform.\n\nEvery check that can refuse runs before anything is written: the values\nagainst the module's #config, a controller newer than this CLI, a rendered\nimage that disagrees with the controller version the module states, a\nModuleInstance CRD below this CLI's floor, and objects that exist and are\nnot OPM's. Then the CRDs are applied and served, then the instance is\napplied and recorded (every rendered object, the CRDs and the Namespace\nincluded), and install waits for the controller Deployment's rollout.\nObjects left terminating by a previous uninstall are waited out first; all\nwaits share the one --timeout budget.\n\nThe controller's settings are instance values: -f/--values files are layered\nover the values recorded on the controller's instance, so a reinstall keeps\nevery recorded value it does not change; --reset-values starts from the\nmodule's defaults instead.\n\nA full install then creates the singleton cluster Platform, subscribed to the\nnewest published release of the first-party catalog. The version is resolved\nfrom the registry before anything is applied. If the catalog has published\nno release yet, the command refuses and names --catalog-prerelease; an\nexisting Platform is reported and left untouched, never rewritten.\n\n--crds-only applies just the CRDs, for clusters where the CLI drives module\nlifecycle without a running controller. They are the CRDs the pinned module\nversion renders, carried in this CLI, so --crds-only needs no registry and\ntalks only to the cluster: it resolves and renders no module, writes no\nModuleInstance, and takes no --version, -f or --reset-values. A CRD that\nexists is judged as on a full install: one the controller's instance record\nlists is applied (when the record cannot be read because access is denied,\nthe CRDs are judged without it and a warning says so); one without OPM's\nmanaged-by label, or with another\ninstance's identity, is refused, and the refusal prints the annotation to\nset on the CRD so that this instance takes it over; --crds-only adopts nothing\nby itself. It also refuses CRDs a newer module version installed: run\n--crds-only from a CLI that pins that version or newer, or install that\nversion in full.\n\nExamples:\n  # Install the pinned controller module and seed the cluster Platform\n  opm controller install\n\n  # Route the controller's own module fetches through a mirror\n  opm controller install -f controller-values.cue   # values: registry: \"opmodel.dev=mirror.example/opm\"\n\n  # Install another controller module version\n  opm controller install --version 0.2.0\n\n  # Start over from the module's defaults\n  opm controller install --reset-values\n\n  # Install the controller without creating a Platform\n  opm controller install --skip-platform\n\n  # Install only the CRDs this CLI carries (no registry), plus RBAC for a user\n  opm controller install --crds-only --rbac --user alice",
+          "example": "",
+          "aliases": [],
+          "runnable": true,
+          "flags": [
+            {
+              "name": "catalog-prerelease",
+              "shorthand": "",
+              "type": "bool",
+              "default": "false",
+              "usage": "Subscribe the cluster Platform to the newest catalog prerelease instead of the newest release"
+            },
+            {
+              "name": "context",
+              "shorthand": "",
+              "type": "string",
+              "default": "",
+              "usage": "Kubernetes context to use"
+            },
+            {
+              "name": "crds-only",
+              "shorthand": "",
+              "type": "bool",
+              "default": "false",
+              "usage": "Install only the CustomResourceDefinitions of the pinned controller module, carried in this CLI (no registry)"
+            },
+            {
+              "name": "group",
+              "shorthand": "",
+              "type": "string",
+              "default": "",
+              "usage": "Bind the opm-cli-user ClusterRole to this group (requires --rbac)"
+            },
+            {
+              "name": "kubeconfig",
+              "shorthand": "",
+              "type": "string",
+              "default": "",
+              "usage": "Path to kubeconfig file"
+            },
+            {
+              "name": "rbac",
+              "shorthand": "",
+              "type": "bool",
+              "default": "false",
+              "usage": "Also create the opm-cli-user ClusterRole"
+            },
+            {
+              "name": "reset-values",
+              "shorthand": "",
+              "type": "bool",
+              "default": "false",
+              "usage": "Ignore the controller instance's recorded values and start from the module's defaults"
+            },
+            {
+              "name": "skip-platform",
+              "shorthand": "",
+              "type": "bool",
+              "default": "false",
+              "usage": "Do not create the cluster Platform"
+            },
+            {
+              "name": "timeout",
+              "shorthand": "",
+              "type": "duration",
+              "default": "5m0s",
+              "usage": "How long to wait, in total, for terminating objects to clear, the CRDs to be served and the controller to roll out"
+            },
+            {
+              "name": "user",
+              "shorthand": "",
+              "type": "string",
+              "default": "",
+              "usage": "Bind the opm-cli-user ClusterRole to this user (requires --rbac)"
+            },
+            {
+              "name": "values",
+              "shorthand": "f",
+              "type": "stringArray",
+              "default": "[]",
+              "usage": "Values file layered over the controller instance's recorded values (repeatable)"
+            },
+            {
+              "name": "version",
+              "shorthand": "",
+              "type": "string",
+              "default": "",
+              "usage": "Controller module version to install: X.Y.Z pins, vN floats (default: the version this CLI pins)"
+            }
+          ],
+          "inheritedFlags": [],
+          "commands": []
+        },
+        {
+          "path": "opm controller uninstall",
+          "name": "uninstall",
+          "use": "uninstall",
+          "useLine": "opm controller uninstall [flags]",
+          "short": "Remove the opm-controller from a cluster",
+          "long": "Delete every object the controller's instance record (ModuleInstance\nopm-controller in opm-system) lists, then the record, except the CRDs\nand the controller's Namespace — those remain for a deliberate, separate\n'kubectl delete crd' once you're sure no ModuleInstance data is still needed.\nAn object that no longer carries the instance's identity, or whose\nopmodel.dev/adopt annotation names another instance, is left behind.\n\nWith no record, uninstall deletes nothing: run 'opm controller install' first,\nso the running controller is recorded.\n\nRefuses to proceed while any ModuleInstance still carries the controller's\ncleanup finalizer: deleting the controller out from under it would orphan its\nworkload without the controller ever running cleanup. --remove-finalizers\noverrides this by stripping just that finalizer (leaving any other\nfinalizers intact) and proceeding — the instance's resources become\nunmanaged.\n\nExamples:\n  # Remove the controller (refuses if any ModuleInstance is still active)\n  opm controller uninstall\n\n  # Remove the controller, orphaning any still-active ModuleInstances\n  opm controller uninstall --remove-finalizers",
+          "example": "",
+          "aliases": [],
+          "runnable": true,
+          "flags": [
+            {
+              "name": "context",
+              "shorthand": "",
+              "type": "string",
+              "default": "",
+              "usage": "Kubernetes context to use"
+            },
+            {
+              "name": "kubeconfig",
+              "shorthand": "",
+              "type": "string",
+              "default": "",
+              "usage": "Path to kubeconfig file"
+            },
+            {
+              "name": "remove-finalizers",
+              "shorthand": "",
+              "type": "bool",
+              "default": "false",
+              "usage": "Strip the controller's cleanup finalizer from active ModuleInstances and proceed"
+            }
+          ],
+          "inheritedFlags": [],
+          "commands": []
+        }
+      ]
+    },
+    {
       "path": "opm instance",
       "name": "instance",
       "use": "instance",
@@ -349,7 +499,7 @@
           "use": "apply <instance.cue>",
           "useLine": "opm instance apply <instance.cue> [flags]",
           "short": "Deploy instance to cluster",
-          "long": "Deploy an OPM instance file to a Kubernetes cluster using server-side apply.\n\nApply records what it deployed in a ModuleInstance custom resource, so the\nModuleInstance CRD must be installed first (run 'opm operator install\n--crds-only'). Apply fails fast with a hint if it is missing or out of date.\n\nArguments:\n  instance.cue    Path to the instance .cue file (required)\n\nExamples:\n  # Apply an instance file\n  opm instance apply ./jellyfin_instance.cue\n\n  # Apply and block until every resource is healthy (or --timeout runs out)\n  opm instance apply ./jellyfin_instance.cue --wait --timeout 10m\n\n  # Dry run (skips the cluster gates; no CRD required)\n  opm instance apply ./jellyfin_instance.cue --dry-run",
+          "long": "Deploy an OPM instance file to a Kubernetes cluster using server-side apply.\n\nApply records what it deployed in a ModuleInstance custom resource, so the\nModuleInstance CRD must be installed first (run 'opm controller install\n--crds-only'). Apply fails fast with a hint if it is missing or out of date.\n\nPruning keeps PersistentVolumeClaims: a claim the module no longer renders\nstays in the cluster and in the inventory, is listed with the status \"kept\",\nand does not fail the apply. Pass --delete-data to prune such claims and the\ndata on them; a claim kept by an earlier apply is pruned then too. On a\ncontroller-managed instance the controller decides what is pruned: a controller\nthat has spec.dataPolicy keeps PersistentVolumeClaims unless that field of the\ninstance is Delete, an older controller prunes them, and --delete-data does not\nchange either.\n\nArguments:\n  instance.cue    Path to the instance .cue file (required)\n\nExamples:\n  # Apply an instance file\n  opm instance apply ./jellyfin_instance.cue\n\n  # Apply and block until every resource is healthy (or --timeout runs out)\n  opm instance apply ./jellyfin_instance.cue --wait --timeout 10m\n\n  # Dry run (skips the cluster gates; no CRD required)\n  opm instance apply ./jellyfin_instance.cue --dry-run",
           "example": "",
           "aliases": [],
           "runnable": true,
@@ -367,6 +517,13 @@
               "type": "bool",
               "default": "false",
               "usage": "Create target namespace if it does not exist"
+            },
+            {
+              "name": "delete-data",
+              "shorthand": "",
+              "type": "bool",
+              "default": "false",
+              "usage": "Also prune stale PersistentVolumeClaims and the data on them (kept by default)"
             },
             {
               "name": "dry-run",
@@ -422,7 +579,7 @@
               "shorthand": "",
               "type": "duration",
               "default": "5m0s",
-              "usage": "Bound on the CustomResourceDefinition establish wait (counted from the start of the apply), on the --wait readiness wait, and on the operator-reconcile wait (operator-managed instances)"
+              "usage": "Bound on the CustomResourceDefinition establish wait (counted from the start of the apply), on the --wait readiness wait, and on the controller-reconcile wait (controller-managed instances)"
             },
             {
               "name": "values",
@@ -436,7 +593,7 @@
               "shorthand": "",
               "type": "bool",
               "default": "false",
-              "usage": "Wait until every applied resource is healthy before returning (skipped on --dry-run; operator-managed instances always wait for the operator)"
+              "usage": "Wait until every applied resource is healthy before returning (skipped on --dry-run; controller-managed instances always wait for the controller)"
             }
           ],
           "inheritedFlags": [],
@@ -533,7 +690,7 @@
           "use": "delete <file|name|uuid>",
           "useLine": "opm instance delete <file|name|uuid> [flags]",
           "short": "Delete instance resources from cluster",
-          "long": "Delete the resources belonging to an OPM instance from a Kubernetes cluster\n(CRDs and Namespaces are left behind).\n\nCustomResourceDefinitions and Namespaces are never deleted, since deleting one\ntakes every custom resource of its kind, or everything inside it, with it.\nEach tracked resource is also read again just before its delete, and a\nresource that is no longer managed by OPM or now belongs to another instance\nis left behind. Every resource left behind is listed with its reason; remove\nit with 'kubectl delete' once nothing else needs it.\n\nDeleting an instance that deploys the operator (the instance opm-operator in\nopm-operator-system, any instance of the operator module, or one whose\ninventory holds the operator's CRDs) is refused in two cases, dry runs\nincluded. While it is operator-owned: the operator never reconciles or prunes\nthe instance that deploys it, so set spec.owner to cli first. And while any\ninstance still carries the operator's opmodel.dev/cleanup finalizer: removing\nthe operator would leave them unable to finish deletion. Run\n'opm operator uninstall --remove-finalizers' to remove that finalizer first,\nwhich orphans those instances' workloads. --force does not bypass either.\n\nArguments:\n  file         Path to an instance.cue file or directory containing one.\n               The instance name and namespace are read from the file's metadata.\n               --namespace overrides the namespace found in the file.\n  name         Instance name (use -n / --namespace to scope by namespace).\n  uuid         Instance UUID.\n\nExamples:\n  # Delete by instance.cue file in the current directory\n  opm instance delete .\n\n  # Delete by instance.cue file path\n  opm instance delete ./instances/jellyfin/instance.cue -n media\n\n  # Delete by name\n  opm instance delete jellyfin -n media\n\n  # Preview what would be deleted\n  opm instance delete jellyfin -n media --dry-run\n\n  # Skip confirmation prompt\n  opm instance delete jellyfin -n media --force",
+          "long": "Delete the resources belonging to an OPM instance from a Kubernetes cluster\n(CRDs and Namespaces are left behind, PersistentVolumeClaims are kept).\n\nPersistentVolumeClaims are kept by default, because deleting one deletes the\ndata on its volume. Each kept claim is listed with the status \"kept\", the\ncommand still exits 0, and the closing output prints the 'kubectl delete pvc'\ncommand for each one. The ModuleInstance is deleted, so OPM no longer tracks a\nkept claim and no later opm command deletes it; applying the instance again\ntakes it back. Pass --delete-data to delete the claims and their data with the\ninstance; the confirmation prompt then names each claim. Claims a StatefulSet\ncreated from volumeClaimTemplates are not tracked by OPM and are never deleted\nhere, with or without the flag: Kubernetes keeps them by default.\n\nNone of this holds for a controller-managed instance: there the controller\ndeletes what the instance tracks when spec.prune is set, and leaves all of it\nrunning otherwise. A controller that has spec.dataPolicy keeps\nPersistentVolumeClaims unless that field of the instance is Delete; a\ncontroller without the field deletes them. The confirmation prompt says which\nholds: it reads spec.prune and spec.dataPolicy from the instance, and from the\nModuleInstance CRD whether the controller has the field. --delete-data does not\nchange what the controller does.\n\nCustomResourceDefinitions and Namespaces are never deleted, since deleting one\ntakes every custom resource of its kind, or everything inside it, with it.\nEach tracked resource is also read again just before its delete, and a\nresource that is no longer managed by OPM, now belongs to another instance, or\ncarries an opmodel.dev/adopt annotation naming another instance is left\nbehind. Every resource left behind is listed with its reason; remove\nit with 'kubectl delete' once nothing else needs it.\n\nThe command returns when the API server has accepted every delete. A deleted\nresource can still exist then, terminating, until its dependents and its\nfinalizers are gone. Pass --wait to return only when every resource this run\ndeleted is gone: its read returns NotFound, or a new object holds its name.\n--timeout (default 5m0s) bounds the wait and starts with it. Kept claims,\nresources left behind and resources that were already gone are not waited\nfor. When the wait times out, the command lists each resource that is still\nterminating, with its finalizers, keeps the ModuleInstance and exits 1; run\nthe same command again to wait again, or without --wait to delete the\nModuleInstance and stop tracking those resources. --wait does nothing on\n--dry-run, and nothing when a resource failed to delete. For a\ncontroller-managed instance the command always waits, bounded by --timeout,\nuntil the ModuleInstance is gone, with or without --wait; it does not check\nthe resources the controller prunes.\n\nDeleting an instance that deploys the controller (the instance opm-controller in\nopm-system, any instance of the controller module, or one whose\ninventory holds the controller's CRDs) is refused in two cases, dry runs\nincluded. While it is controller-owned: the controller never reconciles or prunes\nthe instance that deploys it, so set spec.owner to cli first. And while any\ninstance still carries the controller's opmodel.dev/cleanup finalizer: removing\nthe controller would leave them unable to finish deletion. Run\n'opm controller uninstall --remove-finalizers' to remove that finalizer first,\nwhich orphans those instances' workloads. --yes does not bypass either.\n\nArguments:\n  file         Path to an instance.cue file or directory containing one.\n               The instance name and namespace are read from the file's metadata.\n               --namespace overrides the namespace found in the file.\n  name         Instance name (use -n / --namespace to scope by namespace).\n  uuid         Instance UUID.\n\nExamples:\n  # Delete by instance.cue file in the current directory\n  opm instance delete .\n\n  # Delete by instance.cue file path\n  opm instance delete ./instances/jellyfin/instance.cue -n media\n\n  # Delete by name\n  opm instance delete jellyfin -n media\n\n  # Preview what would be deleted\n  opm instance delete jellyfin -n media --dry-run\n\n  # Skip the confirmation prompt\n  opm instance delete jellyfin -n media --yes\n\n  # Also delete the PersistentVolumeClaims and the data on them\n  opm instance delete jellyfin -n media --delete-data\n\n  # Return only when the deleted resources are gone, or after two minutes\n  opm instance delete jellyfin -n media --yes --wait --timeout 2m",
           "example": "",
           "aliases": [],
           "runnable": true,
@@ -546,18 +703,18 @@
               "usage": "Kubernetes context to use"
             },
             {
+              "name": "delete-data",
+              "shorthand": "",
+              "type": "bool",
+              "default": "false",
+              "usage": "Also delete PersistentVolumeClaims and the data on them (kept by default)"
+            },
+            {
               "name": "dry-run",
               "shorthand": "",
               "type": "bool",
               "default": "false",
               "usage": "Preview without deleting"
-            },
-            {
-              "name": "force",
-              "shorthand": "",
-              "type": "bool",
-              "default": "false",
-              "usage": "Skip confirmation prompt"
             },
             {
               "name": "kubeconfig",
@@ -578,7 +735,21 @@
               "shorthand": "",
               "type": "duration",
               "default": "5m0s",
-              "usage": "Bound on the operator-cleanup wait (operator-managed instances only)"
+              "usage": "Bound on the --wait wait, and on the controller-cleanup wait of a controller-managed instance"
+            },
+            {
+              "name": "wait",
+              "shorthand": "",
+              "type": "bool",
+              "default": "false",
+              "usage": "Wait until every resource this run deleted is gone before returning (skipped on --dry-run; controller-managed instances always wait for the controller)"
+            },
+            {
+              "name": "yes",
+              "shorthand": "y",
+              "type": "bool",
+              "default": "false",
+              "usage": "Skip the confirmation prompt"
             }
           ],
           "inheritedFlags": [],
@@ -811,7 +982,7 @@
           "use": "status <file|name|uuid>",
           "useLine": "opm instance status <file|name|uuid> [flags]",
           "short": "Show resource status for an instance",
-          "long": "Show status of resources deployed by an OPM instance.\n\nArguments:\n  file         Path to an instance.cue file or directory containing one.\n               The instance name and namespace are read from the file's metadata.\n               --namespace overrides the namespace found in the file.\n  name         Instance name (use -n / --namespace to scope by namespace).\n  uuid         Instance UUID.\n\nExamples:\n  # Identify by instance.cue file in the current directory\n  opm instance status .\n\n  # Identify by instance.cue file path\n  opm instance status ./instances/jellyfin/instance.cue\n\n  # Identify by name\n  opm instance status jellyfin -n media\n\n  # Wide output\n  opm instance status jellyfin -n media -o wide",
+          "long": "Show status of resources deployed by an OPM instance.\n\nThe exit code carries the verdict, so a pipeline can act on it without\nreading the output:\n\n  0  every tracked resource is healthy\n  1  usage error, or the instance record could not be read\n  2  a resource is not ready, or a tracked resource could not be read\n  3  the cluster could not be reached\n  4  permission denied\n  5  the instance or its resources were not found\n\nArguments:\n  file         Path to an instance.cue file or directory containing one.\n               The instance name and namespace are read from the file's metadata.\n               --namespace overrides the namespace found in the file.\n  name         Instance name (use -n / --namespace to scope by namespace).\n  uuid         Instance UUID.\n\nExamples:\n  # Identify by instance.cue file in the current directory\n  opm instance status .\n\n  # Identify by instance.cue file path\n  opm instance status ./instances/jellyfin/instance.cue\n\n  # Identify by name\n  opm instance status jellyfin -n media\n\n  # Wide output\n  opm instance status jellyfin -n media -o wide",
           "example": "",
           "aliases": [],
           "runnable": true,
@@ -992,7 +1163,7 @@
           "use": "apply [path | module-path]",
           "useLine": "opm module apply [path | module-path] [flags]",
           "short": "Deploy a module to a cluster via synthetic instance",
-          "long": "Deploy an OPM module to a Kubernetes cluster by synthesizing a\n#ModuleInstance around it and applying the result. The module is a package\ndirectory on disk or a published module named by its module path. Values come\nfrom the module's debugValues (default) or from -f/--values files. debugValues\nare the module author's test values: apply warns when it deploys them, and\n'opm instance init' writes an editable instance package instead.\n\nA published module is fetched from the registry at the version --version\nselects (v1: newest in major 1; 1.0.4: that release; none: newest release of\nthe highest major built on this CLI's core), resolved before the cluster is\ncontacted.\n\nThe synthetic instance defaults to \"<module>-debug\". --name and --namespace\nparticipate in instance identity (different values produce different instances,\neach with its own ModuleInstance CR). The ModuleInstance CRD must be installed\nfirst (run 'opm operator install --crds-only'). For persistent deploys, author\nan instance.cue file and use 'opm instance apply' instead.\n\nWhen switching from 'opm module apply' to 'opm instance apply' (or vice versa)\nwith a different instance name, delete the previous instance first to avoid\norphan inventory:\n\n  opm instance delete <module>-debug\n\nArguments:\n  path          Module package directory (default: current directory).\n                \".\" or a ./, ../ or absolute path is always a directory.\n  module-path   Published module path without a major, e.g.\n                opmodel.dev/modules/web_app\n\nExamples:\n  # Apply the current module using debugValues\n  opm module apply\n\n  # Apply with a custom synthetic instance name\n  opm module apply ./my-module --name my-debug\n\n  # Apply and block until every resource is healthy (or --timeout runs out)\n  opm module apply ./my-module --wait --timeout 10m\n\n  # Dry run against a specific namespace\n  opm module apply ./my-module -n staging --dry-run\n\n  # Apply the newest v1 release of a published module\n  opm module apply opmodel.dev/modules/web_app --version v1 --name hello -n demo",
+          "long": "Deploy an OPM module to a Kubernetes cluster by synthesizing a\n#ModuleInstance around it and applying the result. The module is a package\ndirectory on disk or a published module named by its module path. Values come\nfrom the module's debugValues (default) or from -f/--values files. debugValues\nare the module author's test values: apply warns when it deploys them, and\n'opm instance init' writes an editable instance package instead.\n\nA published module is fetched from the registry at the version --version\nselects (v1: newest in major 1; 1.0.4: that release; none: newest release of\nthe highest major built on this CLI's core), resolved before the cluster is\ncontacted.\n\nThe synthetic instance defaults to \"<module>-debug\". --name and --namespace\nparticipate in instance identity (different values produce different instances,\neach with its own ModuleInstance CR). The ModuleInstance CRD must be installed\nfirst (run 'opm controller install --crds-only'). For persistent deploys, author\nan instance.cue file and use 'opm instance apply' instead.\n\nWhen switching from 'opm module apply' to 'opm instance apply' (or vice versa)\nwith a different instance name, delete the previous instance first to avoid\norphan inventory:\n\n  opm instance delete <module>-debug\n\nPruning keeps PersistentVolumeClaims: a claim the module no longer renders\nstays in the cluster and in the inventory, is listed with the status \"kept\",\nand does not fail the apply. Pass --delete-data to prune such claims and the\ndata on them; a claim kept by an earlier apply is pruned then too. On a\ncontroller-managed instance the controller decides what is pruned: a controller\nthat has spec.dataPolicy keeps PersistentVolumeClaims unless that field of the\ninstance is Delete, an older controller prunes them, and --delete-data does not\nchange either.\n\nArguments:\n  path          Module package directory (default: current directory).\n                \".\" or a ./, ../ or absolute path is always a directory.\n  module-path   Published module path without a major, e.g.\n                opmodel.dev/modules/web_app\n\nExamples:\n  # Apply the current module using debugValues\n  opm module apply\n\n  # Apply with a custom synthetic instance name\n  opm module apply ./my-module --name my-debug\n\n  # Apply and block until every resource is healthy (or --timeout runs out)\n  opm module apply ./my-module --wait --timeout 10m\n\n  # Dry run against a specific namespace\n  opm module apply ./my-module -n staging --dry-run\n\n  # Apply the newest v1 release of a published module\n  opm module apply opmodel.dev/modules/web_app --version v1 --name hello -n demo",
           "example": "",
           "aliases": [],
           "runnable": true,
@@ -1010,6 +1181,13 @@
               "type": "bool",
               "default": "false",
               "usage": "Create target namespace if it does not exist"
+            },
+            {
+              "name": "delete-data",
+              "shorthand": "",
+              "type": "bool",
+              "default": "false",
+              "usage": "Also prune stale PersistentVolumeClaims and the data on them (kept by default)"
             },
             {
               "name": "dry-run",
@@ -1072,7 +1250,7 @@
               "shorthand": "",
               "type": "duration",
               "default": "5m0s",
-              "usage": "Bound on the CustomResourceDefinition establish wait (counted from the start of the apply), on the --wait readiness wait, and on the operator-reconcile wait (operator-managed instances)"
+              "usage": "Bound on the CustomResourceDefinition establish wait (counted from the start of the apply), on the --wait readiness wait, and on the controller-reconcile wait (controller-managed instances)"
             },
             {
               "name": "values",
@@ -1093,7 +1271,7 @@
               "shorthand": "",
               "type": "bool",
               "default": "false",
-              "usage": "Wait until every applied resource is healthy before returning (skipped on --dry-run; operator-managed instances always wait for the operator)"
+              "usage": "Wait until every applied resource is healthy before returning (skipped on --dry-run; controller-managed instances always wait for the controller)"
             }
           ],
           "inheritedFlags": [],
@@ -1205,7 +1383,7 @@
           "use": "init [new-module-path] [template]",
           "useLine": "opm module init [new-module-path] [template] [flags]",
           "short": "Scaffold a module from a published template, or repair an existing tree",
-          "long": "Create a new OPM module by fetching a published template module and\nre-identifying it to your module path, or repair an existing module tree.\n\n\tA bare-word template (letters, digits, underscores) is a shortcut into the\n\tofficial set at opmodel.dev/templates/<name>; run 'opm module template list'\n\tto see it. A reference containing '/' or '.' is a literal module path and is\n\tnever expanded — any published module can seed a scaffold. An '@vN' suffix\n\tfloats to the newest release within that major (stable preferred), a full\n\tSemVer pins the exact tag, and no suffix takes the template's default major.\n\n\tScaffolding requires the registry once for an uncached template; after any\n\tsuccessful fetch, CUE's module cache serves repeats offline. No template is\n\tembedded in the binary.\n\n\tRun against a directory that already holds a module, init detects a missing\n\tor disagreeing cue.mod module line or identity package, shows exactly what\n\tit would create or edit, and asks before writing. It never invents\n\tidentity: the module path and version always come from the tree or from\n\tyour arguments.\n\n\tExit codes: 0 scaffolded or repaired, 2 refused, 3 registry unreachable.\n\n\tExamples:\n\t  # Scaffold from the default template (standard)\n\t  opm mod init example.com/modules/my_app@v0\n\n\t  # A specific official template, floating within its v1 line\n\t  opm mod init example.com/modules/my_app@v0 standard@v1\n\n\t  # Prompt for the module path (interactive)\n\t  opm mod init standard\n\n\t  # Clone any published module as the starting point\n\t  opm mod init example.com/modules/my_app@v0 --from example.com/modules/donor@v2\n\n\t  # Repair the module in the current directory\n\t  opm mod init",
+          "long": "Create a new OPM module by fetching a published template module and\nre-identifying it to your module path, or repair an existing module tree.\n\nA bare-word template (letters, digits, underscores) is a shortcut into the\nofficial set at opmodel.dev/templates/<name>; run 'opm module template list'\nto see it. A reference containing '/' or '.' is a literal module path and is\nnever expanded — any published module can seed a scaffold. An '@vN' suffix\nfloats to the newest release within that major (stable preferred), a full\nSemVer pins the exact tag, and no suffix takes the template's default major.\n\nScaffolding requires the registry once for an uncached template; after any\nsuccessful fetch, CUE's module cache serves repeats offline. No template is\nembedded in the binary.\n\nRun against a directory that already holds a module, init detects a missing\nor disagreeing cue.mod module line or identity package, shows exactly what\nit would create or edit, and asks before writing. It never invents\nidentity: the module path and version always come from the tree or from\nyour arguments.\n\nExit codes: 0 scaffolded or repaired, 2 refused, 3 registry unreachable.\n\nExamples:\n  # Scaffold from the default template (standard)\n  opm mod init example.com/modules/my_app@v0\n\n  # A specific official template, floating within its v1 line\n  opm mod init example.com/modules/my_app@v0 standard@v1\n\n  # Prompt for the module path (interactive)\n  opm mod init standard\n\n  # Clone any published module as the starting point\n  opm mod init example.com/modules/my_app@v0 --from example.com/modules/donor@v2\n\n  # Repair the module in the current directory\n  opm mod init",
           "example": "",
           "aliases": [],
           "runnable": true,
@@ -1248,7 +1426,7 @@
           "use": "publish [path]",
           "useLine": "opm module publish [path] [flags]",
           "short": "Publish a module from its committed source",
-          "long": "Publish an OPM module to its registry, at the coordinates the module itself\ndeclares.\n\n\tThe pipeline reads identity/identity.cue, validates it against core's\n\t#IdentityPackage, derives repository/major/tag from the declared module path,\n\truns the publish gates, prints the resolved plan, and pushes. What is\n\tpublished is the module directory as it is on disk, zipped by CUE's module\n\tmachinery: the command checks no git state, so commit first.\n\n\t--version fills an open identity Version by writing it into\n\tidentity/identity.cue just before the push (never on --dry-run), and the\n\tzip carries that written file. It asserts a declared Version and never\n\toverwrites one.\n\n\tExit codes: 0 published (or dry-run GO), 2 refused, 3 registry unreachable.\n\n\tArguments:\n\t  path    Path to the module directory (default: current directory)\n\n\tExamples:\n\t  # Publish the module in the current directory\n\t  opm module publish\n\n\t  # See the plan and every gate verdict without pushing\n\t  opm module publish ./my-module --dry-run\n\n\t  # Write 1.3.0 into an open identity Version, then publish\n\t  opm module publish --version 1.3.0",
+          "long": "Publish an OPM module to its registry, at the coordinates the module itself\ndeclares.\n\nThe pipeline reads identity/identity.cue, validates it against core's\n#IdentityPackage, derives repository/major/tag from the declared module path,\nruns the publish gates, prints the resolved plan, and pushes. What is\npublished is the module directory as it is on disk, zipped by CUE's module\nmachinery: the command checks no git state, so commit first.\n\n--version fills an open identity Version by writing it into\nidentity/identity.cue just before the push (never on --dry-run), and the\nzip carries that written file. It asserts a declared Version and never\noverwrites one.\n\nExit codes: 0 published (or dry-run GO), 2 refused or no registry\nconfigured, 3 a registry operation failed (unreachable, or another\nregistry error), 4 the registry refused the credentials.\n\nArguments:\n  path    Path to the module directory (default: current directory)\n\nExamples:\n  # Publish the module in the current directory\n  opm module publish\n\n  # See the plan and every gate verdict without pushing\n  opm module publish ./my-module --dry-run\n\n  # Write 1.3.0 into an open identity Version, then publish\n  opm module publish --version 1.3.0",
           "example": "",
           "aliases": [],
           "runnable": true,
@@ -1301,7 +1479,15 @@
               "example": "",
               "aliases": [],
               "runnable": true,
-              "flags": [],
+              "flags": [
+                {
+                  "name": "output",
+                  "shorthand": "o",
+                  "type": "string",
+                  "default": "table",
+                  "usage": "Output format (table, json, yaml)"
+                }
+              ],
               "inheritedFlags": [],
               "commands": []
             }
@@ -1313,7 +1499,7 @@
           "use": "tidy [path]",
           "useLine": "opm module tidy [path] [flags]",
           "short": "Resolve, pin and prune the module's CUE dependencies",
-          "long": "Tidy the module's cue.mod/module.cue (and cue.mod/local-module.cue) the\n\tway 'cue mod tidy' does, without needing the cue binary.\n\n\tEvery dependency an import needs is pinned at the version minimum version\n\tselection picks; a dependency imported for the first time is added at its\n\tnewest published version; a dependency nothing imports is removed. An\n\talready tidy module is left untouched (no write, no mtime change).\n\n\tThe path must be the module root itself; parent directories are not\n\tsearched. Modules resolve through the same registry every other opm\n\tcommand reads (--registry, then OPM_REGISTRY, then the config file).\n\n\tWith --check nothing is written: the command fails when tidying would\n\tchange a file, for use as a CI gate.\n\n\tExit codes: 0 tidied (or already tidy, or check passed), 1 dependency\n\tresolution or registry failure, 2 not tidy under --check or not a module\n\troot.\n\n\tArguments:\n\t  path    Path to the module directory (default: current directory)\n\n\tExamples:\n\t  # Tidy the module in the current directory\n\t  opm module tidy\n\n\t  # Fail in CI when a dependency is missing or unused\n\t  opm module tidy --check ./my-module",
+          "long": "Tidy the module's cue.mod/module.cue (and cue.mod/local-module.cue) the\nway 'cue mod tidy' does, without needing the cue binary.\n\nEvery dependency an import needs is pinned at the version minimum version\nselection picks; a dependency imported for the first time is added at its\nnewest published version; a dependency nothing imports is removed. An\nalready tidy module is left untouched (no write, no mtime change).\n\nThe path must be the module root itself; parent directories are not\nsearched. Modules resolve through the same registry every other opm\ncommand reads (--registry, then OPM_REGISTRY, then the config file).\n\nWith --check nothing is written: the command fails when tidying would\nchange a file, for use as a CI gate.\n\nExit codes: 0 tidied (or already tidy, or check passed), 1 dependency\nresolution or registry failure, 2 not tidy under --check or not a module\nroot.\n\nArguments:\n  path    Path to the module directory (default: current directory)\n\nExamples:\n  # Tidy the module in the current directory\n  opm module tidy\n\n  # Fail in CI when a dependency is missing or unused\n  opm module tidy --check ./my-module",
           "example": "",
           "aliases": [],
           "runnable": true,
@@ -1335,7 +1521,7 @@
           "use": "version",
           "useLine": "opm module version [flags]",
           "short": "Manage the module's declared version",
-          "long": "Manage the version an OPM module declares in identity/identity.cue.\n\n\tThe declared version is the single source the publish pipeline reads; these\n\tcommands edit it deliberately so a commit sits between deciding a version\n\tand pushing an artifact.",
+          "long": "Manage the version an OPM module declares in identity/identity.cue.\n\nThe declared version is the single source the publish pipeline reads; these\ncommands edit it deliberately so a commit sits between deciding a version\nand pushing an artifact.",
           "example": "",
           "aliases": [],
           "runnable": false,
@@ -1348,7 +1534,7 @@
               "use": "set <version> [path]",
               "useLine": "opm module version set <version> [path] [flags]",
               "short": "Set the module's declared version",
-              "long": "Set the version the module declares in identity/identity.cue.\n\n\tThe write is surgical: only the version value changes — comments, field\n\torder, alignment, any type assertion on the field, and release-automation\n\tmarker lines all survive byte-for-byte. Setting the version the file\n\talready declares writes nothing (no mtime change) and reports the no-op.\n\n\tThe command is offline: no registry access, no schema fetch. It refuses an\n\tidentity file that does not structurally carry a Version field; run\n\t'opm module vet' for full conformance checking.\n\n\tExit codes: 0 set (or already set), 2 refused.\n\n\tArguments:\n\t  version    Bare SemVer to declare (no \"v\" prefix)\n\t  path       Path to the module directory (default: current directory)\n\n\tExamples:\n\t  # Declare the next release version in the current directory\n\t  opm module version set 1.3.0\n\n\t  # Same, against an explicit module directory\n\t  opm module version set 1.3.0 ./my-module",
+              "long": "Set the version the module declares in identity/identity.cue.\n\nThe write is surgical: only the version value changes — comments, field\norder, alignment, any type assertion on the field, and release-automation\nmarker lines all survive byte-for-byte. Setting the version the file\nalready declares writes nothing (no mtime change) and reports the no-op.\n\nThe command is offline: no registry access, no schema fetch. It refuses an\nidentity file that does not structurally carry a Version field; run\n'opm module vet' for full conformance checking.\n\nExit codes: 0 set (or already set), 2 refused.\n\nArguments:\n  version    Bare SemVer to declare (no \"v\" prefix)\n  path       Path to the module directory (default: current directory)\n\nExamples:\n  # Declare the next release version in the current directory\n  opm module version set 1.3.0\n\n  # Same, against an explicit module directory\n  opm module version set 1.3.0 ./my-module",
               "example": "",
               "aliases": [],
               "runnable": true,
@@ -1364,17 +1550,17 @@
           "use": "vet [path]",
           "useLine": "opm module vet [path] [flags]",
           "short": "Validate module without generating manifests",
-          "long": "Validate an OPM module without generating manifests.\n\n\tThis command first verifies the module's identity and coordinates — the\n\tidentity package conforms to core's #IdentityPackage, metadata derives from\n\tit, and cue.mod agrees with the declared module path — then validates the\n\tmodule's #config contract using either the module's debugValues (default) or\n\texplicit values files passed with -f/--values.\n\n\tIt then renders the module exactly as 'opm module build' does and reports\n\teach rendered object without printing it, so vet and build reach the same\n\tverdict. By default the render runs against a platform generated from the\n\tmodule's own cue.mod/module.cue, one registry entry per catalog the module\n\tpins, at the pinned version; the cluster is not read. Pass --platform <dir>\n\tto render against a platform module instead.\n\n\tArguments:\n\t  path    Path to module directory (default: current directory)\n\n\tExamples:\n\t  # Validate debugValues in current directory against the module's deps\n\t  opm module vet\n\n\t  # Validate module against explicit values\n\t  opm module vet ./my-module -f prod-values.cue\n\n\t  # Validate by merging multiple values files\n\t  opm module vet ./my-module -f base.cue -f prod.cue\n\n\t  # Validate against a platform module instead of the module's deps\n\t  opm module vet ./my-module --platform ./pulled-platform",
+          "long": "Validate an OPM module without generating manifests.\n\nThis command first verifies the module's identity and coordinates — the\nidentity package conforms to core's #IdentityPackage, metadata derives from\nit, and cue.mod agrees with the declared module path — then validates the\nmodule's #config contract using either the module's debugValues (default) or\nexplicit values files passed with -f/--values.\n\nIt then renders the module exactly as 'opm module build' does and reports\neach rendered object without printing it, so vet and build reach the same\nverdict. By default the render runs against a platform generated from the\nmodule's own cue.mod/module.cue, one registry entry per catalog the module\npins, at the pinned version; the cluster is not read. Pass --platform <dir>\nto render against a platform module instead.\n\nExit codes: 0 valid, 1 usage error or the platform could not be generated\nor acquired, 2 validation failure, render refusal or no registry\nconfigured, 3 the core schema fetch failed (registry unreachable, or\nanother registry error), 4 the registry refused the credentials.\n\nArguments:\n  path    Path to module directory (default: current directory)\n\nExamples:\n  # Validate debugValues in current directory against the module's deps\n  opm module vet\n\n  # Validate module against explicit values\n  opm module vet ./my-module -f prod-values.cue\n\n  # Validate by merging multiple values files\n  opm module vet ./my-module -f base.cue -f prod.cue\n\n  # Validate against a platform module instead of the module's deps\n  opm module vet ./my-module --platform ./pulled-platform",
           "example": "",
           "aliases": [],
           "runnable": true,
           "flags": [
             {
-              "name": "instance-name",
+              "name": "name",
               "shorthand": "",
               "type": "string",
               "default": "",
-              "usage": "Instance name (default: <module name>-debug)"
+              "usage": "Synthetic instance name (default: <module name>-debug)"
             },
             {
               "name": "namespace",
@@ -1411,156 +1597,6 @@
       ]
     },
     {
-      "path": "opm operator",
-      "name": "operator",
-      "use": "operator",
-      "useLine": "opm operator [flags]",
-      "short": "Install and manage the opm-operator on a cluster",
-      "long": "Install, upgrade, and remove the opm-operator on a Kubernetes cluster.\n\nopm operator prepares a cluster for OPM workflows that depend on the operator:\nits CRDs (ModuleInstance, ModulePackage, Platform,\nTransformerRegistration) and, for full deployments,\nthe running controller itself.",
-      "example": "",
-      "aliases": [],
-      "runnable": false,
-      "flags": [],
-      "inheritedFlags": [],
-      "commands": [
-        {
-          "path": "opm operator install",
-          "name": "install",
-          "use": "install",
-          "useLine": "opm operator install [flags]",
-          "short": "Install the opm-operator on a cluster",
-          "long": "Install the opm-operator from its OPM module, opmodel.dev/modules/opm_operator,\nas the CLI-owned ModuleInstance opm-operator in opm-operator-system, wait for\nit to roll out, and give it a Platform to reconcile.\n\nInstall pulls the module from the configured registry (--registry,\nOPM_REGISTRY or the config file); an air-gapped cluster installs from a\nmirror that serves the module and its dependencies. Without --version it\ninstalls the module version this CLI pins; --version takes a module version\n(0.2.0 pins, v0 floats to the newest release of that major), and install\nprints the operator release that version deploys. The module renders against\nits own dependency pins, never the cluster Platform.\n\nEvery check that can refuse runs before anything is written: the values\nagainst the module's #config, an operator newer than this CLI, a rendered\nimage that disagrees with the operator version the module states, a\nModuleInstance CRD below this CLI's floor, and objects that exist and are\nnot OPM's. Then the CRDs are applied and served, then the instance is\napplied and recorded (every rendered object, the CRDs and the Namespace\nincluded), and install waits for the controller Deployment's rollout.\nObjects left terminating by a previous uninstall are waited out first; all\nwaits share the one --timeout budget.\n\nAn operator installed from an earlier release manifest (by an older CLI or\nkubectl apply) is migrated: install takes over exactly the objects it\nproves that manifest created, recreates the controller Deployment once\n(its selector changes, so patches made to it are lost; pass them as\nvalues), and deletes the earlier role bindings the module replaces. An\nobject that fails the proof refuses the install before anything is\nwritten, and an interrupted migration completes on the next run.\n\nThe operator's settings are instance values: -f/--values files are layered\nover the values recorded on the operator's instance, so a reinstall keeps\nevery recorded value it does not change; --reset-values starts from the\nmodule's defaults instead.\n\nA full install then creates the singleton cluster Platform, subscribed to the\nnewest published release of the first-party catalog. The version is resolved\nfrom the registry before anything is applied. If the catalog has published\nno release yet, the command refuses and names --catalog-prerelease; an\nexisting Platform is reported and left untouched, never rewritten.\n\n--crds-only applies just the CRDs of the same render, for clusters where the\nCLI drives module lifecycle without a running operator.\n\nExamples:\n  # Install the pinned operator module and seed the cluster Platform\n  opm operator install\n\n  # Route the operator's own module fetches through a mirror\n  opm operator install -f operator-values.cue   # values: registry: \"opmodel.dev=mirror.example/opm\"\n\n  # Install another operator module version\n  opm operator install --version 0.2.0\n\n  # Start over from the module's defaults\n  opm operator install --reset-values\n\n  # Install the operator without creating a Platform\n  opm operator install --skip-platform\n\n  # Install only the CRDs, plus RBAC for a specific user\n  opm operator install --crds-only --rbac --user alice",
-          "example": "",
-          "aliases": [],
-          "runnable": true,
-          "flags": [
-            {
-              "name": "catalog-prerelease",
-              "shorthand": "",
-              "type": "bool",
-              "default": "false",
-              "usage": "Subscribe the cluster Platform to the newest catalog prerelease instead of the newest release"
-            },
-            {
-              "name": "context",
-              "shorthand": "",
-              "type": "string",
-              "default": "",
-              "usage": "Kubernetes context to use"
-            },
-            {
-              "name": "crds-only",
-              "shorthand": "",
-              "type": "bool",
-              "default": "false",
-              "usage": "Install only the CustomResourceDefinitions of the operator module's render"
-            },
-            {
-              "name": "group",
-              "shorthand": "",
-              "type": "string",
-              "default": "",
-              "usage": "Bind the opm-cli-user ClusterRole to this group (requires --rbac)"
-            },
-            {
-              "name": "kubeconfig",
-              "shorthand": "",
-              "type": "string",
-              "default": "",
-              "usage": "Path to kubeconfig file"
-            },
-            {
-              "name": "rbac",
-              "shorthand": "",
-              "type": "bool",
-              "default": "false",
-              "usage": "Also create the opm-cli-user ClusterRole"
-            },
-            {
-              "name": "reset-values",
-              "shorthand": "",
-              "type": "bool",
-              "default": "false",
-              "usage": "Ignore the operator instance's recorded values and start from the module's defaults"
-            },
-            {
-              "name": "skip-platform",
-              "shorthand": "",
-              "type": "bool",
-              "default": "false",
-              "usage": "Do not create the cluster Platform"
-            },
-            {
-              "name": "timeout",
-              "shorthand": "",
-              "type": "duration",
-              "default": "5m0s",
-              "usage": "How long to wait, in total, for terminating objects to clear, the CRDs to be served and the operator to roll out"
-            },
-            {
-              "name": "user",
-              "shorthand": "",
-              "type": "string",
-              "default": "",
-              "usage": "Bind the opm-cli-user ClusterRole to this user (requires --rbac)"
-            },
-            {
-              "name": "values",
-              "shorthand": "f",
-              "type": "stringArray",
-              "default": "[]",
-              "usage": "Values file layered over the operator instance's recorded values (repeatable)"
-            },
-            {
-              "name": "version",
-              "shorthand": "",
-              "type": "string",
-              "default": "",
-              "usage": "Operator module version to install: X.Y.Z pins, vN floats (default: the version this CLI pins)"
-            }
-          ],
-          "inheritedFlags": [],
-          "commands": []
-        },
-        {
-          "path": "opm operator uninstall",
-          "name": "uninstall",
-          "use": "uninstall",
-          "useLine": "opm operator uninstall [flags]",
-          "short": "Remove the opm-operator from a cluster",
-          "long": "Delete every object the operator's instance record (ModuleInstance\nopm-operator in opm-operator-system) lists, then the record, except the CRDs\nand the operator's Namespace — those remain for a deliberate, separate\n'kubectl delete crd' once you're sure no ModuleInstance data is still needed.\nAn object that no longer carries the instance's identity is left behind.\n\nWith no record, uninstall deletes nothing: run 'opm operator install' first,\nso the running operator is recorded.\n\nRefuses to proceed while any ModuleInstance still carries the operator's\ncleanup finalizer: deleting the operator out from under it would orphan its\nworkload without the operator ever running cleanup. --remove-finalizers\noverrides this by stripping just that finalizer (leaving any other\nfinalizers intact) and proceeding — the instance's resources become\nunmanaged.\n\nExamples:\n  # Remove the operator (refuses if any ModuleInstance is still active)\n  opm operator uninstall\n\n  # Remove the operator, orphaning any still-active ModuleInstances\n  opm operator uninstall --remove-finalizers",
-          "example": "",
-          "aliases": [],
-          "runnable": true,
-          "flags": [
-            {
-              "name": "context",
-              "shorthand": "",
-              "type": "string",
-              "default": "",
-              "usage": "Kubernetes context to use"
-            },
-            {
-              "name": "kubeconfig",
-              "shorthand": "",
-              "type": "string",
-              "default": "",
-              "usage": "Path to kubeconfig file"
-            },
-            {
-              "name": "remove-finalizers",
-              "shorthand": "",
-              "type": "bool",
-              "default": "false",
-              "usage": "Strip the operator's cleanup finalizer from active ModuleInstances and proceed"
-            }
-          ],
-          "inheritedFlags": [],
-          "commands": []
-        }
-      ]
-    },
-    {
       "path": "opm platform",
       "name": "platform",
       "use": "platform",
@@ -1579,7 +1615,7 @@
           "use": "check [dir]",
           "useLine": "opm platform check [dir] [flags]",
           "short": "Report a platform's contract inventory",
-          "long": "Report what a platform's enabled catalogs contract for.\n\nBuilds the resolved platform module and reports the contract inventory core\nderives from it: every contract the enabled catalogs define and the catalog\nthat defines each, the transformers that implement it, the provider-fulfilled\ncontracts nothing implements, the contract keys more than one enabled registry\nentry defines, with the entries defining each, the provider-fulfilled\ncontracts required by transformers of more than one enabled registry entry,\nwith the registry keys providing each (two majors of one catalog are two\nentries), and every pair of transformers whose match predicates are\ncomparable over a shared catalog-fulfilled contract.\n\nThe command applies and renders nothing. It contacts a cluster only to read\nits Platform, when neither [dir] nor --platform is given. A cold module cache\nstill fetches the platform's pinned core and catalogs.\n\nThe exit code carries what platform-package generation refuses on, not the\nseverity of the word:\n\n  colliding         exits with the validation error code, because a platform\n                    package cannot be generated until all but one of the\n                    registry entries defining a contract key is disabled\n  over-subscribed   exits with the validation error code, because a platform\n                    package cannot be generated from an over-subscribed\n                    platform\n  comparable        exits with the validation error code — every component\n                    the narrower transformer matches is also matched by the\n                    broader one, so both would render and nothing tells them\n                    apart\n  unfulfilled       exits 0 — a platform may define a contract ahead of the\n                    provider that implements it, and an unmet demand is\n                    refused by the render that demands it\n\nThe platform is resolved as [dir] > --platform > the cluster's Platform,\nread through --kubeconfig/--context. With none of the three the command\nrefuses; it never checks a platform from the OPM home directory.\n\nExamples:\n  # Check the platform of the current kubeconfig context's cluster\n  opm platform check\n\n  # Check a platform module in a repository\n  opm platform check ./platforms/staging",
+          "long": "Report what a platform's enabled catalogs contract for.\n\nBuilds the resolved platform module and reports the contract inventory core\nderives from it: every contract the enabled catalogs define and the catalog\nthat defines each, the transformers that implement it, the provider-fulfilled\ncontracts nothing implements, the contract keys more than one enabled registry\nentry defines, with the entries defining each, the provider-fulfilled\ncontracts required by transformers of more than one enabled registry entry,\nwith the registry keys providing each (two majors of one catalog are two\nentries), and every pair of transformers whose match predicates are\ncomparable over a shared catalog-fulfilled contract.\n\nThe command applies and renders nothing. It contacts a cluster only to read\nits Platform, when neither [dir] nor --platform is given. A cold module cache\nstill fetches the platform's pinned core and catalogs.\n\nThe exit code carries what platform-package generation refuses on, not the\nseverity of the word:\n\n  colliding         exits with the validation error code, because a platform\n                    package cannot be generated until all but one of the\n                    registry entries defining a contract key is disabled\n  over-subscribed   exits with the validation error code, because a platform\n                    package cannot be generated from an over-subscribed\n                    platform\n  comparable        exits with the validation error code — every component\n                    the narrower transformer matches is also matched by the\n                    broader one, so both would render and nothing tells them\n                    apart\n  unfulfilled       exits 0 — a platform may define a contract ahead of the\n                    provider that implements it, and an unmet demand is\n                    refused by the render that demands it\n\nA platform module that does not build exits with the validation error code,\nwith one exception: when the registry refuses the credentials while the\nmodule's imports resolve, the command exits 4 and names the login command\n(opm registry login).\n\nThe platform is resolved as [dir] > --platform > the cluster's Platform,\nread through --kubeconfig/--context. With none of the three the command\nrefuses; it never checks a platform from the OPM home directory.\n\nExamples:\n  # Check the platform of the current kubeconfig context's cluster\n  opm platform check\n\n  # Check a platform module in a repository\n  opm platform check ./platforms/staging",
           "example": "",
           "aliases": [],
           "runnable": true,
@@ -1615,7 +1651,7 @@
           "use": "pull <dir>",
           "useLine": "opm platform pull <dir> [flags]",
           "short": "Write the cluster's platform module to a directory",
-          "long": "Reproduce the cluster's platform package on this machine.\n\nReads the cluster Platform CR, generates the platform module the operator\ngenerated from the same inputs -- the effective registry it recorded on\nstatus.registry, or the CR's subscriptions when it has recorded none -- and\nwrites that module's files to <dir>. Building against the result renders\nwhat the cluster renders:\n\n  opm module build --platform <dir> ./my-module\n\nThe module is the generated one unchanged: the reserved module path, the\npinned dependency closure and one importing registry entry per catalog. The\ncommand writes nothing to the cluster and publishes nothing.\n\nAn existing non-empty <dir> is refused unless --force is given, which\nreplaces its contents.\n\nExit codes:\n\n  0   the module was written\n  1   <dir> is not empty and --force was not given; nothing was written\n  2   the recorded registry does not generate -- an unpublished pin, or a\n      cluster Platform predating the scalar-version subscription shape\n  3   the cluster could not be reached\n  5   no readable Platform CR: there is no cluster package to pull\n\nExamples:\n  # Pull the cluster's platform module next to a repository\n  opm platform pull ./cluster-platform\n\n  # Refresh it after the cluster's registry changed\n  opm platform pull ./cluster-platform --force",
+          "long": "Reproduce the cluster's platform package on this machine.\n\nReads the cluster Platform CR, generates the platform module the controller\ngenerated from the same inputs -- the effective registry it recorded on\nstatus.registry, or the CR's subscriptions when it has recorded none -- and\nwrites that module's files to <dir>. Building against the result renders\nwhat the cluster renders:\n\n  opm module build --platform <dir> ./my-module\n\nThe module is the generated one unchanged: the reserved module path, the\npinned dependency closure and one importing registry entry per catalog. The\ncommand writes nothing to the cluster and publishes nothing.\n\nAn existing non-empty <dir> is refused unless --force is given, which\nreplaces its contents.\n\nExit codes:\n\n  0   the module was written\n  1   <dir> is not empty and --force was not given; nothing was written\n  2   the recorded registry does not generate -- an unpublished pin, or a\n      cluster Platform predating the scalar-version subscription shape\n  3   the cluster could not be reached\n  5   no readable Platform CR: there is no cluster package to pull\n\nExamples:\n  # Pull the cluster's platform module next to a repository\n  opm platform pull ./cluster-platform\n\n  # Refresh it after the cluster's registry changed\n  opm platform pull ./cluster-platform --force",
           "example": "",
           "aliases": [],
           "runnable": true,
@@ -1653,7 +1689,7 @@
       "use": "registry",
       "useLine": "opm registry [flags]",
       "short": "Authenticate to OCI registries",
-      "long": "Work with the OCI registries OPM publishes to and pulls from.\n\n\tUse this command group to manage registry credentials: they are stored in\n\tthe standard docker credential file, the store OPM's push and pull both\n\tread — the same file 'docker login' writes.",
+      "long": "Work with the OCI registries OPM publishes to and pulls from.\n\nUse this command group to manage registry credentials: they are stored in\nthe standard docker credential file, the store OPM's push and pull both\nread — the same file 'docker login' writes.",
       "example": "",
       "aliases": [],
       "runnable": false,
@@ -1666,7 +1702,7 @@
           "use": "login [host]",
           "useLine": "opm registry login [host] [flags]",
           "short": "Log in to an OCI registry",
-          "long": "Store a credential for an OCI registry in the standard docker credential\nfile — the store OPM's push and pull both read, and the same file\n'docker login' writes. The credential is verified against the registry\nbefore anything is written; a rejected credential leaves the file\nuntouched, and everything in the file outside the one host entry is\npreserved.\n\n\tWith a host argument the host is taken literally (docker-login semantics);\n\tappend +insecure to a host served over plain HTTP. Without one, the\n\tconfigured registry mapping (--registry > OPM_REGISTRY > config.registry)\n\tis resolved to its host set: a single host proceeds; several refuse,\n\tlisting each as a runnable command.\n\n\tThis command is interactive by design and prompts for the username and\n\tsecret. In CI, use 'docker login' — it writes the same file.\n\n\tExit codes: 0 written, 2 refusal, 3 registry unreachable.\n\n\tExamples:\n\t  # Log in to the host the configured registry resolves to\n\t  opm registry login\n\n\t  # Log in to a named host\n\t  opm registry login ghcr.io\n\n\t  # A local registry served over plain HTTP\n\t  opm registry login localhost:5000+insecure",
+          "long": "Store a credential for an OCI registry in the standard docker credential\nfile — the store OPM's push and pull both read, and the same file\n'docker login' writes. The credential is verified against the registry\nbefore anything is written; a rejected credential leaves the file\nuntouched, and everything in the file outside the one host entry is\npreserved.\n\nWith a host argument the host is taken literally (docker-login semantics);\nappend +insecure to a host served over plain HTTP. Without one, the\nconfigured registry mapping (--registry > OPM_REGISTRY > config.registry)\nis resolved to its host set: a single host proceeds; several refuse,\nlisting each as a runnable command.\n\nThis command is interactive by design and prompts for the username and\nsecret. In CI, use 'docker login' — it writes the same file.\n\nExit codes: 0 written, 2 refusal, 3 registry unreachable.\n\nExamples:\n  # Log in to the host the configured registry resolves to\n  opm registry login\n\n  # Log in to a named host\n  opm registry login ghcr.io\n\n  # A local registry served over plain HTTP\n  opm registry login localhost:5000+insecure",
           "example": "",
           "aliases": [],
           "runnable": true,
@@ -1682,11 +1718,19 @@
       "use": "version",
       "useLine": "opm version [flags]",
       "short": "Show version information",
-      "long": "Show OPM CLI version information.\n\nDisplays:\n  - OPM CLI version, commit, and build date\n  - CUE SDK version (the one the binary is linked against)",
+      "long": "Show OPM CLI version information.\n\nDisplays:\n  - OPM CLI version, commit, and build date\n  - CUE SDK version (the one the binary is linked against)\n\nExamples:\n  # Print the version for a person to read\n  opm version\n\n  # Print it for a script\n  opm version -o json",
       "example": "",
       "aliases": [],
       "runnable": true,
-      "flags": [],
+      "flags": [
+        {
+          "name": "output",
+          "shorthand": "o",
+          "type": "string",
+          "default": "text",
+          "usage": "Output format (text, json, yaml)"
+        }
+      ],
       "inheritedFlags": [],
       "commands": []
     }

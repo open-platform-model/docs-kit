@@ -47,7 +47,9 @@ opm instance apply <instance.cue> [flags]
 
 Deploy an OPM instance file to a Kubernetes cluster using server-side apply.
 
-Apply records what it deployed in a ModuleInstance custom resource, so the ModuleInstance CRD must be installed first (run `opm operator install --crds-only`). Apply fails fast with a hint if it is missing or out of date.
+Apply records what it deployed in a ModuleInstance custom resource, so the ModuleInstance CRD must be installed first (run `opm controller install --crds-only`). Apply fails fast with a hint if it is missing or out of date.
+
+Pruning keeps PersistentVolumeClaims: a claim the module no longer renders stays in the cluster and in the inventory, is listed with the status "kept", and does not fail the apply. Pass `--delete-data` to prune such claims and the data on them; a claim kept by an earlier apply is pruned then too. On a controller-managed instance the controller decides what is pruned: a controller that has spec.dataPolicy keeps PersistentVolumeClaims unless that field of the instance is Delete, an older controller prunes them, and `--delete-data` does not change either.
 
 Arguments:
 
@@ -61,6 +63,7 @@ instance.cue    Path to the instance .cue file (required)
 | --- | --- | --- | --- | --- |
 | `--context` |  | string |  | Kubernetes context to use. |
 | `--create-namespace` |  | bool |  | Create target namespace if it does not exist. |
+| `--delete-data` |  | bool |  | Also prune stale PersistentVolumeClaims and the data on them (kept by default). |
 | `--dry-run` |  | bool |  | Server-side dry run (no changes made); skips objects whose CustomResourceDefinition or namespace the apply creates, which the server cannot validate yet. |
 | `--force` |  | bool |  | Allow empty render to prune all previously tracked resources. |
 | `--kubeconfig` |  | string |  | Path to kubeconfig file. |
@@ -68,9 +71,9 @@ instance.cue    Path to the instance .cue file (required)
 | `--no-prune` |  | bool |  | Skip stale resource pruning. |
 | `--platform` |  | string |  | Platform module directory (overrides the cluster Platform and the instance's own deps). |
 | `--skip-unprovided` |  | bool |  | Render what the platform can: skip provider-fulfilled contracts nothing on the platform provides, and report each one. |
-| `--timeout` |  | duration | `5m0s` | Bound on the CustomResourceDefinition establish wait (counted from the start of the apply), on the `--wait` readiness wait, and on the operator-reconcile wait (operator-managed instances). |
+| `--timeout` |  | duration | `5m0s` | Bound on the CustomResourceDefinition establish wait (counted from the start of the apply), on the `--wait` readiness wait, and on the controller-reconcile wait (controller-managed instances). |
 | `--values` | `-f` | stringArray |  | Values files added on top of the instance package, which already includes its `values.cue` (can be repeated). |
-| `--wait` |  | bool |  | Wait until every applied resource is healthy before returning (skipped on `--dry-run`; operator-managed instances always wait for the operator). |
+| `--wait` |  | bool |  | Wait until every applied resource is healthy before returning (skipped on `--dry-run`; controller-managed instances always wait for the controller). |
 
 **Examples**
 
@@ -148,11 +151,17 @@ Delete instance resources from cluster.
 opm instance delete <file|name|uuid> [flags]
 ```
 
-Delete the resources belonging to an OPM instance from a Kubernetes cluster (CRDs and Namespaces are left behind).
+Delete the resources belonging to an OPM instance from a Kubernetes cluster (CRDs and Namespaces are left behind, PersistentVolumeClaims are kept).
 
-CustomResourceDefinitions and Namespaces are never deleted, since deleting one takes every custom resource of its kind, or everything inside it, with it. Each tracked resource is also read again just before its delete, and a resource that is no longer managed by OPM or now belongs to another instance is left behind. Every resource left behind is listed with its reason; remove it with `kubectl delete` once nothing else needs it.
+PersistentVolumeClaims are kept by default, because deleting one deletes the data on its volume. Each kept claim is listed with the status "kept", the command still exits 0, and the closing output prints the `kubectl delete pvc` command for each one. The ModuleInstance is deleted, so OPM no longer tracks a kept claim and no later opm command deletes it; applying the instance again takes it back. Pass `--delete-data` to delete the claims and their data with the instance; the confirmation prompt then names each claim. Claims a StatefulSet created from volumeClaimTemplates are not tracked by OPM and are never deleted here, with or without the flag: Kubernetes keeps them by default.
 
-Deleting an instance that deploys the operator (the instance opm-operator in opm-operator-system, any instance of the operator module, or one whose inventory holds the operator's CRDs) is refused in two cases, dry runs included. While it is operator-owned: the operator never reconciles or prunes the instance that deploys it, so set spec.owner to cli first. And while any instance still carries the operator's `opmodel.dev/cleanup` finalizer: removing the operator would leave them unable to finish deletion. Run `opm operator uninstall --remove-finalizers` to remove that finalizer first, which orphans those instances' workloads. `--force` does not bypass either.
+None of this holds for a controller-managed instance: there the controller deletes what the instance tracks when spec.prune is set, and leaves all of it running otherwise. A controller that has spec.dataPolicy keeps PersistentVolumeClaims unless that field of the instance is Delete; a controller without the field deletes them. The confirmation prompt says which holds: it reads spec.prune and spec.dataPolicy from the instance, and from the ModuleInstance CRD whether the controller has the field. `--delete-data` does not change what the controller does.
+
+CustomResourceDefinitions and Namespaces are never deleted, since deleting one takes every custom resource of its kind, or everything inside it, with it. Each tracked resource is also read again just before its delete, and a resource that is no longer managed by OPM, now belongs to another instance, or carries an `opmodel.dev/adopt` annotation naming another instance is left behind. Every resource left behind is listed with its reason; remove it with `kubectl delete` once nothing else needs it.
+
+The command returns when the API server has accepted every delete. A deleted resource can still exist then, terminating, until its dependents and its finalizers are gone. Pass `--wait` to return only when every resource this run deleted is gone: its read returns NotFound, or a new object holds its name. `--timeout` (default 5m0s) bounds the wait and starts with it. Kept claims, resources left behind and resources that were already gone are not waited for. When the wait times out, the command lists each resource that is still terminating, with its finalizers, keeps the ModuleInstance and exits 1; run the same command again to wait again, or without `--wait` to delete the ModuleInstance and stop tracking those resources. `--wait` does nothing on `--dry-run`, and nothing when a resource failed to delete. For a controller-managed instance the command always waits, bounded by `--timeout`, until the ModuleInstance is gone, with or without `--wait`; it does not check the resources the controller prunes.
+
+Deleting an instance that deploys the controller (the instance opm-controller in opm-system, any instance of the controller module, or one whose inventory holds the controller's CRDs) is refused in two cases, dry runs included. While it is controller-owned: the controller never reconciles or prunes the instance that deploys it, so set spec.owner to cli first. And while any instance still carries the controller's `opmodel.dev/cleanup` finalizer: removing the controller would leave them unable to finish deletion. Run `opm controller uninstall --remove-finalizers` to remove that finalizer first, which orphans those instances' workloads. `--yes` does not bypass either.
 
 Arguments:
 
@@ -169,11 +178,13 @@ uuid         Instance UUID.
 | Flag | Shorthand | Type | Default | Description |
 | --- | --- | --- | --- | --- |
 | `--context` |  | string |  | Kubernetes context to use. |
+| `--delete-data` |  | bool |  | Also delete PersistentVolumeClaims and the data on them (kept by default). |
 | `--dry-run` |  | bool |  | Preview without deleting. |
-| `--force` |  | bool |  | Skip confirmation prompt. |
 | `--kubeconfig` |  | string |  | Path to kubeconfig file. |
 | `--namespace` | `-n` | string |  | Target namespace. |
-| `--timeout` |  | duration | `5m0s` | Bound on the operator-cleanup wait (operator-managed instances only). |
+| `--timeout` |  | duration | `5m0s` | Bound on the `--wait` wait, and on the controller-cleanup wait of a controller-managed instance. |
+| `--wait` |  | bool |  | Wait until every resource this run deleted is gone before returning (skipped on `--dry-run`; controller-managed instances always wait for the controller). |
+| `--yes` | `-y` | bool |  | Skip the confirmation prompt. |
 
 **Examples**
 
@@ -190,8 +201,14 @@ opm instance delete jellyfin -n media
 # Preview what would be deleted
 opm instance delete jellyfin -n media --dry-run
 
-# Skip confirmation prompt
-opm instance delete jellyfin -n media --force
+# Skip the confirmation prompt
+opm instance delete jellyfin -n media --yes
+
+# Also delete the PersistentVolumeClaims and the data on them
+opm instance delete jellyfin -n media --delete-data
+
+# Return only when the deleted resources are gone, or after two minutes
+opm instance delete jellyfin -n media --yes --wait --timeout 2m
 ```
 
 ## opm instance diff
@@ -370,6 +387,17 @@ opm instance status <file|name|uuid> [flags]
 ```
 
 Show status of resources deployed by an OPM instance.
+
+The exit code carries the verdict, so a pipeline can act on it without reading the output:
+
+```text
+0  every tracked resource is healthy
+1  usage error, or the instance record could not be read
+2  a resource is not ready, or a tracked resource could not be read
+3  the cluster could not be reached
+4  permission denied
+5  the instance or its resources were not found
+```
 
 Arguments:
 
