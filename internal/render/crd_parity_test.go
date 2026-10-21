@@ -40,32 +40,24 @@ func controllerOptions(t *testing.T) crd.Options {
 	}
 }
 
-// servedByRewrite turns the served-by sentence of a bundle built before
-// the renderer stopped naming the product, "The operator's `x` controller
-// watches every X.", into the reconciler wording.
-var servedByRewrite = releaseRewrite{
-	name: "servedByRewrite",
-	re:   regexp.MustCompile("(?m)^The operator's (`[^`]+`) controller watches every ([A-Z][A-Za-z0-9]*)\\.$"),
-	repl: "The $1 reconciler watches every $2.",
-}
-
-// decisionLinkRewrite drops the decision link a bundle built before the link
-// policy changed wrote after a clause, " ([NNNN:Dn](/enhancements/NNNN/decisions/))".
-// The policy now removes a decision citation and links no decision page.
-var decisionLinkRewrite = releaseRewrite{
-	name: "decisionLinkRewrite",
-	re:   regexp.MustCompile(`\s\(\[\d{4}:D[0-9DR:/]*\]\(/enhancements/\d{4}/decisions/\)\)`),
+// enhancementParenRewrite drops, with its leading space, a parenthesis that
+// holds only enhancement references, "(enhancement 0015)" or "(enhancements
+// 0013 and 0019)". A bundle built before the strip policy removed such a
+// parenthesis keeps it; the snapshot's bundle, built by opm-docs 0.7.1,
+// predates that rule.
+var enhancementParenRewrite = releaseRewrite{
+	name: "enhancementParenRewrite",
+	re:   regexp.MustCompile(`\s\((?:[Ee]nhancement\s+\d{4}|[Ee]nhancements\s+\d{4}(?:(?:,\s*|,?\s+and\s+)\d{4})*)\)`),
 	repl: "",
 }
 
 // TestControllerCRDParity renders the controller's release snapshot with
 // its own config, completes the section index with the authored one, and
 // compares every page with the released bundle's. The snapshot's bundle
-// predates the reconciler wording of the served-by sentence, so its
-// sentences and decision links are rewritten before comparing
-// (servedByRewrite, decisionLinkRewrite); once a refresh brings a bundle
-// built with the new wording a rewrite matches nothing and the test asks
-// for its removal.
+// predates the strip of a parenthesis that holds only enhancement
+// references, so those parentheses are rewritten before comparing
+// (enhancementParenRewrite); once a refresh brings a bundle built with the
+// rule the rewrite matches nothing and the test asks for its removal.
 func TestControllerCRDParity(t *testing.T) {
 	o := controllerOptions(t)
 	if o.Section == "" {
@@ -91,5 +83,5 @@ func TestControllerCRDParity(t *testing.T) {
 		}
 		pages[0] = Page{Path: pages[0].Path, Body: body}
 	}
-	compareWithRelease(t, o.Root, o.Section, pages, []releaseRewrite{servedByRewrite, decisionLinkRewrite})
+	compareWithRelease(t, o.Root, o.Section, pages, []releaseRewrite{enhancementParenRewrite})
 }
