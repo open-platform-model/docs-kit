@@ -15,9 +15,13 @@ var (
 	reChange   = regexp.MustCompile(`^(\d{4})-([a-z0-9]+(?:-[a-z0-9]+)*)$`)
 	reArchived = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2})-(\d{4})-([a-z0-9]+(?:-[a-z0-9]+)*)$`)
 	reSeedDate = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}-seed-`)
-	reCap      = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
-	reAccepted = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2}) ([0-9a-f]{7,40})$`)
-	reTask     = regexp.MustCompile(`^\s*[-*] \[([ xX])\] `)
+	// A correction is named by a slug, not a capability. Both patterns are
+	// anchored: a bare prefix test would let a malformed name through.
+	reCorrection     = regexp.MustCompile(`^correction-[a-z0-9]+(?:-[a-z0-9]+)*$`)
+	reCorrectionDate = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}-correction-[a-z0-9]+(?:-[a-z0-9]+)*$`)
+	reCap            = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+	reAccepted       = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2}) ([0-9a-f]{7,40})$`)
+	reTask           = regexp.MustCompile(`^\s*[-*] \[([ xX])\] `)
 )
 
 // specConfig is the part of an openspec entry's config.yaml the section
@@ -72,8 +76,8 @@ func (c *specConfig) check() error {
 
 // openspecDirs lists the entries that are OpenSpec changes: the live
 // <changes>/<id>-<slug>/ and the archived
-// <changes>/archive/<date>-<id>-<slug>/. A seed change is no entry. A
-// folder named any other way is refused.
+// <changes>/archive/<date>-<id>-<slug>/. A seed change and a correction
+// change are no entry. A folder named any other way is refused.
 func openspecDirs(root, dir, changes string) ([]entryDir, error) {
 	parent := path.Join(dir, changes)
 	live, err := scanChanges(root, parent, false)
@@ -125,10 +129,13 @@ func scanChanges(root, parent string, archived bool) ([]entryDir, error) {
 }
 
 // classifyChange reads a change folder's name: an entry (with its id,
-// slug and, once archived, date), a seed (no entry), or a name it refuses.
+// slug and, once archived, date), a seed or a correction (no entry), or a
+// name it refuses.
 func classifyChange(name, dir string, archived bool) (ed entryDir, isEntry bool, err error) {
 	switch {
 	case !archived && strings.HasPrefix(name, "seed-"), archived && reSeedDate.MatchString(name):
+		return ed, false, nil
+	case !archived && reCorrection.MatchString(name), archived && reCorrectionDate.MatchString(name):
 		return ed, false, nil
 	case !archived && reChange.MatchString(name):
 		m := reChange.FindStringSubmatch(name)
@@ -141,7 +148,7 @@ func classifyChange(name, dir string, archived bool) (ed entryDir, isEntry bool,
 	if archived {
 		form = "<date>-<id>-<slug>"
 	}
-	return ed, false, fmt.Errorf("change folder %s is not %s or a seed-<capability> change; an enhancement is a change named by its id and slug", dir, form)
+	return ed, false, fmt.Errorf("change folder %s is not %s, a seed-<capability> change or a correction-<slug> change; an enhancement is a change named by its id and slug", dir, form)
 }
 
 // The pages of an openspec entry besides its README, in order. A page
