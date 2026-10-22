@@ -84,7 +84,7 @@ An openspec entry SHALL publish `<id>/_index.md` (from its `README.md`), `<id>/p
 - **THEN** the page links `https://github.com/<repo>/tree/<commit>/<entry path>/evidence`
 
 ### Requirement: Each capability publishes a page
-When `specs/` holds a capability, the source SHALL publish `capabilities/_index.md` and `capabilities/<cap>.md` from `<specs>/<cap>/spec.md`. A capability page SHALL take its title from the name and its description from the first sentence of its Purpose, and end with a table "Entries that changed it": one row for each archived change whose deltas touch the capability, with its archive date, linked only when it is a `delivered` entry. A `seed-` change shows `seed` and a `correction-` change shows `correction`, each unlinked. Rows run by date, then entry id (none first), then `correction` before `seed`.
+When `specs/` holds a capability, the source SHALL publish `capabilities/_index.md` and `capabilities/<cap>.md` from `<specs>/<cap>/spec.md`. A capability page SHALL take its title from the name and its description from the first sentence of its Purpose, and end with a table "Entries that changed it": one row for each archived change whose deltas touch the capability, with its archive date, linked only when it is a `delivered` entry.
 
 #### Scenario: Entries that changed a capability
 - **WHEN** a delivered entry 0027 and the change `seed-registration-acceptance` both touched `registration-acceptance`
@@ -336,7 +336,7 @@ The openspec reader SHALL skip a live `<changes>/correction-<slug>/` and an arch
 - **THEN** it is read as entry 0123 with slug `correction-x`
 
 ### Requirement: A capability page lists a correction as an unlinked row
-A capability page SHALL list each archived correction whose `specs/` holds the capability as the row `correction` with its archive date, with no link. A correction that touches several capabilities SHALL give a row on each page.
+A capability page SHALL list each archived correction whose `specs/` holds the capability as the row `correction` with its archive date, with no link. A correction that touches several capabilities SHALL give a row on each page. A `seed-` change shows `seed`, unlinked. Rows run by date, then entry id (none first), then `correction` before `seed`.
 
 #### Scenario: A correction row
 - **WHEN** the archived change `2026-10-23-correction-registry-paths` holds deltas for `registry-paths` and `tag-rules`
