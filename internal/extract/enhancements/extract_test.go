@@ -508,7 +508,7 @@ func TestOpenSpecRefusals(t *testing.T) {
 		{"no config", func(t *testing.T, root string) { remove(t, root, c26+"config.yaml") }, "entry 0026: " + c26 + "config.yaml is missing"},
 		{"a folder of another name", func(t *testing.T, root string) {
 			mkdir(t, root, "openspec/changes/fix-things")
-		}, "change folder openspec/changes/fix-things is not <id>-<slug> or a seed-<capability> change"},
+		}, "change folder openspec/changes/fix-things is not <id>-<slug>, a seed-<capability> change or a correction-<slug> change"},
 		{"an archived folder of another name", func(t *testing.T, root string) {
 			mkdir(t, root, "openspec/changes/archive/0043-x")
 		}, "change folder openspec/changes/archive/0043-x is not <date>-<id>-<slug>"},
@@ -750,5 +750,103 @@ func TestPurposeSentence(t *testing.T) {
 		if got := purposeSentence(c.in, "x"); got != c.want {
 			t.Errorf("purposeSentence(%q) = %q, want %q", c.in, got, c.want)
 		}
+	}
+}
+
+const correctionSpec = "## MODIFIED Requirements\n\n### Requirement: X\nThe source SHALL x.\n"
+
+// addCorrection adds a correction change that holds a delta for each cap.
+func addCorrection(t *testing.T, root, dir string, caps ...string) {
+	t.Helper()
+	mkdir(t, root, dir)
+	for _, c := range caps {
+		mkdir(t, root, dir+"/specs/"+c)
+		write(t, root, dir+"/specs/"+c+"/spec.md", correctionSpec)
+	}
+}
+
+// TestCorrectionsAreNoEntries checks a live and an archived correction
+// build with no entry and no page, and a malformed name is refused.
+func TestCorrectionsAreNoEntries(t *testing.T) {
+	base, err := Extract(options(t, fixtureRepo))
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := copyFixture(t)
+	addCorrection(t, root, "openspec/changes/correction-registry-paths", "registration-acceptance")
+	addCorrection(t, root, "openspec/changes/archive/2026-10-23-correction-registry-paths")
+	res, err := Extract(options(t, root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Model.Entries) != len(base.Model.Entries) || len(res.Pages) != len(base.Pages) {
+		t.Errorf("entries %d pages %d, want %d and %d", len(res.Model.Entries), len(res.Pages), len(base.Model.Entries), len(base.Pages))
+	}
+	for _, e := range res.Model.Entries {
+		if strings.Contains(e.Slug, "correction") {
+			t.Errorf("correction %s is an entry", e.Slug)
+		}
+	}
+}
+
+func TestCorrectionRefusals(t *testing.T) {
+	for _, dir := range []string{
+		"openspec/changes/correction",
+		"openspec/changes/correction-",
+		"openspec/changes/correction-Foo_Bar",
+		"openspec/changes/archive/2026-10-23-correction-",
+		"openspec/changes/archive/2026-10-23-correction",
+		"openspec/changes/archive/2026-10-23-correction-Foo_Bar",
+	} {
+		t.Run(dir, func(t *testing.T) {
+			root := copyFixture(t)
+			mkdir(t, root, dir)
+			_, err := Extract(options(t, root))
+			want := "change folder " + dir + " is not "
+			if err == nil || !strings.Contains(err.Error(), want) || !strings.Contains(err.Error(), "or a correction-<slug> change; an enhancement is a change named by its id and slug") {
+				t.Fatalf("err = %v, want it to name %q", err, want)
+			}
+		})
+	}
+}
+
+// TestNumberedCorrectionName checks 0123-correction-x is entry 0123.
+func TestNumberedCorrectionName(t *testing.T) {
+	ed, isEntry, err := classifyChange("0123-correction-x", "d", false)
+	if err != nil || !isEntry || ed.id != "0123" || ed.slug != "correction-x" {
+		t.Errorf("classifyChange = %+v %v %v", ed, isEntry, err)
+	}
+	root := copyFixture(t)
+	mkdir(t, root, "openspec/changes/0123-correction-x")
+	_, err = Extract(options(t, root))
+	if err == nil || !strings.Contains(err.Error(), "entry 0123") {
+		t.Fatalf("err = %v, want it read as entry 0123", err)
+	}
+}
+
+// TestCorrectionRows checks a correction gives an unlinked row on each
+// capability it touches, in the order date, id (none first), kind.
+func TestCorrectionRows(t *testing.T) {
+	root := copyFixture(t)
+	for _, d := range []string{"2026-10-14", "2026-10-21", "2026-10-23"} {
+		addCorrection(t, root, "openspec/changes/archive/"+d+"-correction-registry-paths", "registration-acceptance", "single-build-render")
+	}
+	res, err := Extract(options(t, root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	byPath := map[string]Page{}
+	for _, p := range res.Pages {
+		byPath[p.Path] = p
+	}
+	const head = "## Entries that changed it\n\n"
+	want := "| Entry | Date |\n| --- | --- |\n| correction | 2026-10-14 |\n| seed | 2026-10-14 |\n| correction | 2026-10-21 |\n" +
+		"| [0040: Fixture Delivered](/enhancements/0040/) | 2026-10-21 |\n| correction | 2026-10-23 |\n"
+	b := byPath["capabilities/registration-acceptance.md"].Body
+	if got := b[strings.Index(b, head)+len(head):]; got != want {
+		t.Errorf("registration-acceptance rows\n%s\nwant\n%s", got, want)
+	}
+	if b := byPath["capabilities/single-build-render.md"].Body; !strings.Contains(b, "| correction | 2026-10-23 |\n") {
+		t.Errorf("single-build-render has no correction row:\n%s", b)
 	}
 }

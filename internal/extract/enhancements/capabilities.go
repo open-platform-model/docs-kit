@@ -108,12 +108,13 @@ func purposeSentence(text, name string) string {
 
 // changeRow is one archived change that touched a capability.
 type changeRow struct {
-	date, id string // id is "" for a seed
+	date, id string // id is "" for a seed or a correction
+	kind     string // "seed" or "correction" when id is ""
 }
 
 // capabilityPages adds capabilities/_index.md and one page for each main
 // spec. Each page ends with the archived changes that touched the
-// capability: a seed, or an entry that was delivered (the deltas of a
+// capability: a seed, a correction, or an entry that was delivered (the deltas of a
 // rejected, withdrawn or superseded entry never reached the main spec).
 func (x *extraction) capabilityPages(m *Model) error {
 	if len(x.caps) == 0 {
@@ -136,7 +137,7 @@ func (x *extraction) capabilityPages(m *Model) error {
 		if hist := history[c.name]; len(hist) > 0 {
 			body = strings.TrimRight(body, "\n") + "\n\n## Entries that changed it\n\n| Entry | Date |\n| --- | --- |\n"
 			for _, r := range hist {
-				entry := "seed"
+				entry := r.kind
 				if r.id != "" {
 					entry = "[" + mdtext.Cell(mdtext.Text(r.id+": "+title[r.id])) + "](/enhancements/" + r.id + "/)"
 				}
@@ -157,7 +158,7 @@ func (x *extraction) capabilityPages(m *Model) error {
 }
 
 // capabilityHistory lists, for each capability, the archived changes whose
-// delta specs touch it, by date and then id.
+// delta specs touch it, by date, then id (none first), then kind.
 func (x *extraction) capabilityHistory(m *Model) (map[string][]changeRow, error) {
 	status := map[string]string{}
 	for i := range m.Entries {
@@ -173,19 +174,11 @@ func (x *extraction) capabilityHistory(m *Model) (map[string][]changeRow, error)
 	}
 	out := map[string][]changeRow{}
 	for _, e := range ents {
-		var row changeRow
-		switch name := e.Name(); {
-		case !e.IsDir():
+		if !e.IsDir() {
 			continue
-		case reSeedDate.MatchString(name):
-			row.date = name[:len("2006-01-02")]
-		case reArchived.MatchString(name):
-			m := reArchived.FindStringSubmatch(name)
-			row.date, row.id = m[1], m[2]
-			if status[row.id] != "delivered" {
-				continue
-			}
-		default:
+		}
+		row, ok := archivedRow(e.Name(), status)
+		if !ok {
 			continue
 		}
 		specs, err := os.ReadDir(filepath.Join(x.o.Root, filepath.FromSlash(path.Join(arch, e.Name(), "specs"))))
@@ -202,12 +195,38 @@ func (x *extraction) capabilityHistory(m *Model) (map[string][]changeRow, error)
 		}
 	}
 	for _, rows := range out {
-		sort.Slice(rows, func(i, j int) bool {
-			if rows[i].date != rows[j].date {
-				return rows[i].date < rows[j].date
-			}
-			return rows[i].id < rows[j].id
-		})
+		sort.Slice(rows, func(i, j int) bool { return rows[i].before(rows[j]) })
 	}
 	return out, nil
+}
+
+// archivedRow reads an archive folder's name as a history row. It reports
+// false for a name that gives none: an entry that is not delivered, or a
+// name no row is kept for.
+func archivedRow(name string, status map[string]string) (changeRow, bool) {
+	date := ""
+	if len(name) >= len("2006-01-02") {
+		date = name[:len("2006-01-02")]
+	}
+	switch {
+	case reSeedDate.MatchString(name):
+		return changeRow{date: date, kind: "seed"}, true
+	case reCorrectionDate.MatchString(name):
+		return changeRow{date: date, kind: "correction"}, true
+	case reArchived.MatchString(name):
+		m := reArchived.FindStringSubmatch(name)
+		return changeRow{date: m[1], id: m[2]}, status[m[2]] == "delivered"
+	}
+	return changeRow{}, false
+}
+
+// before orders rows by date, then entry id (none first), then kind.
+func (r changeRow) before(o changeRow) bool {
+	if r.date != o.date {
+		return r.date < o.date
+	}
+	if r.id != o.id {
+		return r.id < o.id
+	}
+	return r.kind < o.kind
 }
