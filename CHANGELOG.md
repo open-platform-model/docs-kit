@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.11.0](https://github.com/open-platform-model/docs-kit/compare/v0.10.0...v0.11.0) (2026-10-22)
+
+
+### Features
+
+* **extract:** accept correction folders in the enhancements bundle ([#78](https://github.com/open-platform-model/docs-kit/issues/78)) ([68130cf](https://github.com/open-platform-model/docs-kit/commit/68130cf3571e39ecd2256b22170aa117f4f91613))
+
+
+### Bug Fixes
+
+* **deps:** bump grpc to v1.83.2 and require Go 1.26.9 ([#73](https://github.com/open-platform-model/docs-kit/issues/73)) ([37307fa](https://github.com/open-platform-model/docs-kit/commit/37307facb9e9558e4ad2063cc213ae5d789c1b45))
+* **deps:** bump x/net and grpc past reachable advisories ([#71](https://github.com/open-platform-model/docs-kit/issues/71)) ([7bf9331](https://github.com/open-platform-model/docs-kit/commit/7bf93319578e2b9ac8b1af65f80451cc1585d717))
+* **deps:** require Go 1.26.10 ([#77](https://github.com/open-platform-model/docs-kit/issues/77)) ([cf66431](https://github.com/open-platform-model/docs-kit/commit/cf664317d9e5bb79de85560a1d609074687a34fc))
+
 ## [0.10.0](https://github.com/open-platform-model/docs-kit/compare/v0.9.0...v0.10.0) (2026-10-12)
 
 
