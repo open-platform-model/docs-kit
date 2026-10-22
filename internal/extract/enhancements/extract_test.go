@@ -812,9 +812,13 @@ func TestCorrectionRefusals(t *testing.T) {
 
 // TestNumberedCorrectionName checks 0123-correction-x is entry 0123.
 func TestNumberedCorrectionName(t *testing.T) {
+	ed, isEntry, err := classifyChange("0123-correction-x", "d", false)
+	if err != nil || !isEntry || ed.id != "0123" || ed.slug != "correction-x" {
+		t.Errorf("classifyChange = %+v %v %v", ed, isEntry, err)
+	}
 	root := copyFixture(t)
 	mkdir(t, root, "openspec/changes/0123-correction-x")
-	_, err := Extract(options(t, root))
+	_, err = Extract(options(t, root))
 	if err == nil || !strings.Contains(err.Error(), "entry 0123") {
 		t.Fatalf("err = %v, want it read as entry 0123", err)
 	}
