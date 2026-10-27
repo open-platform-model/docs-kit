@@ -322,12 +322,9 @@ func (p *plan) read(ctx context.Context) error {
 	return nil
 }
 
-// readRefresh decides the revision a refresh builds. Units that differ from
-// the newest revision's go on top of a signed newest revision. Units that
-// match it mean a refresh that stopped after its push or half-way through
-// its promote: that revision is built again under its own number, as a fix
-// is, and when it was never signed its fixes are trusted only as the signed
-// revision before it. Anything else has nothing to refresh.
+// readRefresh decides the revision a refresh builds: the next one, on a
+// signed newest revision whose units differ from main's. Units that equal
+// the newest revision's have nothing to refresh.
 func (p *plan) readRefresh(ctx context.Context, units map[string]string) error {
 	var err error
 	if p.builds, err = publish.ReleaseBuilds(ctx, p.reg); err != nil {
@@ -341,34 +338,13 @@ func (p *plan) readRefresh(ctx context.Context, units map[string]string) error {
 	if p.newest, err = p.fetch(ctx, next-1); err != nil {
 		return err
 	}
-	patches := p.newest.manifest.Source.Patches
-	if !maps.Equal(p.newest.manifest.Units, units) {
-		if err := p.signed(ctx, p.newest); err != nil {
-			return fmt.Errorf("%w; finish the run that pushed it first", err)
-		}
-		p.next, p.prior = next, patches
-		return nil
-	}
-	current := fmt.Errorf("units already current in %s.%d", p.version, p.newest.revision)
-	if p.newest.revision == 0 {
-		return current
-	}
-	promoted, err := p.promoted(ctx, p.newest)
-	if err != nil {
-		return err
-	}
-	if promoted {
-		return current
-	}
-	if t := p.newest.manifest.Tool; t != p.o.Tool {
-		return fmt.Errorf("%s.%d has these units but is not promoted, and it was built by opm-docs %s, not %s, so building it again would not give the pushed bytes: re-run it with .opm-docs-version at v%s", p.version, p.newest.revision, t, p.o.Tool, t)
+	if maps.Equal(p.newest.manifest.Units, units) {
+		return fmt.Errorf("units already current in %s.%d", p.version, p.newest.revision)
 	}
 	if err := p.signed(ctx, p.newest); err != nil {
-		if err := p.trustedBefore(ctx, patches); err != nil {
-			return err
-		}
+		return fmt.Errorf("%w; finish the run that pushed it first", err)
 	}
-	p.next, p.prior, p.rebuilt = p.newest.revision, patches, true
+	p.next, p.prior = next, p.newest.manifest.Source.Patches
 	return nil
 }
 

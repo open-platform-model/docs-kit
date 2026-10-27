@@ -57,7 +57,7 @@ type Options struct {
 	PatchDates map[string]string
 	// Units fixes the version of the units it names instead of reading them
 	// from the source tree: revise carries a revision's units forward, and
-	// refreshes them from main. A name the config does not declare is ignored.
+	// refreshes them from main. Every name given is recorded, declared by the config of the tree or not.
 	Units map[string]string
 	// Check runs every repository command twice and refuses differing
 	// output (opm-docs check). Stderr takes the commands' stderr; nil is

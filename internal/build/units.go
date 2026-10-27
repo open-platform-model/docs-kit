@@ -9,11 +9,13 @@ import (
 	"github.com/open-platform-model/docs-kit/internal/config"
 )
 
-// units records each configured unit's version in the manifest: the value
-// Options.Units gives for it, else the value read from its JSON file in the
-// source tree.
+// units records each unit's version in the manifest: the value Options.Units
+// gives for it, else the value read from its JSON file in the source tree.
+// The units are those the config declares plus those Options.Units names, so
+// a revision of a release whose own config declares none still records the
+// units a refresh read from main.
 func (s *assembly) units(units map[string]config.Unit) error {
-	if len(units) == 0 {
+	if len(units) == 0 && len(s.o.Units) == 0 {
 		return nil
 	}
 	read := map[string]config.Unit{}
@@ -26,10 +28,8 @@ func (s *assembly) units(units map[string]config.Unit) error {
 	if err != nil {
 		return err
 	}
-	for n := range units {
-		if v, ok := s.o.Units[n]; ok {
-			got[n] = v
-		}
+	for n, v := range s.o.Units {
+		got[n] = v
 	}
 	s.m.Units = got
 	return nil
