@@ -1,7 +1,7 @@
 ## 1. Spike: what the lint and the markup check do with the placeholder today
 
-- [ ] 1.1 Add conformance cases under `internal/dialect/testdata/conformance/` (`placeholder-known`: the placeholder in prose, in a fenced `bash` block, in an `https:` link destination and in the `description` front matter; expected output empty) and run `go test ./internal/dialect/...`; write the observed result in `design.md` "Context" (replace "Not yet run")
-- [ ] 1.2 In `internal/mdsafe/mdsafe_test.go`: a bundle-mode markup check of an authored page holding the same four forms reports nothing; if it reports, record the message in `design.md` and stop for the owner
+- [x] 1.1 Add conformance cases under `internal/dialect/testdata/conformance/` (`placeholder-known`: the placeholder in prose, in a fenced `bash` block, in an `https:` link destination and in the `description` front matter; expected output empty) and run `go test ./internal/dialect/...`; write the observed result in `design.md` "Context" (replace "Not yet run")
+- [x] 1.2 In `internal/mdsafe/mdsafe_test.go`: a bundle-mode markup check of an authored page holding the same four forms reports nothing; if it reports, record the message in `design.md` and stop for the owner
 - [ ] 1.3 `task check` green, then commit `test(lint): pin that the dialect admits the version placeholder form`
 
 ## 2. The name list and the lint rule

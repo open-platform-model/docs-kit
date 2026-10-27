@@ -9,7 +9,7 @@ from the release manifest. This change is the docs-kit part.
 Facts read in this tree:
 
 - The dialect lint matches shortcodes only as `{{<` or `{{%` (`internal/dialect/page.go`,
-  `reShortcode`). `{{opm:x}}` is not matched, so today it passes unexamined. Not yet run (spike).
+  `reShortcode`). `{{opm:x}}` is not matched, so today it passes unexamined. Spike result: the case `placeholder-known` (the placeholder in prose, in a fenced `bash` block, in an `https:` link destination and in the `description`) lints clean, and `TestCheckAllowsPlaceholder` shows the markup check refuses none of the four forms, in both modes.
 - `opm-docs pull` stages each site version in `internal/pull/versions.go`: `stageVersion` resolves the
   anchor, the pinned projects and the tag projects, runs `checkOverlap`, and leaves the unpacked,
   linted trees under `<out>/_versions/.incoming-<v>/<project>/`. `swapVersions` then replaces each
