@@ -6,10 +6,10 @@
 
 ## 2. The name list and the lint rule
 
-- [ ] 2.1 New package `internal/placeholder`: the name table (name, kind, docs project), `Scan(line)` returning each `{{opm:` occurrence with its verdict (known; unknown name; unknown field; malformed), `Names()` in list order; table-driven tests in `placeholder_test.go` for every name, `opm-controler`, `cli.tag`, `{{opm:cli.version` unclosed, `{{ opm:cli.version}}` (not a placeholder, no match), two placeholders in a line
-- [ ] 2.2 `internal/dialect/page.go`: `record` calls `placeholders(l)` on every line (before the front-matter and fence returns), emitting the messages of the `dialect-lint` delta; tests in `dialect_test.go`
-- [ ] 2.3 Conformance cases: `placeholder-unknown-name` (message lists the known names), `placeholder-unknown-field`, `placeholder-unclosed`, `placeholder-in-fence-and-link` (accepted), `placeholder-shown-shortcode` (accepted); each with its expected `<file>:<line>` output
-- [ ] 2.4 `docs/contracts.md` C11: add the rule and the name list; sync `openspec/specs/dialect-lint` and the new `version-placeholders` spec (names, mapping) from this change
+- [x] 2.1 New package `internal/placeholder`: the name table (name, kind, docs project), `Scan(line)` returning each `{{opm:` occurrence with its verdict (known; unknown name; unknown field; malformed), `Names()` in list order; table-driven tests in `placeholder_test.go` for every name, `opm-controler`, `cli.tag`, `{{opm:cli.version` unclosed, `{{ opm:cli.version}}` (not a placeholder, no match), two placeholders in a line
+- [x] 2.2 `internal/dialect/page.go`: `record` calls `placeholders(l)` on every line (before the front-matter and fence returns), emitting the messages of the `dialect-lint` delta; tests in `dialect_test.go`
+- [x] 2.3 Conformance cases: `placeholder-unknown-name` (message lists the known names), `placeholder-unknown-field`, `placeholder-unclosed`, `placeholder-in-fence-and-link` (accepted), `placeholder-shown-shortcode` (accepted); each with its expected `<file>:<line>` output
+- [x] 2.4 `docs/contracts.md` C11: add the rule and the name list; sync `openspec/specs/dialect-lint` and the new `version-placeholders` spec (names, mapping) from this change
 - [ ] 2.5 `task check` green, then commit `feat(lint): refuse unknown version placeholders`
 
 ## 3. Extra versions from a release manifest

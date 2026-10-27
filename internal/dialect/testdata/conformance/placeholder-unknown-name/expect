@@ -1,0 +1,1 @@
+core/docs/site/start/p.md:7: placeholder "{{opm:opm-controler.version}}": unknown name "opm-controler"; known names: cli, core, library, opm-controller, opm-controller-module, catalog-opm
