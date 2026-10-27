@@ -16,7 +16,9 @@
 #            build the tag at src/, push <version>.0, sign, move the moving tags.
 #   revision workflow_dispatch: apply a documentation fix on main (input fix) to a
 #            published release (input tag), build <version>.<next>, push, sign,
-#            move the moving tags.
+#            move the moving tags. With input refresh-units in place of fix, it
+#            builds the next revision with the unit versions (docs-kit.cue
+#            units) read from main and the fixes of the newest revision unchanged.
 #
 # Two jobs. build checks out the caller and runs opm-docs check, build or
 # revise, which may run the caller's own code (repository commands,
@@ -51,6 +53,10 @@ on:
         description: revision mode, the 40-hex commit on main whose documentation change to apply
         type: string
         default: ""
+      refresh-units:
+        description: revision mode, in place of fix, build the next revision with the unit versions read from main and the earlier fixes unchanged
+        type: boolean
+        default: false
       cue-registry:
         description: CUE_REGISTRY for the extractors
         type: string
@@ -95,6 +101,7 @@ jobs:
         env:
           TAG: ${{ inputs.tag }}
           FIX: ${{ inputs.fix }}
+          REFRESH: ${{ inputs.refresh-units }}
           REF: ${{ github.ref }}
         run: |
           case "$MODE" in
@@ -110,8 +117,16 @@ jobs:
             echo "::error::mode $MODE needs the input tag, the release's git tag (opm-v4.4.5)"
             exit 1
           fi
-          if [ "$MODE" = revision ] && ! printf '%s\n' "$FIX" | grep -Eqx '[0-9a-f]{40}'; then
-            echo "::error::mode revision needs the input fix, the full 40-hex commit on main whose documentation change to apply, not \"$FIX\""
+          if [ "$REFRESH" = true ] && [ "$MODE" != revision ]; then
+            echo "::error::the input refresh-units belongs to mode revision, not $MODE"
+            exit 1
+          fi
+          if [ "$MODE" = revision ] && [ "$REFRESH" = true ] && [ -n "$FIX" ]; then
+            echo "::error::mode revision takes the input fix or refresh-units: true, not both"
+            exit 1
+          fi
+          if [ "$MODE" = revision ] && [ "$REFRESH" != true ] && ! printf '%s\n' "$FIX" | grep -Eqx '[0-9a-f]{40}'; then
+            echo "::error::mode revision needs the input fix, the full 40-hex commit on main whose documentation change to apply, not \"$FIX\"; or refresh-units: true in its place"
             exit 1
           fi
 
@@ -192,7 +207,13 @@ jobs:
         env:
           TAG: ${{ inputs.tag }}
           FIX: ${{ inputs.fix }}
-        run: opm-docs revise --project "$PROJECT" --tag "$TAG" --fix "$FIX"
+          REFRESH: ${{ inputs.refresh-units }}
+        run: |
+          if [ "$REFRESH" = true ]; then
+            opm-docs revise --project "$PROJECT" --tag "$TAG" --refresh-units
+          else
+            opm-docs revise --project "$PROJECT" --tag "$TAG" --fix "$FIX"
+          fi
 
       # The bundle tree goes to the publish job; content/ and data/ are
       # recreated there, since an artifact drops an empty directory.

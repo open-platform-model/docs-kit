@@ -55,6 +55,10 @@ type Options struct {
 	Revision   int
 	Patches    []string
 	PatchDates map[string]string
+	// Units fixes the version of the units it names instead of reading them
+	// from the source tree: revise carries a revision's units forward, and
+	// refreshes them from main. A name the config does not declare is ignored.
+	Units map[string]string
 	// Check runs every repository command twice and refuses differing
 	// output (opm-docs check). Stderr takes the commands' stderr; nil is
 	// os.Stderr.
@@ -128,7 +132,7 @@ func checkRevision(o Options) error {
 		return &UsageError{fmt.Errorf("--patches needs --revision: revision 0 is the release itself")}
 	case o.Revision > 0 && o.Release == "":
 		return &UsageError{fmt.Errorf("--revision %d needs --release: a docs revision is of a release", o.Revision)}
-	case o.Revision > 0 && len(o.Patches) == 0:
+	case o.Revision > 0 && len(o.Patches) == 0 && o.Units == nil:
 		return &UsageError{fmt.Errorf("--revision %d needs --patches, the fix commits applied to the release tree", o.Revision)}
 	}
 	seen := map[string]bool{}

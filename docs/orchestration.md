@@ -54,6 +54,8 @@ A docs-kit change reaches other repositories only through a release: merging its
 
 **The site bumps first** (C12, `generalize-build-assembly` D10). `#Manifest` is closed, so an `opm-docs` older than a bundle's tool refuses a manifest with a field it does not know (`owns`, `pins`, `edit`, a `section` placement). opmodel.dev's pinned `opm-docs` is never older than any producer's `.opm-docs-version`: each docs-kit release reaches `site/Dockerfile` before any producer moves to it.
 
+**Version placeholders** (C11, C16). The release that adds `units` and the fill in `pull` is adopted in this order: opmodel.dev bumps `opm-docs` in `site/Dockerfile` first, since a bundle that records `units` is refused by an older tool; then cli, opm and opm-controller move `.opm-docs-version` and every `publish.yml@` ref together; then their pages may carry `{{opm:<name>.version}}`. opm-controller adds `units` to its `docs-kit.cue` and, on a module release, dispatches `publish.yml` in revision mode with `refresh-units: true` for its newest release tag. core, library, catalog_opm, opm-portal, modules and enhancements need nothing.
+
 Sibling plans cite the gates below by name, never by another repository's section number.
 
 ## Gates

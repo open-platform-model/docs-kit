@@ -30,7 +30,7 @@
 
 ## 5. Refresh units on a module release (needs the owner's answer to the proposal question)
 
-- [ ] 5.1 `cmd/opm-docs/revise.go` and `internal/revise/revise.go`: flag `--refresh-units`, exclusive with `--fix` (exit 1); skip the fix checks; take the newest signed revision's patches; build with units read from the `main` checkout (a `--units-from` internal option of `build`); refuse when the units equal the newest revision's; tests in `revise_test.go` (module release builds revision 1 with the new unit; unchanged units exit 2; both flags exit 1; unsigned newest revision refused)
-- [ ] 5.2 `.github/workflows/publish.yml`: input `refresh-units` (boolean, default false); the revision step runs `revise --refresh-units` when it is true and `fix` is empty; the guard step fails when both or neither are given; `actionlint` green
-- [ ] 5.3 `docs/contracts.md` C5 and "Docs revisions": the refresh path; `docs/orchestration.md`: the adoption order (site bumps first, then cli, opm, opm-controller); sync `opm-docs-cli` and `publish-workflow` specs
-- [ ] 5.4 `task check` green, then commit `feat(workflow): refresh unit versions of a release in revision mode`
+- [x] 5.1 `cmd/opm-docs/revise.go` and `internal/revise/revise.go`: flag `--refresh-units`, exclusive with `--fix` (exit 1); skip the fix checks; take the newest signed revision's patches; build with units read from the `main` checkout (a `--units-from` internal option of `build`); refuse when the units equal the newest revision's; tests in `revise_test.go` (module release builds revision 1 with the new unit; unchanged units exit 2; both flags exit 1; unsigned newest revision refused)
+- [x] 5.2 `.github/workflows/publish.yml`: input `refresh-units` (boolean, default false); the revision step runs `revise --refresh-units` when it is true and `fix` is empty; the guard step fails when both or neither are given; `actionlint` green
+- [x] 5.3 `docs/contracts.md` C5 and "Docs revisions": the refresh path; `docs/orchestration.md`: the adoption order (site bumps first, then cli, opm, opm-controller); sync `opm-docs-cli` and `publish-workflow` specs
+- [x] 5.4 `task check` green, then commit `feat(workflow): refresh unit versions of a release in revision mode`

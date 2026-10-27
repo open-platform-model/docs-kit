@@ -9,16 +9,44 @@ import (
 	"github.com/open-platform-model/docs-kit/internal/config"
 )
 
-// units reads each configured unit's version from its JSON file in the source
-// tree and records them in the manifest. A missing file, a missing key and a
-// value that is not an exact version without "v" all refuse the build.
+// units records each configured unit's version in the manifest: the value
+// Options.Units gives for it, else the value read from its JSON file in the
+// source tree.
 func (s *assembly) units(units map[string]config.Unit) error {
 	if len(units) == 0 {
 		return nil
 	}
-	root, err := os.OpenRoot(s.unitsDir())
+	read := map[string]config.Unit{}
+	for n, u := range units {
+		if _, ok := s.o.Units[n]; !ok {
+			read[n] = u
+		}
+	}
+	got, err := ReadUnits(s.o.Source, s.m.Project, s.cfgPath, read)
 	if err != nil {
-		return fmt.Errorf("%s: units: %w", s.m.Project, err)
+		return err
+	}
+	for n := range units {
+		if v, ok := s.o.Units[n]; ok {
+			got[n] = v
+		}
+	}
+	s.m.Units = got
+	return nil
+}
+
+// ReadUnits reads each unit's version from its JSON file under dir. A
+// missing file, a missing key and a value that is not an exact version
+// without "v" all refuse, naming the file and the key. project and cfgPath
+// only name the source of the unit in messages.
+func ReadUnits(dir, project, cfgPath string, units map[string]config.Unit) (map[string]string, error) {
+	out := make(map[string]string, len(units))
+	if len(units) == 0 {
+		return out, nil
+	}
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, fmt.Errorf("%s: units: %w", project, err)
 	}
 	defer func() { _ = root.Close() }() // read-only
 	names := make([]string, 0, len(units))
@@ -26,30 +54,25 @@ func (s *assembly) units(units map[string]config.Unit) error {
 		names = append(names, n)
 	}
 	sort.Strings(names)
-	out := make(map[string]string, len(units))
 	for _, n := range names {
 		u := units[n]
 		raw, err := root.ReadFile(u.File)
 		if err != nil {
-			return fmt.Errorf("%s: unit %s: cannot read %s from the source tree: %w; units.%s.file in %s names a JSON file such as .release-please-manifest.json", s.m.Project, n, u.File, err, n, s.cfgPath)
+			return nil, fmt.Errorf("%s: unit %s: cannot read %s from the source tree: %w; units.%s.file in %s names a JSON file such as .release-please-manifest.json", project, n, u.File, err, n, cfgPath)
 		}
 		var doc map[string]json.RawMessage
 		if err := json.Unmarshal(raw, &doc); err != nil {
-			return fmt.Errorf("%s: unit %s: %s is not a JSON object: %w", s.m.Project, n, u.File, err)
+			return nil, fmt.Errorf("%s: unit %s: %s is not a JSON object: %w", project, n, u.File, err)
 		}
 		v, ok := doc[u.Key]
 		if !ok {
-			return fmt.Errorf("%s: unit %s: %s has no key %q; units.%s.key in %s names a top-level key of that file", s.m.Project, n, u.File, u.Key, n, s.cfgPath)
+			return nil, fmt.Errorf("%s: unit %s: %s has no key %q; units.%s.key in %s names a top-level key of that file", project, n, u.File, u.Key, n, cfgPath)
 		}
 		var ver string
 		if err := json.Unmarshal(v, &ver); err != nil || !reSemVer.MatchString(ver) {
-			return fmt.Errorf("%s: unit %s: %s key %q holds %s, not an exact version such as 0.1.1 (a string, no v)", s.m.Project, n, u.File, u.Key, v)
+			return nil, fmt.Errorf("%s: unit %s: %s key %q holds %s, not an exact version such as 0.1.1 (a string, no v)", project, n, u.File, u.Key, v)
 		}
 		out[n] = ver
 	}
-	s.m.Units = out
-	return nil
+	return out, nil
 }
-
-// unitsDir is the tree the unit files are read from: the source tree.
-func (s *assembly) unitsDir() string { return s.o.Source }

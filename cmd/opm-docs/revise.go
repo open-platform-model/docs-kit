@@ -23,13 +23,21 @@ func newReviseCmd() *cobra.Command {
 		Long: "Check that --fix is a single-parent commit on origin/main, apply the fixes of the newest published\n" +
 			"revision of --tag and then --fix to the release tree in a temporary worktree, refuse anything but\n" +
 			"a documentation change (Markdown, and comments in .cue and .go files), and build the next revision\n" +
-			"into <out>/<project>/. It pushes nothing: push, sign and promote it as a release.",
+			"into <out>/<project>/. With --refresh-units in place of --fix, build the next revision with the\n" +
+			"fixes of the newest published revision unchanged and the units (docs-kit.cue units) read from\n" +
+			"the checkout of main. It pushes nothing: push, sign and promote it as a release.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			for _, f := range []struct{ name, value string }{{"--project", o.Project}, {"--tag", o.Tag}, {"--fix", o.Fix}} {
+			for _, f := range []struct{ name, value string }{{"--project", o.Project}, {"--tag", o.Tag}} {
 				if f.value == "" {
 					return usage("%s is required: revise --project <project> --tag <release tag> --fix <commit on main>", f.name)
 				}
+			}
+			switch {
+			case o.RefreshUnits && o.Fix != "":
+				return usage("--fix and --refresh-units are exclusive: a fix revision applies a commit, a refresh revision only moves the units")
+			case !o.RefreshUnits && o.Fix == "":
+				return usage("--fix is required: revise --project <project> --tag <release tag> --fix <commit on main>, or --refresh-units in its place")
 			}
 			o.Repo, o.Tool = ".", version.Version
 			o.Client = oci.New(oci.Options{})
@@ -59,7 +67,8 @@ func newReviseCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&o.Project, "project", "", "the project (required)")
 	f.StringVar(&o.Tag, "tag", "", "the release's git tag, such as opm-v4.4.5 (required)")
-	f.StringVar(&o.Fix, "fix", "", "the 40-hex commit on main whose documentation change to apply (required)")
+	f.StringVar(&o.Fix, "fix", "", "the 40-hex commit on main whose documentation change to apply (required without --refresh-units)")
+	f.BoolVar(&o.RefreshUnits, "refresh-units", false, "in place of --fix: build the next revision with the units read from main and the fixes unchanged")
 	f.StringVar(&o.Out, "out", "out", "the output directory")
 	f.StringVar(&o.Registry, "registry", publish.DefaultRegistry, "the registry prefix; the repository is <registry>/<project>")
 	f.StringVar(&o.Config, "config", "", "the config file (default: docs-kit.cue in the release tree, else in the current directory)")
