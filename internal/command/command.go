@@ -85,7 +85,7 @@ type Error struct {
 }
 
 func (e *Error) Error() string {
-	return fmt.Sprintf("%s: command `%s`: %s", e.Project, strings.Join(e.Argv, " "), e.Msg)
+	return fmt.Sprintf("%s: command `%s`: %s", e.Project, strings.Join(e.Argv, " "), e.Msg) //nolint:gocritic // %#q would print double quotes when argv holds a backquote
 }
 
 // Run runs argv and returns its stdout, one JSON document whose "schema"

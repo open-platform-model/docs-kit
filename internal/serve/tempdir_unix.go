@@ -15,7 +15,7 @@ import (
 // holds across pid namespaces sharing one /tmp (toolbox), where a pid
 // says nothing.
 func lockOwner(f *os.File) error {
-	return syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB) //nolint:gosec // a file descriptor fits an int
+	return syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
 }
 
 // sweepStale removes each serve directory under tmp that no running serve
@@ -48,7 +48,7 @@ func sweepOne(dir string) {
 		return
 	}
 	defer f.Close()
-	if syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB) != nil { //nolint:gosec // a file descriptor fits an int
+	if syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB) != nil {
 		return // a running serve holds it
 	}
 	_ = os.RemoveAll(dir)

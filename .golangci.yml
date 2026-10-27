@@ -33,6 +33,12 @@ linters:
         - diagnostic
         - performance
         - style
+    goconst:
+      # goconst 1.11 (golangci-lint 2.15) also counts strings inside composite
+      # literals; 1.8.2 (2.11.4) did not. Keep the old scope.
+      exclude-types:
+        - Call
+        - CompositeLit
     gocyclo:
       min-complexity: 15
     misspell:

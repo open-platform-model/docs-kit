@@ -32,9 +32,10 @@ func editRepo(t *testing.T) *gittest.Repo {
 	r := gittest.New(t, "https://github.com/example/cli.git")
 	page := func(title string) string { return strings.Replace(authoredOps, "Controller resources", title, 1) }
 	r.Write(map[string]string{
-		"README.md":                                   "x\n",
-		"docs/site/start/install.md":                  page("Install"),
-		"docs/site/guide.md":                          page("Guide"),
+		"README.md":                  "x\n",
+		"docs/site/start/install.md": page("Install"),
+		"docs/site/guide.md":         page("Guide"),
+
 		"docs/site/reference/controller-resources.md": authoredOps,
 		"docs/catalogs/demo/_index.md":                "---\ntitle: \"Demo\"\ndescription: \"x\"\n---\n\nThe demo catalog.\n",
 	})
