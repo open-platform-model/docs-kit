@@ -25,6 +25,9 @@ func TestReviseExitCodes(t *testing.T) {
 		{"missing fix", []string{"revise", "--project", "catalog-demo", "--tag", "demo-v1.2.3"}, 1, "--fix is required"},
 		{"missing tag", []string{"revise", "--project", "catalog-demo", "--fix", side}, 1, "--tag is required"},
 		{"fix not on main", []string{"revise", "--project", "catalog-demo", "--tag", "demo-v1.2.3", "--fix", side}, 2, "the fix must land on main first"},
+		{"fix and refresh", []string{"revise", "--project", "catalog-demo", "--tag", "demo-v1.2.3", "--fix", side, "--refresh-units"}, 1, "--fix and --refresh-units are exclusive"},
+		{"refresh without tag", []string{"revise", "--project", "catalog-demo", "--refresh-units"}, 1, "--tag is required"},
+		{"refresh without units", []string{"revise", "--project", "catalog-demo", "--tag", "demo-v1.2.3", "--refresh-units"}, 2, "declares no units"},
 		{"short fix", []string{"revise", "--project", "catalog-demo", "--tag", "demo-v1.2.3", "--fix", side[:7]}, 2, "not a full 40-hex commit hash"},
 	} {
 		t.Run(c.name, func(t *testing.T) {

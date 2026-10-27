@@ -220,3 +220,32 @@ func TestFenceClosesOnItsOwnLength(t *testing.T) {
 		t.Errorf("an image after a closed fence was not flagged")
 	}
 }
+
+// A placeholder is checked on every line: in the front matter, in a code
+// fence, and in docs mode as in bundle mode.
+func TestPlaceholdersEveryLine(t *testing.T) {
+	dir := t.TempDir()
+	page := "---\ntitle: \"T {{opm:nope.version}}\"\ndescription: \"D\"\ntype: reference\n---\n\n```bash\nrun {{opm:cli.tag}}\n```\n\nAfter {{opm:cli.version}} {{opm:core.version\n"
+	if err := os.WriteFile(filepath.Join(dir, "p.md"), []byte(page), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for name, opts := range map[string]Options{
+		"docs":   {},
+		"bundle": {Mode: Bundle, Bundle: BundleInfo{Root: "/docs/", Segment: "1.0", Pages: []string{"p.md"}}},
+	} {
+		vs, err := Lint(dir, opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []string
+		for _, v := range vs {
+			got = append(got, strings.TrimPrefix(v.String(), dir+"/"))
+		}
+		want := []string{
+			`p.md:2: placeholder "{{opm:nope.version}}": unknown name "nope"; known names: cli, core, library, opm-controller, opm-controller-module, catalog-opm`,
+			`p.md:8: placeholder "{{opm:cli.tag}}": unknown field "tag"; write {{opm:cli.version}}`,
+			`p.md:11: placeholder "{{opm:core.version": not closed or not of the form {{opm:<name>.version}}`,
+		}
+		compare(t, name, got, want)
+	}
+}

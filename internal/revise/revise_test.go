@@ -75,7 +75,7 @@ func newEnvWith(t *testing.T, cfg string) *env {
 	r.Write(map[string]string{"README.md": "# Demo\n"})
 	r.Commit("start")
 	r.CopyTree("../extract/cuecatalog/testdata/catalog", ".")
-	r.Write(map[string]string{"docs-kit.cue": cfg, landing: landingPage, ".gitignore": "/out/\n"})
+	r.Write(map[string]string{"docs-kit.cue": cfg, landing: landingPage, ".gitignore": "/out/\n", ".release-please-manifest.json": "{\"mod\": \"0.1.1\"}\n"})
 	r.Commit("catalog")
 	r.Git("tag", tag)
 	host := ocitest.Registry(t)

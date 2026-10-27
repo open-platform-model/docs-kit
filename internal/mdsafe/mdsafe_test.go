@@ -99,6 +99,21 @@ func TestCheckAllows(t *testing.T) {
 	}
 }
 
+// TestCheckAllowsPlaceholder pins that the version placeholder form, which
+// the pull fills after the check, is plain text to the markup check: in
+// prose, in a fenced block, in a link destination and in the front matter.
+func TestCheckAllowsPlaceholder(t *testing.T) {
+	body := "---\ntitle: \"t\"\ndescription: \"Install v{{opm:cli.version}}\"\n---\n\n" +
+		"Install {{opm:cli.version}} now.\n\n" +
+		"```bash\nopm controller install --version v{{opm:opm-controller.version}}\n```\n\n" +
+		"[notes](https://github.com/open-platform-model/cli/releases/tag/v{{opm:cli.version}})\n"
+	for mode, m := range modes {
+		if vs := check(body, mode); len(vs) != 0 {
+			t.Fatalf("%s: refused %v", m, vs)
+		}
+	}
+}
+
 // emitted is every element goldmark (with Hugo's extensions) writes for
 // Markdown, so any other element in a rendered page came from raw HTML.
 var emitted = func() map[string]bool {

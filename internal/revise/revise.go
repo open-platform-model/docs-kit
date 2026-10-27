@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -31,16 +32,19 @@ const DefaultMain = "origin/main"
 
 // Options configures one revision.
 type Options struct {
-	Repo     string // the checkout of main, with full history and its tags
-	Main     string // the ref the fixes must be on; default origin/main
-	Project  string
-	Tag      string // the release's git tag, opm-v4.4.5
-	Fix      string // the new fix, a 40-hex commit on main
-	Out      string // the output root; the bundle goes to <Out>/<Project>
-	Registry string // the registry prefix; the repository is <Registry>/<Project>
-	Config   string // "" reads docs-kit.cue in the release tree, else in Repo
-	Tool     string // the opm-docs version, without "v"
-	Client   *oci.Client
+	Repo    string // the checkout of main, with full history and its tags
+	Main    string // the ref the fixes must be on; default origin/main
+	Project string
+	Tag     string // the release's git tag, opm-v4.4.5
+	Fix     string // the new fix, a 40-hex commit on main
+	// RefreshUnits builds the next revision with no new fix: the newest
+	// revision's fixes unchanged and the units read from main. It excludes Fix.
+	RefreshUnits bool
+	Out          string // the output root; the bundle goes to <Out>/<Project>
+	Registry     string // the registry prefix; the repository is <Registry>/<Project>
+	Config       string // "" reads docs-kit.cue in the release tree, else in Repo
+	Tool         string // the opm-docs version, without "v"
+	Client       *oci.Client
 	// Verifier and Policy check the signature of the revision whose
 	// fixes are read, as pull does, before its source.patches is trusted.
 	Verifier func() (*verify.Verifier, error)
@@ -74,7 +78,8 @@ func (e *RefusedError) Error() string {
 }
 
 // Run builds the next docs revision of the release Tag with Fix applied
-// after every fix the newest published revision carries.
+// after every fix the newest published revision carries, or, with
+// RefreshUnits, with the units of main and no new fix.
 func Run(ctx context.Context, o Options) (*Result, error) {
 	if o.Main == "" {
 		o.Main = DefaultMain
@@ -82,6 +87,9 @@ func Run(ctx context.Context, o Options) (*Result, error) {
 	repo := gitsrc.Repo{Dir: o.Repo}
 	if err := section(o); err != nil {
 		return nil, err
+	}
+	if o.RefreshUnits {
+		return refresh(ctx, o, repo)
 	}
 	if err := repo.CheckFix(ctx, o.Fix, o.Main); err != nil {
 		return nil, err
@@ -128,11 +136,78 @@ func Run(ctx context.Context, o Options) (*Result, error) {
 		Revision:   p.next,
 		Patches:    patches,
 		PatchDates: picked.Dates,
+		Units:      p.newest.manifest.Units, // the newest revision's units go on, even after a refresh
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &Result{Dir: results[0].Dir, Version: version, Revision: p.next, Patches: patches, Pages: results[0].Pages, Rebuilt: p.rebuilt}, nil
+}
+
+// refresh builds the next revision of Tag with the newest published
+// revision's fixes unchanged and the units read from main. It refuses an
+// unsigned newest revision, a project that declares no units, and units
+// that are already current.
+func refresh(ctx context.Context, o Options, repo gitsrc.Repo) (*Result, error) {
+	version, commit, err := release(ctx, o, repo)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := config.Load(configPath(o))
+	if err != nil {
+		return nil, &build.UsageError{Err: err}
+	}
+	declared := cfg.Bundles[o.Project].Units
+	if len(declared) == 0 {
+		return nil, fmt.Errorf("%s declares no units for %s, so there is nothing to refresh; add units to the bundle on main", cfg.Path, o.Project)
+	}
+	units, err := build.ReadUnits(o.Repo, o.Project, cfg.Path, declared)
+	if err != nil {
+		return nil, err
+	}
+	reg, err := o.Client.Repository(o.Registry + "/" + o.Project)
+	if err != nil {
+		return nil, err
+	}
+	p := &plan{o: o, reg: reg, version: version, commit: commit}
+	if err := p.readRefresh(ctx, units); err != nil {
+		return nil, err
+	}
+	for _, f := range p.prior {
+		if err := repo.CheckFix(ctx, f, o.Main); err != nil {
+			return nil, fmt.Errorf("%s.%d lists the fix %s, which no longer checks out: %w", version, p.newest.revision, f, err)
+		}
+	}
+	w, err := repo.AddWorktree(ctx, "refs/tags/"+o.Tag)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = w.Remove(ctx) }()
+	bo := build.Options{
+		Config:   buildConfig(o, w.Dir),
+		Projects: []string{o.Project},
+		Out:      o.Out,
+		Source:   w.Dir,
+		Main:     o.Repo,
+		Edits:    p.edits(),
+		Release:  o.Tag,
+		Tool:     o.Tool,
+		Revision: p.next,
+		Patches:  p.prior,
+		Units:    units,
+	}
+	if len(p.prior) > 0 {
+		picked, err := apply(ctx, repo, w, o.Tag, p.prior)
+		if err != nil {
+			return nil, err
+		}
+		bo.PatchDates = picked.Dates
+	}
+	results, err := build.Run(ctx, bo)
+	if err != nil {
+		return nil, err
+	}
+	return &Result{Dir: results[0].Dir, Version: version, Revision: p.next, Patches: p.prior, Pages: results[0].Pages, Rebuilt: p.rebuilt}, nil
 }
 
 // configPath is the config revise reads: --config, else the checkout's.
@@ -244,6 +319,32 @@ func (p *plan) read(ctx context.Context) error {
 		}
 	}
 	p.next, p.prior, p.rebuilt = p.newest.revision, patches[:i], true
+	return nil
+}
+
+// readRefresh decides the revision a refresh builds: the next one, on a
+// signed newest revision whose units differ from main's. Units that equal
+// the newest revision's have nothing to refresh.
+func (p *plan) readRefresh(ctx context.Context, units map[string]string) error {
+	var err error
+	if p.builds, err = publish.ReleaseBuilds(ctx, p.reg); err != nil {
+		return err
+	}
+	v, _ := tags.ParseVersion(p.version)
+	next, err := tags.NextRevision(v, p.builds)
+	if err != nil {
+		return fmt.Errorf("%s has no published release in %s (%s.0): publish the release first: dispatch mode: release", p.o.Tag, p.reg.Name, p.version)
+	}
+	if p.newest, err = p.fetch(ctx, next-1); err != nil {
+		return err
+	}
+	if maps.Equal(p.newest.manifest.Units, units) {
+		return fmt.Errorf("units already current in %s.%d", p.version, p.newest.revision)
+	}
+	if err := p.signed(ctx, p.newest); err != nil {
+		return fmt.Errorf("%w; finish the run that pushed it first", err)
+	}
+	p.next, p.prior = next, p.newest.manifest.Source.Patches
 	return nil
 }
 

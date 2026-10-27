@@ -131,6 +131,9 @@ func Run(ctx context.Context, o Options) (*Lock, error) {
 	if err := p.stageVersions(ctx); err != nil {
 		return nil, err
 	}
+	if err := p.checkLeftover(); err != nil {
+		return nil, err
+	}
 	// Everything that can refuse runs before the first segment is swapped
 	// in: a refused bundle, history or lock leaves the previous trees, the
 	// previous history.json files and the previous lock as they were.

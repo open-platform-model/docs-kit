@@ -264,3 +264,36 @@ func TestLoadPerKindOptions(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadUnits(t *testing.T) {
+	withUnits := func(units string) string {
+		return strings.Replace(docs(`"reference/"`, `"x/"`), `version: {`, "units: "+units+"\n\t\tversion: {", 1)
+	}
+	c, err := Load(write(t, "docs-kit.cue", withUnits(`"opm-controller-module": key: "modules/opm_controller"`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u := c.Bundles["cli"].Units["opm-controller-module"]; u.File != ".release-please-manifest.json" || u.Key != "modules/opm_controller" {
+		t.Fatalf("units %+v", c.Bundles["cli"].Units)
+	}
+	c, err = Load(write(t, "docs-kit.cue", withUnits(`"opm-controller-module": {file: "release/v.json", key: "a"}`)))
+	if err != nil || c.Bundles["cli"].Units["opm-controller-module"].File != "release/v.json" {
+		t.Fatalf("named file: %+v, %v", c, err)
+	}
+	for name, units := range map[string]string{
+		"parent segment": `"opm-controller-module": {file: "a/../v.json", key: "a"}`,
+		"no key":         `"opm-controller-module": {}`,
+	} {
+		if _, err := Load(write(t, "docs-kit.cue", withUnits(units))); err == nil {
+			t.Errorf("%s: loaded", name)
+		}
+	}
+}
+
+func TestLoadUnitNameListed(t *testing.T) {
+	body := strings.Replace(docs(`"reference/"`, `"x/"`), `version: {`, "units: x: key: \"a\"\n\t\tversion: {", 1)
+	_, err := Load(write(t, "docs-kit.cue", body))
+	if err == nil || !strings.Contains(err.Error(), `unit "x"`) || !strings.Contains(err.Error(), "opm-controller-module") {
+		t.Fatalf("error %v, want the unit and the allowed names", err)
+	}
+}

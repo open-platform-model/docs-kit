@@ -3,6 +3,8 @@ package dialect
 import (
 	"regexp"
 	"strings"
+
+	"github.com/open-platform-model/docs-kit/internal/placeholder"
 )
 
 // The patterns below are the shell lint's awk patterns. The ones used to
@@ -72,6 +74,7 @@ func (p *pageLint) run(lines []string) {
 }
 
 func (p *pageLint) record(l string) {
+	p.placeholders(l)
 	if p.nr == 1 {
 		if l != "---" {
 			p.err(1, "front matter must open on line 1 with ---")
@@ -118,6 +121,17 @@ func (p *pageLint) frontMatter(l string) {
 	}
 	if !strings.HasPrefix(l, " ") && !strings.HasPrefix(l, "\t") && !strings.HasPrefix(l, "#") && l != "" {
 		p.err(p.nr, `front matter: expected "key: value"`)
+	}
+}
+
+// placeholders checks every version placeholder on a line. The pull fills
+// them in text of every kind, so this runs on every line: front matter and
+// code fences included.
+func (p *pageLint) placeholders(l string) {
+	for _, o := range placeholder.Scan(l) {
+		if msg := o.Message(); msg != "" {
+			p.err(p.nr, msg)
+		}
 	}
 }
 

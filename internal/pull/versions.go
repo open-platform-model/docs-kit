@@ -33,6 +33,7 @@ type docsBundle struct {
 	m             *bundle.Manifest
 	what          string // how errors name it: "cli 1.0.0-beta.6"
 	ref           string // its digest, or "local"
+	dir           string // its staged tree
 }
 
 // stageVersions unpacks, lints and checks every site version into
@@ -87,7 +88,10 @@ func (p *puller) stageVersion(ctx context.Context, sv string) error {
 		}
 		set = append(set, b)
 	}
-	return checkOverlap(sv, set)
+	if err := checkOverlap(sv, set); err != nil {
+		return err
+	}
+	return p.fillVersion(sv, set)
 }
 
 // checkOverlap refuses a site version whose docs bundles overlap: two
@@ -305,7 +309,7 @@ func (p *puller) fetchDocs(ctx context.Context, sv, project, role, tag string, r
 		Version: f.version, Revision: f.revision, Commit: m.Source.Commit, Dialect: m.Dialect, BuiltBy: m.Tool,
 		Signer: &Signer{Workflow: f.id.Workflow, Repository: f.id.Repository, Ref: f.id.Ref}, Pins: anchorPins(role, m), Dir: rel,
 	})
-	return &docsBundle{project: project, role: role, m: m, what: project + " " + m.Version, ref: desc.Digest.String()}, nil
+	return &docsBundle{project: project, role: role, m: m, what: project + " " + m.Version, ref: desc.Digest.String(), dir: filepath.Join(p.versionStaged[sv], project)}, nil
 }
 
 // localDocs takes a project of a site version from a local tree, with no
@@ -336,7 +340,7 @@ func (p *puller) localDocs(sv, project, role string, l Local, pin string, anchor
 		Site: sv, Project: project, Role: role, Local: true,
 		Version: m.Version, Revision: m.Revision, Commit: m.Source.Commit, Dialect: m.Dialect, BuiltBy: m.Tool, Pins: anchorPins(role, m), Dir: rel,
 	})
-	return &docsBundle{project: project, role: role, m: m, what: project + " " + m.Version, ref: "local"}, nil
+	return &docsBundle{project: project, role: role, m: m, what: project + " " + m.Version, ref: "local", dir: filepath.Join(p.versionStaged[sv], project)}, nil
 }
 
 // anchorPins is what the lock records of a bundle's pins: the anchor's,
