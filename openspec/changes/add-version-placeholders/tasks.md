@@ -2,7 +2,7 @@
 
 - [x] 1.1 Add conformance cases under `internal/dialect/testdata/conformance/` (`placeholder-known`: the placeholder in prose, in a fenced `bash` block, in an `https:` link destination and in the `description` front matter; expected output empty) and run `go test ./internal/dialect/...`; write the observed result in `design.md` "Context" (replace "Not yet run")
 - [x] 1.2 In `internal/mdsafe/mdsafe_test.go`: a bundle-mode markup check of an authored page holding the same four forms reports nothing; if it reports, record the message in `design.md` and stop for the owner
-- [ ] 1.3 `task check` green, then commit `test(lint): pin that the dialect admits the version placeholder form`
+- [x] 1.3 `task check` green, then commit `test(lint): pin that the dialect admits the version placeholder form`
 
 ## 2. The name list and the lint rule
 
@@ -10,7 +10,7 @@
 - [x] 2.2 `internal/dialect/page.go`: `record` calls `placeholders(l)` on every line (before the front-matter and fence returns), emitting the messages of the `dialect-lint` delta; tests in `dialect_test.go`
 - [x] 2.3 Conformance cases: `placeholder-unknown-name` (message lists the known names), `placeholder-unknown-field`, `placeholder-unclosed`, `placeholder-in-fence-and-link` (accepted), `placeholder-shown-shortcode` (accepted); each with its expected `<file>:<line>` output
 - [x] 2.4 `docs/contracts.md` C11: add the rule and the name list; sync `openspec/specs/dialect-lint` and the new `version-placeholders` spec (names, mapping) from this change
-- [ ] 2.5 `task check` green, then commit `feat(lint): refuse unknown version placeholders`
+- [x] 2.5 `task check` green, then commit `feat(lint): refuse unknown version placeholders`
 
 ## 3. Extra versions from a release manifest
 
@@ -18,7 +18,7 @@
 - [x] 3.2 `internal/config/config.go`: carry `Units` with the `file` default; test the default and the `..` refusal
 - [x] 3.3 New `internal/build/units.go`: read `file` from the source tree, require a string matching `reSemVer`, set `s.m.Units`; call it from the assembly beside `pins`; tests in `units_test.go`: value recorded from a temp tree; missing file, missing key and `v0.1.1` each exit 2 naming file and key; no `units` declared leaves `manifest.json` bytes equal to the golden file of `build_test.go`
 - [x] 3.4 `docs/contracts.md` C3 (`units`) and C6 (`units` entry); sync `bundle-format` and `opm-docs-cli` specs from this change
-- [ ] 3.5 `task check` green, then commit `feat(bundle): record unit versions read from a release manifest`
+- [x] 3.5 `task check` green, then commit `feat(bundle): record unit versions read from a release manifest`
 
 ## 4. The fill and the leftover check in pull
 
@@ -26,7 +26,7 @@
 - [x] 4.2 New `internal/pull/placeholders.go`: `fillVersion(sv, set)` called at the end of `stageVersion` after `checkOverlap`; builds the value table (bundle values by docs project, unit values from `m.Units`, duplicate unit refused, `edge` refused); rewrites listed pages of each docs bundle with the file mode kept; `checkLeftover` over every staged tree, called in `Run` after `stageVersions`
 - [x] 4.3 Tests in `internal/pull/placeholders_test.go` on the in-process registry: fill per site version (`v1.0` and `v1.1` get different `cli` values); a placeholder in prose, a fenced block and a link all filled, rest of the file unchanged; the extra version `opm-controller-module` recorded from a manifest and filled; no bundle for the name exits 2 naming version, page, placeholder; an `edge` value exits 2; two bundles recording one unit exits 2; a leftover in a tab bundle and in a section bundle exits 2 naming the page and leaves the previous trees and lock; `--frozen` fill equals the first pull; `--local` docs tree filled
 - [x] 4.4 `docs/contracts.md` C7 and C16: the fill, the leftover check, the order in `Run`, the note that the unpacked tree differs from the layer; sync `bundle-pull` and `version-placeholders` specs
-- [ ] 4.5 `task check` green, then commit `feat(pull): fill version placeholders per site version and refuse leftovers`
+- [x] 4.5 `task check` green, then commit `feat(pull): fill version placeholders per site version and refuse leftovers`
 
 ## 5. Refresh units on a module release (needs the owner's answer to the proposal question)
 
