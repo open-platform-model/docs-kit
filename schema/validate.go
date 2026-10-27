@@ -31,8 +31,8 @@ func Unify(def string, v cue.Value) (cue.Value, error) {
 // also reports the open templates of pattern constraints (a #Bundle under
 // [#Project]) as unresolved.
 func concrete(v cue.Value) error {
-	switch v.IncompleteKind() {
-	case cue.StructKind:
+	kind := v.IncompleteKind()
+	if kind == cue.StructKind {
 		it, err := v.Fields()
 		if err != nil {
 			return err
@@ -43,7 +43,8 @@ func concrete(v cue.Value) error {
 			}
 		}
 		return nil
-	case cue.ListKind:
+	}
+	if kind == cue.ListKind {
 		it, err := v.List()
 		if err != nil {
 			return err
@@ -54,9 +55,8 @@ func concrete(v cue.Value) error {
 			}
 		}
 		return nil
-	default:
-		return v.Validate(cue.Concrete(true))
 	}
+	return v.Validate(cue.Concrete(true))
 }
 
 // ValidateJSON validates JSON bytes against the named definition; name is
