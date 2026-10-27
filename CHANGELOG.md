@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.12.0](https://github.com/open-platform-model/docs-kit/compare/v0.11.0...v0.12.0) (2026-10-27)
+
+
+### Features
+
+* **lint:** refuse unknown version placeholders and fill them on pull ([#82](https://github.com/open-platform-model/docs-kit/issues/82)) ([e797f1e](https://github.com/open-platform-model/docs-kit/commit/e797f1ecf8943da47e752224c2a8042f9b12caae))
+
+
+### Bug Fixes
+
+* **deps:** refresh Go modules and CI tool pins ([#79](https://github.com/open-platform-model/docs-kit/issues/79)) ([11a37ac](https://github.com/open-platform-model/docs-kit/commit/11a37ac52ca14156de9a011b5fbdb4818bb86384))
+
 ## [0.11.0](https://github.com/open-platform-model/docs-kit/compare/v0.10.0...v0.11.0) (2026-10-22)
 
 
