@@ -22,6 +22,8 @@ type docsSpec struct {
 	revision         int
 	owns, pages      []string // pages under content/
 	pins             map[string]string
+	units            map[string]string
+	extra            string // appended to the body of every page
 	edit             func(*bundle.Manifest)
 }
 
@@ -38,7 +40,7 @@ func docsTree(t *testing.T, s docsSpec) string {
 		Source:  bundle.Source{Repo: "open-platform-model/" + s.project, Commit: cmt, Ref: ref},
 		Created: "2026-09-30T12:00:00Z", Tool: "0.1.0", Dialect: 1,
 		Placement: bundle.Placement{Kind: "docs", Root: "/docs/", Owns: s.owns},
-		Data:      []bundle.DataFile{}, Pins: s.pins,
+		Data:      []bundle.DataFile{}, Pins: s.pins, Units: s.units,
 	}
 	for _, p := range s.pages {
 		f := filepath.Join(dir, bundle.ContentDir, filepath.FromSlash(p))
@@ -49,7 +51,7 @@ func docsTree(t *testing.T, s docsSpec) string {
 		if filepath.Base(p) == "_index.md" {
 			kind = "" // a section overview declares no type
 		}
-		body := "---\ntitle: \"" + s.project + " " + p + "\"\ndescription: \"A page.\"\n" + kind + "---\n\nBody of " + s.project + " " + s.version + ".\n"
+		body := "---\ntitle: \"" + s.project + " " + p + "\"\ndescription: \"A page.\"\n" + kind + "---\n\nBody of " + s.project + " " + s.version + ".\n" + s.extra
 		if err := os.WriteFile(f, []byte(body), 0o600); err != nil {
 			t.Fatal(err)
 		}
