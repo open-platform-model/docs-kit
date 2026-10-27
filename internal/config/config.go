@@ -18,6 +18,7 @@ import (
 	"cuelang.org/go/cue/ast"
 	"cuelang.org/go/cue/parser"
 
+	"github.com/open-platform-model/docs-kit/internal/placeholder"
 	"github.com/open-platform-model/docs-kit/schema"
 )
 
@@ -71,6 +72,13 @@ type Pins struct {
 	Projects []string `json:"projects"`
 }
 
+// Unit says where the version of a unit with no docs bundle is read: the
+// key of a JSON file in the source tree.
+type Unit struct {
+	File string `json:"file"`
+	Key  string `json:"key"`
+}
+
 // VersionRule says where a release version comes from.
 type VersionRule struct {
 	From   string `json:"from"`
@@ -79,10 +87,11 @@ type VersionRule struct {
 
 // Bundle is one project's build configuration.
 type Bundle struct {
-	Placement Placement   `json:"placement"`
-	Version   VersionRule `json:"version"`
-	Sources   []Source    `json:"sources"`
-	Pins      *Pins       `json:"pins,omitempty"`
+	Placement Placement       `json:"placement"`
+	Version   VersionRule     `json:"version"`
+	Sources   []Source        `json:"sources"`
+	Pins      *Pins           `json:"pins,omitempty"`
+	Units     map[string]Unit `json:"units,omitempty"`
 }
 
 // Config is a validated docs-kit.cue.
@@ -112,6 +121,9 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 	if err := checkCRDLayout(path, raw); err != nil {
+		return nil, err
+	}
+	if err := checkUnitNames(path, raw); err != nil {
 		return nil, err
 	}
 	v, err := schema.Unify("#Config", raw)
@@ -302,6 +314,41 @@ func checkKinds(path string, v cue.Value) error {
 				continue
 			}
 			return fmt.Errorf("%s: bundles.%q.sources[%d]: source kind %q is not one this opm-docs builds; it builds %s", path, bundles.Selector().Unquoted(), i, k, strings.Join(known, ", "))
+		}
+	}
+	return nil
+}
+
+// checkUnitNames refuses a unit whose name is not a unit of the placeholder
+// list, naming the allowed ones, before the schema's bare "field not allowed".
+func checkUnitNames(path string, v cue.Value) error {
+	var allowed []string
+	for _, n := range placeholder.All() {
+		if n.Kind == placeholder.Unit {
+			allowed = append(allowed, n.Name)
+		}
+	}
+	bv := v.LookupPath(cue.ParsePath("bundles"))
+	if bv.IncompleteKind() != cue.StructKind {
+		return nil
+	}
+	bundles, err := bv.Fields()
+	if err != nil {
+		return schema.Format(err)
+	}
+	for bundles.Next() {
+		units := bundles.Value().LookupPath(cue.ParsePath("units"))
+		if units.IncompleteKind() != cue.StructKind {
+			continue
+		}
+		fields, err := units.Fields()
+		if err != nil {
+			continue
+		}
+		for fields.Next() {
+			if name := fields.Selector().Unquoted(); !slices.Contains(allowed, name) {
+				return fmt.Errorf("%s: bundles.%q.units: unit %q is not one this opm-docs knows; the unit names are %s", path, bundles.Selector().Unquoted(), name, strings.Join(allowed, ", "))
+			}
 		}
 	}
 	return nil

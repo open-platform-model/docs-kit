@@ -87,6 +87,9 @@ type Manifest struct {
 	// Pins maps a project to the exact version this build documents
 	// against (DESIGN decision 10); absent when the config has no pins.
 	Pins map[string]string `json:"pins,omitempty"`
+	// Units maps a unit with no docs bundle of its own to its exact version,
+	// read from a release manifest at build; absent when the config has no units.
+	Units map[string]string `json:"units,omitempty"`
 }
 
 // Segment is the URL segment the bundle is shown under: "MAJOR.MINOR" of

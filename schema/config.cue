@@ -22,6 +22,13 @@ package schema
 		command: #Command
 		projects: [#Project, ...#Project]
 	}
+	// Versions of released units that have no docs bundle, each read from a
+	// JSON file of the source tree: file[key] is an exact version without
+	// "v". file defaults to release-please's manifest.
+	units?: [#Unit]: {
+		file: *".release-please-manifest.json" | #RepoPath
+		key:  string & !=""
+	}
 }
 
 // A repository command (docs-kit C14): argv[0] is looked up on PATH; no

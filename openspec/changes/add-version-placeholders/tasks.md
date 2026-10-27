@@ -14,10 +14,10 @@
 
 ## 3. Extra versions from a release manifest
 
-- [ ] 3.1 `schema/manifest.cue`: `units` and `#Unit`; `schema/config.cue`: `units` in `#Bundle` (design.md shows both); `internal/bundle/manifest.go`: `Units map[string]string` with `json:"units,omitempty"` after `Pins`; schema tests in `schema/load_test.go` (valid, `v0.1.1` refused, unit name `x` refused)
-- [ ] 3.2 `internal/config/config.go`: carry `Units` with the `file` default; test the default and the `..` refusal
-- [ ] 3.3 New `internal/build/units.go`: read `file` from the source tree, require a string matching `reSemVer`, set `s.m.Units`; call it from the assembly beside `pins`; tests in `units_test.go`: value recorded from a temp tree; missing file, missing key and `v0.1.1` each exit 2 naming file and key; no `units` declared leaves `manifest.json` bytes equal to the golden file of `build_test.go`
-- [ ] 3.4 `docs/contracts.md` C3 (`units`) and C6 (`units` entry); sync `bundle-format` and `opm-docs-cli` specs from this change
+- [x] 3.1 `schema/manifest.cue`: `units` and `#Unit`; `schema/config.cue`: `units` in `#Bundle` (design.md shows both); `internal/bundle/manifest.go`: `Units map[string]string` with `json:"units,omitempty"` after `Pins`; schema tests in `schema/load_test.go` (valid, `v0.1.1` refused, unit name `x` refused)
+- [x] 3.2 `internal/config/config.go`: carry `Units` with the `file` default; test the default and the `..` refusal
+- [x] 3.3 New `internal/build/units.go`: read `file` from the source tree, require a string matching `reSemVer`, set `s.m.Units`; call it from the assembly beside `pins`; tests in `units_test.go`: value recorded from a temp tree; missing file, missing key and `v0.1.1` each exit 2 naming file and key; no `units` declared leaves `manifest.json` bytes equal to the golden file of `build_test.go`
+- [x] 3.4 `docs/contracts.md` C3 (`units`) and C6 (`units` entry); sync `bundle-format` and `opm-docs-cli` specs from this change
 - [ ] 3.5 `task check` green, then commit `feat(bundle): record unit versions read from a release manifest`
 
 ## 4. The fill and the leftover check in pull

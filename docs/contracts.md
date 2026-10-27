@@ -130,7 +130,12 @@ import (
 	// The exact versions of other projects this build documents against
 	// (DESIGN decision 10), from the config's pins command.
 	pins?: [#Project]: #SemVer
+	// Versions of released units of the repository that have no docs bundle of
+	// their own, read from a release manifest file (docs-kit.cue units).
+	units?: [#Unit]: #SemVer
 }
+
+#Unit: "opm-controller-module"
 
 #Project: =~"^[a-z0-9]+(-[a-z0-9]+)*$"
 #SHA:     =~"^[0-9a-f]{40}$"
@@ -185,6 +190,7 @@ Added by the change `generalize-build-assembly`, both optional and additive:
 
 - `placement.owns`, on a docs placement only: the paths under `content/` the bundle owns exclusively, each a directory ending `/` or a page ending `.md` (`#Owned`). Build rules: C15.
 - `pins`: the exact versions of other projects the build documents against (DESIGN decision 10), written from the config's pins command (C6, C15). A build without `pins` in its config writes none.
+- `units`: the exact versions, without `v`, of released units of the repository that have no docs bundle of their own, written from the config's `units` (C6). The one unit name is `opm-controller-module`. A build without `units` in its config writes none and its `manifest.json` bytes do not change. An `opm-docs` older than this field refuses a bundle that carries it (C12). A page names a unit's version with a placeholder (C11, C16).
 
 Added by the change `add-authored-docs`, optional and additive:
 
@@ -348,6 +354,13 @@ package schema
 		command: #Command
 		projects: [#Project, ...#Project]
 	}
+	// Versions of released units that have no docs bundle, each read from a
+	// JSON file of the source tree: file[key] is an exact version without
+	// "v". file defaults to release-please's manifest.
+	units?: [#Unit]: {
+		file: *".release-please-manifest.json" | #RepoPath
+		key:  string & !=""
+	}
 }
 
 // A repository command (docs-kit C14): argv[0] is looked up on PATH; no
@@ -509,6 +522,8 @@ package schema
 **`version`** is required except in a section bundle (C21), which builds from `main` only: there it may be left out and is ignored when given.
 
 **`pins`** names a repository command (C14) that prints `{"schema": "docs.opmodel.dev/pins/v1", "pins": {"<project>": "<version>"}}` and the projects it must pin; build rules in C15.
+
+**`units`** maps a unit name (`opm-controller-module`; any other name exits `1` naming the allowed ones) to `{file, key}`: `build` reads `file` from the source tree it builds (repository-relative, no `..` segment, default `.release-please-manifest.json`), requires the top-level `key` of that JSON object to hold an exact version without `v` (C3's `#SemVer`) and writes it to `manifest.json` `units` (C3). A missing file, a missing key or a malformed value exits `2` naming the file, the key and the form required. opm-controller writes `units: "opm-controller-module": key: "modules/opm_controller"`.
 
 catalog_opm's file, as the sibling change writes it:
 
@@ -937,7 +952,7 @@ Callers and the site never `go run` or `go install` `opm-docs`: every consumer r
 - **Assets.** Every docs-kit release `vX.Y.Z` carries `opm-docs_X.Y.Z_<os>_<arch>.tar.gz` for `linux_amd64`, `linux_arm64`, `darwin_arm64` and `darwin_amd64` (each holding the `opm-docs` binary and `LICENSE`, the Apache-2.0 text at docs-kit's root; the org adopted Apache-2.0 on 2026-10-02), and `checksums.txt` (SHA-256, `sha256sum` format, one line per archive). Built by goreleaser in a draft-first release workflow, the pattern cli already uses. URL: `https://github.com/open-platform-model/docs-kit/releases/download/vX.Y.Z/<asset>`.
 - **Pinned in a build image**. A consumer may instead pin the `linux_amd64` archive by its SHA-256 in its own build image (opmodel.dev does this in `site/Dockerfile`, as it pins Hugo and Pagefind) and run `opm-docs` inside that image, with network on for the `pull` step only. The SHA-256 it pins is the archive's line in that release's `checksums.txt`. docs-kit therefore keeps shipping the `linux_amd64` archive and `checksums.txt` in every release, under the names above.
 - **Pin file.** A caller of `publish.yml`, and any consumer that runs the tool on the host (catalog_opm for its local `docs:bundle` tasks; opmodel.dev only if it does not use the image pattern), pins it in a repo-root file `.opm-docs-version`: one line, the release tag (`v0.1.0`), matching `^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$`. `publish.yml` reads the same file (C5), so every caller of `publish.yml` has one; its tag and the `publish.yml@` ref name the same release and move in one PR.
-- **The site bumps first** (since `generalize-build-assembly`). `#Manifest` is closed, so an `opm-docs` older than a manifest field refuses a bundle that carries it (`placement.owns` and `pins` came with `generalize-build-assembly`, `pages[].edit` with `add-authored-docs`; later changes add more). `#Pull` and `#Lock` are closed too: the site writes `docs` and `versions` (C16) into `bundles.cue` only once its pinned `opm-docs` reads them. **opmodel.dev's pinned `opm-docs` is never older than any producer's `.opm-docs-version`.** A docs-kit release reaches the site first (its `site/Dockerfile` bump); only then may a producer move its `.opm-docs-version` and `publish.yml@` ref to it. `docs/orchestration.md` orders every bump that way.
+- **The site bumps first** (since `generalize-build-assembly`). `#Manifest` is closed, so an `opm-docs` older than a manifest field refuses a bundle that carries it (`placement.owns` and `pins` came with `generalize-build-assembly`, `pages[].edit` with `add-authored-docs`; `units` with `add-version-placeholders`; later changes add more). `#Pull` and `#Lock` are closed too: the site writes `docs` and `versions` (C16) into `bundles.cue` only once its pinned `opm-docs` reads them. **opmodel.dev's pinned `opm-docs` is never older than any producer's `.opm-docs-version`.** A docs-kit release reaches the site first (its `site/Dockerfile` bump); only then may a producer move its `.opm-docs-version` and `publish.yml@` ref to it. `docs/orchestration.md` orders every bump that way.
 - **`cobradump`, the second component.** The nested Go module `github.com/open-platform-model/docs-kit/cobradump` (C19) releases on its own through release-please, from its own release PR (`separate-pull-requests`), tagged `cobradump/vX.Y.Z` (from `0.1.0`), the form the Go module proxy needs for a nested module. Its release is published at once and carries no assets: a CLI requires it by module version, and the proxy serves it from the tag. A commit under `cobradump/` releases only `cobradump` (the root package excludes that path) and takes the commit scope `cobradump`; goreleaser runs only for an `opm-docs` release, and `release.yml` marks a `cobradump` release not Latest (`gh release edit --latest=false`), so the Latest release is always `opm-docs`'. A `cobradump/` tag never matches the signer glob `refs/tags/v[0-9]*` (C9), so it can never act as a trusted `publish.yml` ref. The tag rulesets cover `cobradump/v*` as they cover `v*`.
 - **Verification.** Download the archive and `checksums.txt` for the host's os and arch, check with `grep ' <archive>$' checksums.txt | sha256sum -c -` (refusing an archive with no line), then extract only `opm-docs`. A failed check stops the task; nothing falls back to building from source. The install target is a gitignored repo-local directory (`.bin/` or `site/.bin/`), never a global path.
 

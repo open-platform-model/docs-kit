@@ -38,7 +38,12 @@ import (
 	// The exact versions of other projects this build documents against
 	// (DESIGN decision 10), from the config's pins command.
 	pins?: [#Project]: #SemVer
+	// Versions of released units of the repository that have no docs bundle of
+	// their own, read from a release manifest file (docs-kit.cue units).
+	units?: [#Unit]: #SemVer
 }
+
+#Unit: "opm-controller-module"
 
 #Project: =~"^[a-z0-9]+(-[a-z0-9]+)*$"
 #SHA:     =~"^[0-9a-f]{40}$"

@@ -289,6 +289,9 @@ func buildProject(ctx context.Context, o Options, cfg *config.Config, project st
 	if err := s.pins(b.Pins); err != nil {
 		return Result{}, err
 	}
+	if err := s.units(b.Units); err != nil {
+		return Result{}, err
+	}
 	if err := s.sources(b, cfg.Path, outside); err != nil {
 		return Result{}, err
 	}
