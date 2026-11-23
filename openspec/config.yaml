@@ -269,3 +269,6 @@ operations:
       - "Before archiving, read design.md's Durable decisions section. Every entry marked for
         promotion MUST already be landed in its target file; if one is not, stop and land it
         first. An archived change must not be the only home of a contract."
+
+# Keep the generated skills in this repo; stops openspec update from asking.
+skillsScope: project
