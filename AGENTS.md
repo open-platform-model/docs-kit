@@ -23,7 +23,7 @@ artifact rules).
 - Feature work ships as an OpenSpec change (`spec-driven` schema, specs included), cut into
   mergeable sections that each end green and close with their own commit.
   The OpenSpec workflow skills (`openspec-propose`, `openspec-apply-change` and the rest) are in
-  `.claude/skills/`.
+  `.agents/skills/`.
 - Never push to a registry from a laptop. Registry writes happen in GitHub Actions, through
   `publish.yml` in a caller's CI.
 - Callers pin `publish.yml` by docs-kit release tag. A moved docs-kit tag would let other code sign
@@ -43,6 +43,8 @@ internal/           one package per concern: config, bundle, build, extract/ (on
 docs/               contracts other repositories read; the cross-repo orchestration plan
 .github/workflows/  the reusable publish workflow, CI, cite-lint, release
 openspec/           OpenSpec workspace: config.yaml (constitution), specs/, changes/
+.agents/skills/     generated OpenSpec skills; never edited, because every update rewrites them
+.claude/skills/     links to .agents/skills/
 hack/               refresh-snapshots.sh, run by task snapshots:refresh
 ```
 

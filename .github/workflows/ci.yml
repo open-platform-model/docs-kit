@@ -42,7 +42,7 @@ jobs:
           version: v2.15.0
           install-only: true
       - name: Install openspec
-        run: npm install -g @fission-ai/openspec@1.14.3
+        run: npm install -g --ignore-scripts @fission-ai/openspec@2.1.1
       - name: task check
         run: task check
 
