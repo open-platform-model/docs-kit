@@ -21,7 +21,7 @@ artifact rules).
 - The bundle format, tag scheme, workflow interface, `docs-kit.cue`, pull config and lock are
   contracts other repositories read. A change to one names every consuming repository.
 - Feature work ships as an OpenSpec change (`spec-driven` schema, specs included), cut into
-  mergeable sections that each end green and close with their own commit.
+  mergeable sections that each end green.
   The OpenSpec workflow skills (`openspec-propose`, `openspec-apply-change` and the rest) are in
   `.agents/skills/`.
 - Never push to a registry from a laptop. Registry writes happen in GitHub Actions, through

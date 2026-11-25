@@ -83,9 +83,8 @@ context: |
   checkboxes). Two invariants hold at every section boundary; they replace any size limit on
   the change itself.
   - **Every merge leaves `main` releasable.** A section MUST end green under the validation
-    gates and MUST close with a commit task naming the Conventional Commit it lands as
-    (§ Commit Standards below). Nothing that would break `main` is carried across a section boundary.
-  - **Work survives a session boundary.** The commit task is the pause point: a session that
+    gates. Nothing that would break `main` is carried across a section boundary.
+  - **Work survives a session boundary.** The code commit of a section is the pause point: a session that
     stops there leaves checked boxes and a clean tree, and the next session resumes by running
     apply again.
   - One PR per change, one commit per section, is the default. Section 1 is a spike whenever
@@ -228,14 +227,13 @@ rules:
     - "CRITICAL: Cut the change into at most about seven sections, each a coherent unit that
       leaves main releasable by itself. If it needs more, or a section cannot end green on its
       own, split into a new OpenSpec change. Section 1 is a spike whenever design.md carries an
-      unverified assumption; its commit task lands what the spike produced (a test, a fixture,
-      or the finding written into design.md)."
+      unverified assumption."
     - Every verification task names an observable check (a test, a command and its output, a
       registry listing, a signature verification).
     - Group implementation tasks by package
-    - Include the validation gates (`task check`) in every section's commit task, not as a
+    - Include the validation gates (`task check`) in every section, not as a
       trailing section.
-    - "The section-closing commit is the ONLY delivery operation allowed in tasks.md: no pushing,
+    - "No delivery operation is allowed in tasks.md: no committing, pushing,
       branching, opening or merging PRs, tagging, cutting releases, and no commit-message or
       PR-body hygiene checks. Everything past the commit happens under the repo's normal git
       workflow. Sole exception: a task whose stated deliverable is itself a registry or
@@ -247,13 +245,13 @@ rules:
 operations:
   apply:
     guidance:
-      - "The commit task is the only delivery operation apply performs: no push, no PR, no tag,
+      - "The commit is the only delivery operation apply performs: no push, no PR, no tag,
         no release. Commit on the working branch the run started on. If the run started on
-        main, create the working branch before the first commit task; never commit to main."
+        main, create the working branch before the first commit; never commit to main."
       - "Never push to a registry from a laptop. A task that pushes to GHCR runs in GitHub
         Actions through a workflow in this repo, and only when its task text says so."
-      - "Pausing: when the user asks to pause, or a blocker appears, finish the current section's
-        commit task first if its gates are green; otherwise report exactly which boxes are
+      - "Pausing: when the user asks to pause, or a blocker appears, finish the current section
+        first if its gates are green; otherwise report exactly which boxes are
         checked and what is uncommitted in the tree. A new session resumes by running apply
         again: the checked boxes plus a clean tree are the resume state."
   archive:
