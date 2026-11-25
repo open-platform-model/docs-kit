@@ -115,6 +115,14 @@ tasks:
       - task: openspec:check
       - task: test
 
+  check:commit:
+    desc: The checks before a commit (fmt:check, vet, lint, openspec:check); no tests
+    cmds:
+      - task: fmt:check
+      - task: vet
+      - task: lint
+      - task: openspec:check
+
   snapshots:refresh:
     desc: "Refresh a parity release snapshot from a released docs bundle (KIND=controller|cli PROJECT VERSION CHECKOUT; needs network)"
     requires:

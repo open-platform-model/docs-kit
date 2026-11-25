@@ -9,6 +9,12 @@ references:
 schema: spec-driven
 
 context: |
+  Owner gates: apply them with the `idea-to-code:owner-gate` skill.
+
+  Checks before a commit: `task check:commit`. It runs before every commit except a tests commit.
+  Tests: `task test`.
+  Test files: `*_test.go`, `**/testdata/**`.
+
   # docs-kit Development Constitution
 
   ## Core Principles (Docs Bundle Tool)
@@ -219,11 +225,6 @@ rules:
   tasks:
     - "Focus: STEPS to take for implementation"
     - "Updates when: Tasks complete, new tasks discovered, blockers identified"
-    - "CRITICAL: Every `## N.` section MUST end green under the validation gates and MUST close
-      with a commit task: an ordinary `- [ ] N.M` checkbox whose text names the Conventional
-      Commit to make, e.g. `- [ ] 2.6 task check green, then commit feat(lint): port the page dialect lint`
-      (types and scopes per § Commit Standards). The commit task is the pause point; nothing
-      uncommitted is carried across a section boundary."
     - "CRITICAL: Cut the change into at most about seven sections, each a coherent unit that
       leaves main releasable by itself. If it needs more, or a section cannot end green on its
       own, split into a new OpenSpec change. Section 1 is a spike whenever design.md carries an
@@ -246,12 +247,6 @@ rules:
 operations:
   apply:
     guidance:
-      - "Work section by section: every `## N.` block of tasks.md ends with a commit task. Before
-        checking that box, run `task check` on the whole tree and make exactly the named
-        Conventional Commit (types and scopes per § Commit Standards; optional plain
-        Co-Authored-By: Claude <noreply@anthropic.com> trailer only, never a session link, never
-        a bare @name, and no body line starting with word( because the squash body reaches
-        release-please). Do not start the next section with uncommitted work in the tree."
       - "The commit task is the only delivery operation apply performs: no push, no PR, no tag,
         no release. Commit on the working branch the run started on. If the run started on
         main, create the working branch before the first commit task; never commit to main."

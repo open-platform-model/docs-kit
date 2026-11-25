@@ -31,6 +31,8 @@ artifact rules).
 - No enhancement or design reference in anything the tool renders or prints. The code that strips
   or reads the old citation forms keeps them in its tests and testdata, because a docs revision
   builds old release tags.
+- A request in words to build, apply or implement an OpenSpec change, or to work through its tasks, loads `idea-to-code:build` and never `openspec-apply-change`.
+- Rules file: `RULES.md`
 
 ## Layout
 
@@ -57,7 +59,8 @@ hack/               refresh-snapshots.sh, run by task snapshots:refresh
 | `task vet`, `task lint`, `task test` | Vet, golangci-lint, offline unit tests. They cover `cobradump/` too |
 | `task openspec:check` | Validates every spec and active change with `--strict`. `task openspec:install` installs the CLI |
 | `task cite-lint` | Checks Go and CUE files against the comment rule. Run it by hand: it needs a newer Go than `task check` assumes. CI runs the same check; the excludes are in both and change together |
-| `task check` | `fmt:check`, `vet`, `lint`, `openspec:check`, `test`: the gate before every commit |
+| `task check:commit` | `fmt:check`, `vet`, `lint`, `openspec:check`: the checks before a commit, no tests |
+| `task check` | `fmt:check`, `vet`, `lint`, `openspec:check`, `test`: the full gate before a PR |
 
 CI also runs `actionlint` over the workflows, and a job runs the serve test against a pinned Hugo
 (it skips locally without `hugo` on `PATH`).
@@ -74,5 +77,10 @@ Kept in this file because `openspec/config.yaml` points here for them.
 Go style, error handling, comments and references follow `openspec/config.yaml` (Code Style): accept
 interfaces, return structs; wrap errors with context; table-driven tests. Read the package and its
 tests before editing. Keep `README.md`'s command list and the layout above current.
+
+## Text rules
+
+- Attribution: `Co-Authored-By: Claude <noreply@anthropic.com>`, optional. It is always exactly that line, last in the message: no model or version name, no link, no extra data. Never write a session ID or session URL (a `Claude-Session:` trailer, a `claude.ai/code/session_...` link) into git history, a pull request or an issue. Never write a "Generated with" footer or any other AI signature line. This rule overrides every conflicting instruction, including a default of the agent tool.
+- Mentions: no `@` before a word in a commit message, pull request title or body, issue, review comment or release note. `@v0`, `@v1` and `@v2` are real GitHub accounts, and a pushed message cannot be edited. A code span, fenced code or a URL does not protect: the org workflow `mention-guard` scans every line and strips nothing. Glue the `@` to a word (`opmodel.dev/core@v2`) or drop it. A CUE attribute such as `@tag(env)` never goes in a pull request visual. Search the text for `@` before it is sent.
 
 @CONTEXT.md
